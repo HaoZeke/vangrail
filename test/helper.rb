@@ -2,17 +2,17 @@
 
 require 'minitest/autorun'
 require 'tmpdir'
-require_relative '../lib/nemo_guardrails'
+require_relative '../lib/vangrail'
 require_relative 'stub_http'
 
 # Shared scaffolding: a rail that answers from a script, and env isolation so a
 # developer's own hub token never decides what a test does.
 module GuardrailsTest
   # Returns whatever it is told to, and records what it saw.
-  class ScriptedRail < NemoGuardrails::Rail
+  class ScriptedRail < Vangrail::Rail
     attr_reader :seen
 
-    def initialize(result, name: 'scripted', sides: NemoGuardrails::Rail::SIDES, offline: true)
+    def initialize(result, name: 'scripted', sides: Vangrail::Rail::SIDES, offline: true)
       super(name: name, sides: sides)
       @result = result
       @offline = offline
@@ -30,8 +30,8 @@ module GuardrailsTest
   end
 
   # A rail that always raises, for the failure paths.
-  class ExplodingRail < NemoGuardrails::Rail
-    def initialize(error = NemoGuardrails::TransportError.new('connection refused'), **kwargs)
+  class ExplodingRail < Vangrail::Rail
+    def initialize(error = Vangrail::TransportError.new('connection refused'), **kwargs)
       super(**kwargs)
       @error = error
     end
@@ -54,11 +54,11 @@ module GuardrailsTest
     # Point the file and pass lookups at nothing, so only what a test sets resolves.
     ENV['WILLMA_API_KEY_FILE'] = File.join(Dir.tmpdir, 'guardrails-absent-key')
     ENV['WILLMA_PASS_ENTRY'] = 'guardrails/test/absent-entry'
-    NemoGuardrails::Providers.reset!
+    Vangrail::Providers.reset!
   end
 
   def restore_env!
     @saved_env&.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
-    NemoGuardrails::Providers.reset!
+    Vangrail::Providers.reset!
   end
 end

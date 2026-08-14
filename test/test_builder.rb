@@ -15,7 +15,7 @@ class TestBuilder < Minitest::Test
   end
 
   def engine(env = {})
-    NemoGuardrails::Builder.new(env).engine
+    Vangrail::Builder.new(env).engine
   end
 
   def test_off_builds_an_empty_engine

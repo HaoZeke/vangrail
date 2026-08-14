@@ -10,12 +10,12 @@ class TestModelRails < Minitest::Test
 
   def chat_for(content)
     http = StubHTTP.new(responses: { PATH => chat_body(content) })
-    [NemoGuardrails::Chat.new(model: 'test/model', http: http), http]
+    [Vangrail::Chat.new(model: 'test/model', http: http), http]
   end
 
   def guard(content, preset:)
     chat, http = chat_for(content)
-    [NemoGuardrails::Rails::GuardModel.new(model: 'test/guard', preset: preset, chat: chat), http]
+    [Vangrail::Rails::GuardModel.new(model: 'test/guard', preset: preset, chat: chat), http]
   end
 
   # --- Llama Guard shape ---
@@ -79,16 +79,16 @@ class TestModelRails < Minitest::Test
 
   def test_reasoning_sends_the_template_switch_and_a_bigger_budget
     http = StubHTTP.new(responses: { PATH => chat_body("safe\nnon_adversarial") })
-    provider = NemoGuardrails::Provider.new(
+    provider = Vangrail::Provider.new(
       name: 'p', base_url: 'http://p.invalid/v1',
       models: { guard: 'x/AprielGuard' }, guard_preset: :apriel_guard, key_resolver: -> { 'k' }
     )
-    chat = NemoGuardrails::Chat.new(
+    chat = Vangrail::Chat.new(
       model: 'x/AprielGuard', http: http,
-      max_tokens: NemoGuardrails::Rails::GuardModel::REASONING_MAX_TOKENS,
-      extra: NemoGuardrails::Rails::GuardModel::REASONING_KWARGS
+      max_tokens: Vangrail::Rails::GuardModel::REASONING_MAX_TOKENS,
+      extra: Vangrail::Rails::GuardModel::REASONING_KWARGS
     )
-    rail = NemoGuardrails::Rails::GuardModel.new(provider: provider, chat: chat, reasoning: true)
+    rail = Vangrail::Rails::GuardModel.new(provider: provider, chat: chat, reasoning: true)
     rail.call('x', side: :input)
     assert_equal({ 'reasoning_mode' => 'on' }, http.last_payload['chat_template_kwargs'])
     assert_equal 900, http.last_payload['max_tokens']
@@ -105,7 +105,7 @@ class TestModelRails < Minitest::Test
 
   def test_a_classifier_refuses_to_be_built_for_a_policy_model
     assert_raises(ArgumentError) do
-      NemoGuardrails::Rails::GuardModel.new(model: 'some/instruct', preset: :policy, chat: chat_for('x').first)
+      Vangrail::Rails::GuardModel.new(model: 'some/instruct', preset: :policy, chat: chat_for('x').first)
     end
   end
 
@@ -119,7 +119,7 @@ class TestModelRails < Minitest::Test
 
   def self_check(content, sides: [:input])
     chat, http = chat_for(content)
-    [NemoGuardrails::Rails::SelfCheck.new(chat: chat, model: 'test/judge', sides: sides), http]
+    [Vangrail::Rails::SelfCheck.new(chat: chat, model: 'test/judge', sides: sides), http]
   end
 
   def test_a_policy_violation_blocks_with_its_category_and_rationale
@@ -155,7 +155,7 @@ class TestModelRails < Minitest::Test
   # the same variables the Python runtime uses.
   def test_a_policy_template_renders_the_turn_variables
     rail, http = self_check('{"violation": 0}', sides: [:output])
-    rail = NemoGuardrails::Rails::SelfCheck.new(
+    rail = Vangrail::Rails::SelfCheck.new(
       chat: rail.chat, model: 'test/judge', sides: [:output],
       policy: 'Judge this: "{{ bot_response }}" answering "{{ user_input }}".'
     )
@@ -169,7 +169,7 @@ class TestModelRails < Minitest::Test
 
   def test_grounding_blocks_an_invented_identifier
     chat, http = chat_for('{"violation": 1, "policy_category": "G2", "rationale": "gpu_h200 appears in no passage"}')
-    rail = NemoGuardrails::Rails::Grounding.new(chat: chat, model: 'test/judge')
+    rail = Vangrail::Rails::Grounding.new(chat: chat, model: 'test/judge')
     result = rail.call('Use -p gpu_h200. [1]', side: :output,
                        passages: [{ 'title' => 'GPU', 'text' => 'Use gpu_a100.' }])
     assert result.blocked?
@@ -180,7 +180,7 @@ class TestModelRails < Minitest::Test
 
   def test_grounding_without_passages_says_it_checked_nothing
     chat, = chat_for('{"violation": 0}')
-    rail = NemoGuardrails::Rails::Grounding.new(chat: chat, model: 'test/judge')
+    rail = Vangrail::Rails::Grounding.new(chat: chat, model: 'test/judge')
     result = rail.call('anything', side: :output, passages: [])
     assert result.passed?
     refute result.certain?
@@ -191,13 +191,13 @@ class TestModelRails < Minitest::Test
   # retrieval must be judged again.
   def test_grounding_is_never_memoized
     chat, = chat_for('{"violation": 0}')
-    rail = NemoGuardrails::Rails::Grounding.new(chat: chat, model: 'test/judge')
+    rail = Vangrail::Rails::Grounding.new(chat: chat, model: 'test/judge')
     assert_nil rail.cache_key('text', side: :output)
   end
 
   def test_grounding_runs_on_the_output_side_only
     chat, = chat_for('{"violation": 0}')
-    rail = NemoGuardrails::Rails::Grounding.new(chat: chat, model: 'test/judge')
+    rail = Vangrail::Rails::Grounding.new(chat: chat, model: 'test/judge')
     assert rail.applies_to?(:output)
     refute rail.applies_to?(:input)
   end
@@ -205,15 +205,15 @@ class TestModelRails < Minitest::Test
   # --- chat ---
 
   def test_a_chat_needs_an_endpoint
-    assert_raises(ArgumentError) { NemoGuardrails::Chat.new(model: 'm') }
+    assert_raises(ArgumentError) { Vangrail::Chat.new(model: 'm') }
   end
 
   def test_a_null_content_falls_back_to_the_reasoning_field
     body = chat_body(nil)
     body['choices'][0]['message']['reasoning'] = "safe\n"
     http = StubHTTP.new(responses: { PATH => body })
-    chat = NemoGuardrails::Chat.new(model: 'm', http: http)
-    rail = NemoGuardrails::Rails::GuardModel.new(model: 'm', preset: :llama_guard, chat: chat)
+    chat = Vangrail::Chat.new(model: 'm', http: http)
+    rail = Vangrail::Rails::GuardModel.new(model: 'm', preset: :llama_guard, chat: chat)
     assert rail.call('x', side: :input).certain?
   end
 end

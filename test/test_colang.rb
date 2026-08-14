@@ -6,8 +6,8 @@ require_relative 'helper'
 class TestColang < Minitest::Test
   include GuardrailsTest
 
-  Parser = NemoGuardrails::Colang::Parser
-  Interpreter = NemoGuardrails::Colang::Interpreter
+  Parser = Vangrail::Colang::Parser
+  Interpreter = Vangrail::Colang::Interpreter
 
   FLOW = <<~CO
     # a comment, ignored
@@ -30,7 +30,7 @@ class TestColang < Minitest::Test
   end
 
   def test_the_built_in_flows_parse_with_this_parser
-    names = NemoGuardrails::Colang::Library.flow_names
+    names = Vangrail::Colang::Library.flow_names
     assert_includes names, 'self check input'
     assert_includes names, 'self check output'
     assert_includes names, 'self check facts'
@@ -68,23 +68,23 @@ class TestColang < Minitest::Test
   # A file using something outside the subset must fail at load. Skipping the
   # line would leave a configuration that claims a rail it does not run.
   def test_an_unsupported_statement_raises
-    error = assert_raises(NemoGuardrails::ColangError) do
+    error = assert_raises(Vangrail::ColangError) do
       Parser.parse("define flow x\n  user express greeting\n")
     end
     assert_includes error.message, 'unsupported statement'
   end
 
   def test_an_unsupported_definition_raises
-    assert_raises(NemoGuardrails::ColangError) { Parser.parse("define wibble x\n  \"hi\"\n") }
+    assert_raises(Vangrail::ColangError) { Parser.parse("define wibble x\n  \"hi\"\n") }
   end
 
   def test_tabs_are_refused
-    error = assert_raises(NemoGuardrails::ColangError) { Parser.parse("define flow x\n\t$a = execute b\n") }
+    error = assert_raises(Vangrail::ColangError) { Parser.parse("define flow x\n\t$a = execute b\n") }
     assert_includes error.message, 'tabs'
   end
 
   def test_the_error_names_the_file_and_line
-    error = assert_raises(NemoGuardrails::ColangError) do
+    error = assert_raises(Vangrail::ColangError) do
       Parser.parse("define flow x\n  $a = execute b\n  wibble\n", filename: 'rails/input.co')
     end
     assert_includes error.message, 'rails/input.co:3'
@@ -94,7 +94,7 @@ class TestColang < Minitest::Test
 
   def interpret(source, actions_hash, flow: 'self check input', context: {})
     program = Parser.parse(source)
-    actions = NemoGuardrails::Actions.new(actions_hash)
+    actions = Vangrail::Actions.new(actions_hash)
     Interpreter.new(program: program, actions: actions).run(flow, context)
   end
 
@@ -138,16 +138,16 @@ class TestColang < Minitest::Test
   end
 
   def test_an_unknown_action_raises
-    assert_raises(NemoGuardrails::UnknownAction) { interpret(FLOW, {}) }
+    assert_raises(Vangrail::UnknownAction) { interpret(FLOW, {}) }
   end
 
   def test_an_unknown_bot_message_raises
     source = "define flow x\n  bot never defined\n  stop\n"
-    assert_raises(NemoGuardrails::UnknownAction) { interpret(source, {}, flow: 'x') }
+    assert_raises(Vangrail::UnknownAction) { interpret(source, {}, flow: 'x') }
   end
 
   def test_an_unknown_flow_raises
-    assert_raises(NemoGuardrails::UnknownAction) { interpret(FLOW, {}, flow: 'no such flow') }
+    assert_raises(Vangrail::UnknownAction) { interpret(FLOW, {}, flow: 'no such flow') }
   end
 
   def test_comparison_conditions_evaluate
@@ -170,12 +170,12 @@ class TestColang < Minitest::Test
   # --- as a rail ---
 
   def test_a_flow_used_as_a_rail_returns_a_blocked_result
-    program = NemoGuardrails::Colang::Library.program.merge(Parser.parse(FLOW))
-    actions = NemoGuardrails::Actions.new('self_check_input' => ->(_a, ctx) { !ctx[:text].include?('bad') })
-    rail = NemoGuardrails::Rails::ColangFlow.new(
+    program = Vangrail::Colang::Library.program.merge(Parser.parse(FLOW))
+    actions = Vangrail::Actions.new('self_check_input' => ->(_a, ctx) { !ctx[:text].include?('bad') })
+    rail = Vangrail::Rails::ColangFlow.new(
       flow_name: 'self check input', program: program, actions: actions, sides: [:input]
     )
-    engine = NemoGuardrails::Engine.new(input: [rail])
+    engine = Vangrail::Engine.new(input: [rail])
     blocked = engine.check_input('something bad')
     assert blocked.blocked?
     assert_equal "I'm sorry, I can't respond to that.", blocked.content
@@ -185,9 +185,9 @@ class TestColang < Minitest::Test
   # A flow can call anything registered, so this class cannot know what its
   # decision depends on and must not let the engine memoize it.
   def test_a_colang_rail_is_not_memoizable
-    rail = NemoGuardrails::Rails::ColangFlow.new(
-      flow_name: 'self check input', program: NemoGuardrails::Colang::Library.program,
-      actions: NemoGuardrails::Actions.new
+    rail = Vangrail::Rails::ColangFlow.new(
+      flow_name: 'self check input', program: Vangrail::Colang::Library.program,
+      actions: Vangrail::Actions.new
     )
     assert_nil rail.cache_key('text', side: :input)
   end

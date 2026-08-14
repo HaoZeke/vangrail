@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative '../lib/nemo_guardrails'
+require_relative '../lib/vangrail'
 
-# Stands in for NemoGuardrails::HTTP. Records every call and replays scripted
+# Stands in for Vangrail::HTTP. Records every call and replays scripted
 # answers, so the whole suite runs with no network and no server.
 class StubHTTP
   attr_reader :calls
@@ -27,9 +27,9 @@ class StubHTTP
   def reachable?(path)
     get_json(path)
     true
-  rescue NemoGuardrails::HTTPError
+  rescue Vangrail::HTTPError
     true
-  rescue NemoGuardrails::Error
+  rescue Vangrail::Error
     false
   end
 
@@ -52,7 +52,7 @@ class StubHTTP
   end
 end
 
-# Builds an OpenAI-style chat completion body around one assistant message.
+# Builds a chat-completion body around one assistant message.
 def chat_body(content, extra = {})
   {
     'id' => 'chatcmpl-test',

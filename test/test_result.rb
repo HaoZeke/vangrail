@@ -6,7 +6,7 @@ require_relative 'helper'
 class TestResult < Minitest::Test
   include GuardrailsTest
 
-  R = NemoGuardrails::Result
+  R = Vangrail::Result
 
   def test_the_three_statuses_answer_consistently
     passed = R.passed(rail: 'a')
@@ -58,7 +58,7 @@ class TestResult < Minitest::Test
   # --- the memo ---
 
   def cache
-    NemoGuardrails::ResultCache.new
+    Vangrail::ResultCache.new
   end
 
   def test_a_repeat_does_not_reach_the_block
@@ -98,7 +98,7 @@ class TestResult < Minitest::Test
   end
 
   def test_the_oldest_entry_goes_first
-    memo = NemoGuardrails::ResultCache.new(limit: 2)
+    memo = Vangrail::ResultCache.new(limit: 2)
     %w[a b c].each { |t| memo.fetch(:input, 'm', t) { R.passed(rail: 'x') } }
     assert_equal 2, memo.size
     calls = 0
@@ -114,7 +114,7 @@ class TestResult < Minitest::Test
   def test_the_engine_memoizes_a_rail_that_offers_a_key
     rail = GuardrailsTest::ScriptedRail.new(R.passed(rail: 'p'), name: 'p')
     def rail.cache_key(text, _context) = text
-    engine = NemoGuardrails::Engine.new(input: [rail])
+    engine = Vangrail::Engine.new(input: [rail])
     2.times { engine.check_input('same question') }
     assert_equal 1, rail.seen.size
   end
@@ -124,13 +124,13 @@ class TestResult < Minitest::Test
   def test_the_engine_never_memoizes_a_rail_without_a_key
     rail = GuardrailsTest::ScriptedRail.new(R.passed(rail: 'p'), name: 'p')
     def rail.cache_key(_text, _context) = nil
-    engine = NemoGuardrails::Engine.new(input: [rail])
+    engine = Vangrail::Engine.new(input: [rail])
     2.times { engine.check_input('same question') }
     assert_equal 2, rail.seen.size
   end
 
   def test_an_engine_can_be_built_without_a_memo
-    engine = NemoGuardrails::Engine.new(cache: false)
+    engine = Vangrail::Engine.new(cache: false)
     assert_nil engine.cache
   end
 end

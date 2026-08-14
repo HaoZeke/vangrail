@@ -7,7 +7,7 @@ require_relative 'helper'
 class TestPrompt < Minitest::Test
   include GuardrailsTest
 
-  P = NemoGuardrails::Prompt
+  P = Vangrail::Prompt
 
   def test_variables_substitute
     assert_equal 'hello world', P.render('hello {{ name }}', 'name' => 'world')

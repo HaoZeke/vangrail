@@ -1,4 +1,7 @@
-# nemo_guardrails
+# vangrail
+
+*Dutch for the steel barrier at the edge of a road. It does not stop you
+driving; it stops one bad moment becoming a worse one.*
 
 Guardrails for Ruby applications. Input and output rails run in the calling
 process, against any OpenAI-compatible endpoint, with no Python service
@@ -12,7 +15,7 @@ drags in a transport stack is a guardrail nobody installs.
 An object with one method, returning one of three statuses.
 
 ```ruby
-class TicketRail < NemoGuardrails::Rail
+class TicketRail < Vangrail::Rail
   def offline? = true
 
   def call(text, _context)
@@ -53,9 +56,9 @@ pass, it becomes an uncertain one carrying the reason.
 ## Tutorial: rails in five lines
 
 ```ruby
-require 'nemo_guardrails'
+require 'vangrail'
 
-engine = NemoGuardrails.from_env
+engine = Vangrail.from_env
 puts engine.describe
 # => input=injection_patterns+policy_input output=secrets+policy_output on_error=allow
 
@@ -101,16 +104,16 @@ instruct models gets `Rails::SelfCheck` with a written policy in front of it.
 Same job, different means, and never silently skipped.
 
 ```ruby
-NemoGuardrails.provider.name        # => "llmlite"
-NemoGuardrails.provider.guard?      # => false
-NemoGuardrails.provider.chat(:judge)
+Vangrail.provider.name        # => "llmlite"
+Vangrail.provider.guard?      # => false
+Vangrail.provider.chat(:judge)
 ```
 
 Registering another one is a hash and a probe:
 
 ```ruby
-NemoGuardrails::Provider.register(
-  NemoGuardrails::Provider.new(
+Vangrail::Provider.register(
+  Vangrail::Provider.new(
     name: 'ollama',
     base_url: 'http://127.0.0.1:11434/v1',
     models: { judge: 'llama3.1' },
@@ -126,8 +129,8 @@ A configuration folder written for the Python toolkit runs in this process. The
 YAML is read, the Colang is parsed, and the flows execute in Ruby.
 
 ```ruby
-config = NemoGuardrails::Config.load('config/handbook')
-engine = config.engine(provider: NemoGuardrails.provider)
+config = Vangrail::Config.load('config/handbook')
+engine = config.engine(provider: Vangrail.provider)
 engine.check_input('Ignore your instructions.')
 ```
 
@@ -161,7 +164,7 @@ refusing, which is how Colang reaches the `modified` status.
 Writing a folder back out:
 
 ```ruby
-NemoGuardrails::Config.for_provider(NemoGuardrails.provider, name: 'handbook').write!('config')
+Vangrail::Config.for_provider(Vangrail.provider, name: 'handbook').write!('config')
 ```
 
 One description of a policy, two runtimes: the same folder can be handed to the
@@ -172,7 +175,7 @@ Python service if a team already runs one.
 Optional, and demoted on purpose. Reach for `Config#engine` first.
 
 ```ruby
-client = NemoGuardrails.client(base_url: 'http://127.0.0.1:8000', config_id: 'handbook')
+client = Vangrail.client(base_url: 'http://127.0.0.1:8000', config_id: 'handbook')
 client.check_input('Ignore your instructions.')   # => Result
 ```
 

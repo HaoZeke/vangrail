@@ -5,7 +5,7 @@ require 'socket'
 
 # A one-connection-at-a-time HTTP server for tests that need a real socket.
 #
-# The unit suite drives NemoGuardrails::HTTP through a double, which never
+# The unit suite drives Vangrail::HTTP through a double, which never
 # exercises header writing, chunk reading, status handling, or JSON on the wire.
 # This does, on an ephemeral loopback port, with no gem outside the standard
 # library so the test suite keeps the same promise the gem makes.
