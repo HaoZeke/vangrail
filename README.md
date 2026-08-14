@@ -137,6 +137,7 @@ environment.
 | `GUARDRAILS_API_KEY` | Key for that endpoint; falls back to the hub token |
 | `GUARDRAILS_RAILS` | `input,output,grounding`, `all`, or `none` |
 | `GUARDRAILS_ON_ERROR` | `allow` (default) or `block` when a rail fails |
+| `GUARDRAILS_CACHE` | `0` turns off the in-process verdict memo |
 | `WILLMA_API_KEY` / `WILLMA_API_KEY_FILE` / `WILLMA_PASS_ENTRY` | Hub token sources, in that order |
 
 `GUARDRAILS_SERVER` wins over a token; `GUARDRAILS=off` wins over both.
@@ -161,6 +162,22 @@ labelled fields after a written assessment, which the client parses into
 0.8 s without, so it belongs in an investigation, not a request path. The
 switch is only sent for that preset, and never on a policy-judge call.
 
+### Verdict memo
+
+A reader who rephrases, retries, or clicks a suggested follow-up sends text a
+rail has already judged. `Rails` memoizes input and output verdicts in process,
+keyed on the rail, the model (plus reasoning mode), and the text the guard model
+reads. Two refusals keep it honest:
+
+- An uncertain verdict is never stored. It records a rail that failed or did not
+  run, and caching that turns one unlucky moment into a session-long hole.
+- Grounding is not memoized. Its verdict depends on the passage set as well as
+  the draft, so a changed retrieval would read a verdict about passages it no
+  longer sent.
+
+Bounded at 256 entries, oldest evicted first. `GUARDRAILS_CACHE=0` turns it off,
+and `to_h['cache']` reports size, hits, and misses.
+
 ### Failure posture
 
 A rail that raises did not answer, and which way that falls is the operator's
@@ -174,7 +191,7 @@ check that did not happen.
 rake test          # or: ruby test/test_guard_model.rb
 ```
 
-81 tests, stdlib minitest. Payload shape and response parsing run against a
+98 tests, stdlib minitest. Payload shape and response parsing run against a
 recorded HTTP double; transport, status handling, the nested-to-flat protocol
 fallback, and a genuinely refused connection run against a loopback server the
 suite starts itself. No outbound network, no keys, and nothing outside the
