@@ -32,13 +32,25 @@ module Vangrail
         # A document telling the assistant what it is now.
         'role_assignment' => /\byou\s+(?:are|must\s+now\s+act|will\s+now\s+act)\s+(?:now\s+)?
                               (?:a|an|the)?\s*(?:assistant|ai|model|chatbot|dan)\b/xi,
-        # An instruction to conceal something. "In your response" and "when
-        # answering" were tried here and removed: a handbook says both to a
-        # human reader constantly ("in your response to the service desk,
-        # include the job id"), and a rail that costs a reader that page is
-        # worse than one that misses a weak signal.
-        'answer_shaping' => /\b(?:do\s+not|don't|never)\s+(?:mention|reveal|disclose|tell\s+(?:the\s+)?user)\b|
-                             \bwithout\s+mentioning\b/xi,
+        # An instruction to conceal something *from the reader*, which is what
+        # separates an injection from ordinary advice.
+        #
+        # Three narrowings, each paid for by a false positive found in the
+        # corpus. "In your response" and "when answering" alone flag a handbook
+        # talking to a human ("in your response to the service desk, include the
+        # job id"). A bare "never mention" flags security advice ("never mention
+        # a password in a ticket"). So the concealment has to be tied either to
+        # the user or to the act of answering, in whichever order it is written.
+        'answer_shaping' => /
+          \b(?:do\s+not|don't|never)\s+(?:mention|reveal|disclose|tell|say|admit)\b[^.\n]{0,40}?
+            \b(?:to\s+(?:the\s+|this\s+)?user|to\s+them|in\s+your\s+(?:answer|response|reply)|
+               when\s+you\s+(?:answer|respond))\b
+          |
+          \b(?:in\s+your\s+(?:answer|response|reply)|when\s+(?:you\s+)?(?:answer|answering|respond))\b[^.\n]{0,40}?
+            \b(?:do\s+not|don't|never)\s+(?:mention|reveal|disclose|tell|say|admit)\b
+          |
+          \bwithout\s+(?:mentioning|telling)\s+(?:the\s+|this\s+)?user\b
+        /xi,
         # Exfiltration shapes: a document asking for the prompt or the key.
         'exfiltration' => /\b(?:reveal|print|repeat|output|send|post)\b[^.\n]{0,40}\b
                            (?:system\s+prompt|api[_\s-]?key|token|credentials?|conversation)\b/xi,
