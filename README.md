@@ -27,9 +27,34 @@ end
 ```
 
 That is the entire protocol. A regex check, a call to a safety classifier, a
-Colang flow, and a request to somebody's NeMo Guardrails server are all rails,
-sit in the same ordered list, and answer the same way. Nothing in this gem is
+Colang flow, and a request to somebody's NeMo Guardrails server are all rails.
+They sit in the same ordered list and answer the same way. Nothing in this gem is
 privileged over a rail you write this afternoon.
+
+## Three sides, not two
+
+```ruby
+engine.check_input(question)        # what the reader typed
+engine.screen(documents)            # what retrieval fetched
+engine.check_output(answer, ...)    # what the model wrote
+```
+
+The middle one is the one most stacks are missing, and it is the one an
+attacker can usually reach. An input rail reads what the user typed. An
+output rail reads what the model wrote. Neither ever looks at the wiki page
+pasted into the prompt in between. For a retrieval system over an editable
+corpus, that page is the soft target.
+
+`Engine#screen` runs a set of documents through the context rails and reports
+what survived. A poisoned document is dropped and named rather than failing
+the turn: one bad page should cost a reader that page, not their answer.
+
+```ruby
+screening = engine.screen(documents)
+screening.kept        # documents that survived, same shape they arrived in
+screening.rejected    # [{ document:, result: }]
+screening.certain?    # false when something was not actually checked
+```
 
 ## Three statuses, not two
 
@@ -41,15 +66,15 @@ result.certain?   # did a rail actually reach this decision
 ```
 
 `modified` is the one people skip, and it is the one that pays. An answer
-quoting a config file with a live token is useful text with one bad span in it:
-blocking throws the help away, passing leaks the token, and rewriting keeps both
+quoting a config file with a live token is useful text with one bad span in it.
+Blocking throws the help away and passing leaks the token; rewriting keeps both
 halves honest. The engine threads a rewrite through the rails after it, so a
 redaction rail followed by a policy rail has the policy rail judge the redacted
 text.
 
 `certain?` is orthogonal and matters more. A rail that is off, disabled, or
-unreachable returns passed with `certain? == false`, so an application that
-reports a safety posture can tell "checked and clean" from "not checked". The
+unreachable returns passed with `certain? == false`. An application reporting a
+safety posture can then tell "checked and clean" from "not checked". The
 same distinction makes failures readable: a rail that raises does not become a
 pass, it becomes an uncertain one carrying the reason.
 
@@ -89,8 +114,27 @@ which model roles it can serve.
 | Provider | Endpoint | `model(:judge)` | `model(:guard)` |
 |----------|----------|-----------------|-----------------|
 | `llmlite` | local proxy on `127.0.0.1:8760/v1` | yes | no classifier |
-| `willma` | shared gateway | yes | AprielGuard, Llama Guard 3 |
+| gateway | registered, or `GUARDRAILS_GATEWAY_*` | whatever you name | whatever you name |
 | `env` | `GUARDRAILS_API_BASE` | whatever you name | whatever you name |
+
+No institution's endpoint ships in this gem. A hostname compiled into a
+library is an endpoint every installation inherits whether it can reach it or
+not, and a credential path compiled in publishes where somebody's secrets
+live. So a shared gateway is registered by the application that has one:
+
+```ruby
+Vangrail::Providers.register_gateway(
+  name: 'hub',
+  base_url: 'https://gateway.example/api/v0',
+  models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
+  guard_preset: :apriel_guard,
+  key_env: 'HUB_API_KEY',
+  pass_entry: 'hub/token'
+)
+```
+
+or described entirely through `GUARDRAILS_GATEWAY_API_BASE` and friends, so a
+deployment needs no code at all.
 
 `llmlite` is tried first. A loopback endpoint costs nothing per call, keeps rail
 traffic on the machine, needs no shared credential, and cannot bill anyone, so
@@ -212,6 +256,7 @@ one when the local rails cover it.
 | Rail | Side | Network | Statuses it can return |
 |------|------|---------|------------------------|
 | `Rails::Pattern` | either | no | passed, blocked |
+| `Rails::InjectedInstructions` | context | no | passed, blocked |
 | `Rails::Secrets` | output | no | passed, modified |
 | `Rails::GuardModel` | either | yes | passed, blocked |
 | `Rails::SelfCheck` | either | yes | passed, blocked |
@@ -233,6 +278,22 @@ its `reasoning_mode` chat-template switch and parses the labelled fields that
 come back; measured, it costs roughly 10 s against 0.8 s, so it belongs in an
 investigation rather than a request path.
 
+### Spotlighting
+
+`Spotlight` marks retrieved text as data, so a model can tell it from an
+instruction. Three modes, in increasing strength and cost: `:delimit`
+(default) fences it between per-request random tags, `:datamark` puts a
+marker between every word, `:encode` base64s it.
+
+```ruby
+marked, instruction = Vangrail::Spotlight.apply_all(passages)
+```
+
+The tag is random per request because a fixed one is a tag an attacker writes
+into the page to close the block early. `:encode` uses `pack('m0')` rather
+than the base64 library, which stopped being a default gem in Ruby 3.4, since
+the standard-library-only promise has to keep being true.
+
 ### The memo
 
 Rails say what their decision depends on through `cache_key`. Returning nil
@@ -248,10 +309,33 @@ disable.
 rake test
 ```
 
-141 tests, stdlib minitest. Parsing and payload shape run against a recorded
+177 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.
+
+## Measured
+
+`test/test_injection_corpus.rb` scores the context rail on two numbers at
+once, because either alone is meaningless: a rail that blocks everything
+catches every attack.
+
+| | |
+|---|---|
+| attacks caught | 58 of 60 |
+| benign documents passed | 15 of 15 |
+
+Twelve injection shapes at five positions inside real documentation prose.
+Inline is the weak position at 10 of 12; the other four catch 12 of 12, and a
+separate test asserts that no injection escapes at every position.
+
+## Documentation
+
+Longer material lives in [`docs/orgmode/`](docs/orgmode/index.org): a
+[tutorial](docs/orgmode/tutorials/first-rails.org) that needs no API key,
+how-to pages, the [environment
+reference](docs/orgmode/reference/environment.org), and the design arguments
+in [explanation](docs/orgmode/explanation/three-statuses.org).
 
 ## Reading
 
