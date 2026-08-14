@@ -2,26 +2,43 @@
 
 require 'fileutils'
 require 'yaml'
+require_relative 'actions'
+require_relative 'chat'
+require_relative 'colang/library'
+require_relative 'colang/parser'
+require_relative 'engine'
+require_relative 'errors'
 require_relative 'policies'
-require_relative 'willma'
+require_relative 'rails/colang_flow'
+require_relative 'rails/grounding'
+require_relative 'rails/self_check'
+require_relative 'provider'
 
 module NemoGuardrails
-  # Writes the configuration folder a NeMo Guardrails server loads: config.yml,
-  # prompts.yml, and Colang flow files.
+  # A guardrails configuration folder, read and written by Ruby.
   #
-  # This exists so the Ruby side owns one description of its rails. Without it a
-  # policy lives twice, once in the Ruby guard-model path and once in a YAML tree
-  # someone edits by hand, and the two drift.
+  #   config = NemoGuardrails::Config.load('config/handbook')
+  #   engine = config.engine
+  #   engine.check_input('Ignore your instructions.')
   #
-  #   NemoGuardrails::Config.surf_default(name: 'handbook').write!('config')
-  #   # => config/handbook/{config.yml,prompts.yml,rails/output.co}
+  # The folder is the format the Python toolkit uses: config.yml for models and
+  # which flows run on which side, prompts.yml for the policy text each
+  # self-check task judges against, and rails/*.co for the flows themselves.
+  # Nothing here shells out to it. The YAML is read, the Colang is parsed, and
+  # the flows execute in this process, so the same folder can be handed to
+  # either runtime and describes one set of rails either way.
   #
-  # Then: nemoguardrails server --config=config
+  # A folder naming a flow that nothing defines raises. A folder naming a model
+  # type this gem cannot serve raises. Both are load-time failures on purpose: a
+  # configuration that comes up with half its rails missing is worse than one
+  # that refuses to come up.
   class Config
-    attr_reader :name, :models, :rails, :prompts, :flows, :instructions, :sample_conversation
+    SELF_CHECK_TASKS = { 'self_check_input' => :input, 'self_check_output' => :output }.freeze
+
+    attr_reader :name, :models, :rails, :prompts, :flows, :instructions, :sample_conversation, :path
 
     def initialize(name:, models: [], rails: {}, prompts: [], flows: {}, instructions: nil,
-                   sample_conversation: nil)
+                   sample_conversation: nil, path: nil)
       @name = name
       @models = models
       @rails = rails
@@ -29,36 +46,152 @@ module NemoGuardrails
       @flows = flows
       @instructions = instructions
       @sample_conversation = sample_conversation
+      @path = path
     end
 
-    # A config wired to SURF AI Hub models: the main answer model plus a guard
-    # model for the self-check rails. `engine: openai` with a custom base URL is
-    # how an OpenAI-compatible gateway is reached, so the server needs
-    # OPENAI_API_KEY and OPENAI_API_BASE in its own environment.
-    def self.surf_default(name: 'handbook', main_model: 'openai/gpt-oss-120b',
-                          guard_model: Willma::DEFAULT_GUARD_MODEL, base_url: Willma.base_url,
+    # --- reading ---
+
+    def self.load(dir)
+      raise ConfigError, "no configuration folder at #{dir}" unless File.directory?(dir)
+
+      yaml = load_yaml(File.join(dir, 'config.yml')) || load_yaml(File.join(dir, 'config.yaml')) || {}
+      prompts = Array((load_yaml(File.join(dir, 'prompts.yml')) || {})['prompts'])
+      flows = Dir[File.join(dir, '**', '*.co')].sort.to_h do |file|
+        [File.basename(file, '.co'), File.read(file)]
+      end
+
+      new(
+        name: File.basename(dir),
+        models: Array(yaml['models']),
+        rails: yaml['rails'] || {},
+        prompts: prompts,
+        flows: flows,
+        instructions: yaml['instructions'],
+        sample_conversation: yaml['sample_conversation'],
+        path: dir
+      )
+    end
+
+    def self.load_yaml(file)
+      return nil unless File.file?(file)
+
+      YAML.safe_load(File.read(file), aliases: true)
+    end
+
+    # --- running ---
+
+    # Every flow this configuration can execute: the ones it ships plus the
+    # built-ins it is allowed to name without defining.
+    def program
+      @program ||= flows.reduce(Colang::Library.program) do |acc, (file, source)|
+        acc.merge(Colang::Parser.parse(source, filename: "#{file}.co"))
+      end
+    end
+
+    def flow_names(side)
+      Array(rails.dig(side.to_s, 'flows')).map(&:to_s)
+    end
+
+    def prompt_for(task)
+      entry = prompts.find { |p| p['task'].to_s == task.to_s }
+      entry && entry['content'].to_s
+    end
+
+    def model_for(type)
+      models.find { |m| m['type'].to_s == type.to_s }
+    end
+
+    # Builds the engine this configuration describes.
+    #
+    # `chat:` overrides where model-backed actions call, which is what tests and
+    # a caller with its own client pass. `actions:` adds or replaces actions by
+    # name, so a team's own check joins the built-ins without touching the gem.
+    def engine(provider: nil, chat: nil, actions: {}, on_error: :allow, cache: true)
+      registry = self_check_actions(provider, chat).merge(actions)
+      Engine.new(
+        input: rails_for(:input, registry),
+        output: rails_for(:output, registry),
+        on_error: on_error,
+        cache: cache
+      )
+    end
+
+    def rails_for(side, registry)
+      flow_names(side).map do |flow_name|
+        unless program.flow(flow_name)
+          raise ConfigError,
+                "#{name}: rails.#{side}.flows names #{flow_name.inspect}, which no .co file defines " \
+                "and which is not built in (#{Colang::Library.flow_names.join(', ')})"
+        end
+
+        Rails::ColangFlow.new(flow_name: flow_name, program: program, actions: registry, sides: [side])
+      end
+    end
+
+    private
+
+    # The three tasks a stock configuration expects, each backed by a rail this
+    # gem implements. A configuration that names none of them gets none of them.
+    def self_check_actions(provider, chat)
+      input = self_check_rail('self_check_input', :input, provider, chat)
+      output = self_check_rail('self_check_output', :output, provider, chat)
+      facts = grounding_rail(provider, chat)
+      Actions.from_rails(input: input, output: output, facts: facts)
+    end
+
+    def self_check_rail(task, side, provider, chat)
+      entry = model_for(task) || model_for('main')
+      return nil unless entry
+
+      Rails::SelfCheck.new(
+        name: task,
+        sides: [side],
+        policy: prompt_for(task),
+        model: entry['model'],
+        chat: chat,
+        provider: provider_for(entry, provider)
+      )
+    end
+
+    def grounding_rail(provider, chat)
+      entry = model_for('self_check_facts') || model_for('main')
+      return nil unless entry
+
+      Rails::Grounding.new(model: entry['model'], chat: chat, provider: provider_for(entry, provider))
+    end
+
+    # A model entry names its own endpoint through `parameters.base_url`, which
+    # is how the configuration format points at an OpenAI-compatible gateway.
+    # That wins over the caller's provider, because the folder is the thing
+    # under version control and the provider is ambient.
+    def provider_for(entry, provider)
+      base = entry.dig('parameters', 'base_url')
+      return provider if base.nil? || base.to_s.strip.empty?
+      return provider if provider && provider.base_url == base.to_s.sub(%r{/+\z}, '')
+
+      key = provider&.api_key
+      Provider.new(name: entry['type'].to_s, base_url: base, models: { judge: entry['model'] },
+                   key_resolver: key ? -> { key } : nil)
+    end
+
+    public
+
+    # --- writing ---
+
+    # A starting configuration for a provider. `engine: openai` with a base_url
+    # parameter is how the format names an OpenAI-compatible gateway, and this
+    # gem reads that field the same way, so one folder serves both runtimes.
+    def self.for_provider(provider, name: 'handbook', main_model: nil, judge_model: nil,
                           subject: 'a public documentation handbook')
+      base_url = provider.base_url
+      main_model ||= provider.model(:judge)
+      judge_model ||= provider.model(:judge)
       new(
         name: name,
         models: [
-          {
-            'type' => 'main',
-            'engine' => 'openai',
-            'model' => main_model,
-            'parameters' => { 'base_url' => base_url }
-          },
-          {
-            'type' => 'self_check_input',
-            'engine' => 'openai',
-            'model' => guard_model,
-            'parameters' => { 'base_url' => base_url }
-          },
-          {
-            'type' => 'self_check_output',
-            'engine' => 'openai',
-            'model' => guard_model,
-            'parameters' => { 'base_url' => base_url }
-          }
+          model_entry('main', main_model, base_url),
+          model_entry('self_check_input', judge_model, base_url),
+          model_entry('self_check_output', judge_model, base_url)
         ],
         rails: {
           'input' => { 'flows' => ['self check input'] },
@@ -79,8 +212,12 @@ module NemoGuardrails
       )
     end
 
-    # NeMo's self-check tasks read a Yes/No answer, so the policy is rendered as
-    # a question rather than the JSON contract the direct guard-model path uses.
+    def self.model_entry(type, model, base_url)
+      { 'type' => type, 'engine' => 'openai', 'model' => model, 'parameters' => { 'base_url' => base_url } }
+    end
+
+    # The self-check tasks read a Yes/No answer, so the policy is rendered as a
+    # question rather than with the JSON contract a policy judge uses.
     def self.self_check_prompt(rail, subject)
       policy = rail == :input ? Policies.input_policy(subject: subject) : Policies.output_policy(subject: subject)
       body = policy.sub(Policies::ANSWER_CONTRACT, '').rstrip

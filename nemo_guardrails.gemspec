@@ -5,14 +5,15 @@ require_relative 'lib/nemo_guardrails/version'
 Gem::Specification.new do |spec|
   spec.name = 'nemo_guardrails'
   spec.version = NemoGuardrails::VERSION
-  spec.summary = 'Ruby bindings for NVIDIA NeMo Guardrails, plus a server-free guard-model path'
+  spec.summary = 'Guardrails that run in your Ruby process: input and output rails, no Python service'
   spec.description = <<~TEXT
-    Talks to a running NeMo Guardrails server over its OpenAI-compatible REST API,
-    and, where no server is available, runs the same input and output rails by
-    calling a guard model (Llama Guard 3, AprielGuard, gpt-oss-safeguard) directly
-    on any OpenAI-compatible endpoint. Also writes the config folder the Python
-    server loads, so one description of a policy serves both paths. Standard
-    library only.
+    Input and output rails as ordinary Ruby objects, returning passed, modified,
+    or blocked, and reporting whether a rail actually reached the decision.
+    Deterministic rails need no network at all; model-backed ones call any
+    OpenAI-compatible endpoint through a provider abstraction that prefers a
+    local proxy. Reads and writes NeMo Guardrails configuration folders and
+    executes their Colang flows in process, with an optional client for teams
+    who already run the Python server. Standard library only.
   TEXT
   spec.authors = ['Rohit Goswami']
   spec.email = ['rohit.goswami@surf.nl']

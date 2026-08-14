@@ -1,130 +1,114 @@
 # frozen_string_literal: true
 
-require_relative 'verdict'
-
 module NemoGuardrails
-  # A guardrailed chat completion, read out of either server response shape.
+  # What a rail decided about one piece of text.
   #
-  # The OpenAI-compatible shape puts the answer in choices[0].message.content
-  # and rail bookkeeping under a top-level `guardrails` object. The older shape
-  # answers with a bare {role, content} message (or a list of them) and puts
-  # bookkeeping at the top level. Both appear in the wild depending on the
-  # server version, so this reads whichever is present.
+  # Three statuses, matching the contract the upstream toolkit settled on for
+  # standalone rail checks:
+  #
+  #   :passed    the text is cleared and unchanged
+  #   :modified  a rail rewrote the text; `content` carries the rewrite
+  #   :blocked   a rail stopped the turn; `content` carries the refusal, if any
+  #
+  # Two states would be one too few. A rail that redacts a token from an answer
+  # has neither passed the text nor blocked the turn, and folding that into
+  # either one loses the fact that the reader is looking at edited output.
+  #
+  # `certain` is orthogonal to status. A rail that is off, not enabled, or
+  # unreachable returns :passed with certain false, which is the difference
+  # between "checked and clean" and "not checked". Callers that report a safety
+  # posture read it; callers that only route on the decision can ignore it.
   class Result
-    # Server-side names for the variables that hold the rail that stopped a turn.
-    INPUT_RAIL_VAR = 'triggered_input_rail'
-    OUTPUT_RAIL_VAR = 'triggered_output_rail'
+    STATUSES = %i[passed modified blocked].freeze
 
-    attr_reader :raw
+    attr_reader :status, :rail, :content, :reason, :categories, :model, :latency_ms, :raw
 
-    def initialize(raw)
-      @raw = raw.is_a?(Hash) ? raw : {}
+    def initialize(status:, rail:, content: nil, reason: nil, categories: [], model: nil,
+                   latency_ms: nil, raw: nil, certain: true)
+      status = status.to_sym
+      raise ArgumentError, "status must be one of #{STATUSES.join(', ')}" unless STATUSES.include?(status)
+
+      @status = status
+      @rail = rail
+      @content = content
+      @reason = reason
+      @categories = Array(categories)
+      @model = model
+      @latency_ms = latency_ms
+      @raw = raw
+      @certain = certain
     end
 
-    def content
-      choice = choices.first
-      if choice.is_a?(Hash)
-        msg = choice['message'] || choice['delta'] || {}
-        return msg['content'].to_s if msg.is_a?(Hash) && msg.key?('content')
-      end
-      return raw['content'].to_s if raw.key?('content')
-
-      messages = raw['messages']
-      if messages.is_a?(Array)
-        last = messages.reverse.find { |m| m.is_a?(Hash) && m['role'].to_s == 'assistant' }
-        return last['content'].to_s if last
-      end
-      ''
+    def self.passed(rail:, **kwargs)
+      new(status: :passed, rail: rail, **kwargs)
     end
 
-    def config_id
-      guardrails['config_id']
+    def self.modified(rail:, content:, **kwargs)
+      new(status: :modified, rail: rail, content: content, **kwargs)
     end
 
-    # The rail that stopped this turn, or nil when nothing stopped it. Reported
-    # only when the request asked for the output variables that carry it.
-    def triggered_input_rail
-      output_data[INPUT_RAIL_VAR]
+    def self.blocked(rail:, **kwargs)
+      new(status: :blocked, rail: rail, **kwargs)
     end
 
-    def triggered_output_rail
-      output_data[OUTPUT_RAIL_VAR]
+    # No rail ran. Allowed, and explicitly not vouched for.
+    def self.unchecked(rail:, reason:)
+      new(status: :passed, rail: rail, certain: false, reason: reason)
     end
 
-    def triggered_rail
-      triggered_input_rail || triggered_output_rail
+    def passed?
+      status == :passed
     end
 
-    # Rails that ran, from options.log.activated_rails. Empty unless logging was
-    # requested; an empty list is not evidence that no rail ran.
-    def activated_rails
-      entries = log['activated_rails']
-      entries.is_a?(Array) ? entries : []
+    def modified?
+      status == :modified
     end
 
-    def stopped_rails
-      activated_rails.select { |r| r.is_a?(Hash) && r['stop'] == true }
-    end
-
-    # True when a rail is known to have stopped the turn. Absent explicit
-    # signals this stays false, so a refusal written by the model itself is
-    # never reported as a rail decision.
     def blocked?
-      return true unless triggered_rail.nil?
-
-      !stopped_rails.empty?
+      status == :blocked
     end
 
     def allowed?
       !blocked?
     end
 
-    def verdict
-      rail = triggered_input_rail ? :input : (triggered_output_rail ? :output : :dialog)
-      return Verdict.allow(rail: rail, raw: raw, model: model) if allowed?
-
-      name = triggered_rail || stopped_rails.first&.dig('name')
-      Verdict.block(rail: rail, reason: name, raw: raw, model: model)
+    def certain?
+      @certain
     end
 
-    def model
-      raw['model']
+    # The text to carry forward: the rewrite when there is one, otherwise what
+    # the caller passed in.
+    def content_or(original)
+      modified? && !content.nil? ? content : original
     end
 
-    def guardrails
-      g = raw['guardrails']
-      g.is_a?(Hash) ? g : {}
+    # A copy with a different rail name, for an engine reporting which of its
+    # rails produced a decision.
+    def with_rail(name)
+      self.class.new(
+        status: status, rail: name, content: content, reason: reason, categories: categories,
+        model: model, latency_ms: latency_ms, raw: raw, certain: certain?
+      )
     end
 
-    def output_data
-      d = guardrails['output_data'] || raw['output_data']
-      d.is_a?(Hash) ? d : {}
+    def to_h
+      {
+        'status' => status.to_s,
+        'certain' => certain?,
+        'rail' => rail&.to_s,
+        'reason' => reason,
+        'categories' => (categories unless categories.empty?),
+        'model' => model,
+        'latency_ms' => latency_ms
+      }.compact
     end
 
-    def log
-      l = guardrails['log'] || raw['log']
-      l.is_a?(Hash) ? l : {}
-    end
-
-    def llm_calls
-      calls = log['llm_calls']
-      calls.is_a?(Array) ? calls : []
-    end
-
-    # Total tokens the rails plus the answer spent, when the server reports it.
-    def total_tokens
-      usage = raw['usage']
-      return usage['total_tokens'] if usage.is_a?(Hash) && usage['total_tokens']
-
-      sums = llm_calls.filter_map { |c| c['total_tokens'] if c.is_a?(Hash) }
-      sums.empty? ? nil : sums.sum
-    end
-
-    private
-
-    def choices
-      c = raw['choices']
-      c.is_a?(Array) ? c : []
+    def to_s
+      parts = ["#{rail}=#{status}"]
+      parts << 'unchecked' unless certain?
+      parts << categories.join(',') unless categories.empty?
+      parts << reason if reason
+      parts.join(' ')
     end
   end
 end

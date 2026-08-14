@@ -34,4 +34,15 @@ module NemoGuardrails
 
   # No credential resolved for an endpoint that needs one.
   class MissingToken < Error; end
+
+  # A Colang file used something outside the supported subset, or is malformed.
+  # Raised at load, never at run: a rail configuration that half-loads would
+  # report checks it is not performing.
+  class ColangError < Error; end
+
+  # A flow referred to an action or a bot message that nothing defines.
+  class UnknownAction < ColangError; end
+
+  # The configuration folder is missing something the rails it declares need.
+  class ConfigError < Error; end
 end
