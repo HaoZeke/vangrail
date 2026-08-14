@@ -22,7 +22,10 @@ module Vangrail
     def initialize(model:, base_url: nil, api_key: nil, http: nil, max_tokens: 128,
                    temperature: 0, extra: {}, open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
                    read_timeout: 20)
-      raise ArgumentError, 'a Chat needs a base_url or an http client' if http.nil? && base_url.to_s.strip.empty?
+      if http.nil? && base_url.to_s.strip.empty?
+        raise ArgumentError,
+              'a Chat needs a base_url or an http client'
+      end
 
       @model = model
       @max_tokens = max_tokens

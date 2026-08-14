@@ -42,9 +42,7 @@ module Vangrail
       def parse
         lines = significant_lines
         index = 0
-        while index < lines.length
-          index = definition(lines, index)
-        end
+        index = definition(lines, index) while index < lines.length
         Program.new(flows: @flows, bot_messages: @bot_messages, user_messages: @user_messages)
       end
 
@@ -53,7 +51,7 @@ module Vangrail
       def significant_lines
         @source.lines.each_with_index.filter_map do |raw, i|
           number = i + 1
-          raise error("tabs are not allowed in Colang indentation", number) if raw.start_with?("\t")
+          raise error('tabs are not allowed in Colang indentation', number) if raw.start_with?("\t")
 
           text = raw.rstrip
           stripped = text.strip
@@ -73,7 +71,8 @@ module Vangrail
         case header.text
         when /\Adefine (flow|subflow)\s+(.+)\z/
           name = Regexp.last_match(2).strip
-          @flows[name] = Flow.new(name: name, body: statements(body), subflow: Regexp.last_match(1) == 'subflow')
+          @flows[name] =
+            Flow.new(name: name, body: statements(body), subflow: Regexp.last_match(1) == 'subflow')
         when /\Adefine bot\s+(.+)\z/
           @bot_messages[Regexp.last_match(1).strip] = strings(body)
         when /\Adefine user\s+(.+)\z/
@@ -108,7 +107,8 @@ module Vangrail
         line = lines[index]
         case line.text
         when /\A\$(\w+)\s*=\s*(.+)\z/
-          [Assign.new(variable: Regexp.last_match(1), expression: expression(Regexp.last_match(2), line)), index + 1]
+          [Assign.new(variable: Regexp.last_match(1), expression: expression(Regexp.last_match(2), line)),
+           index + 1]
         when /\Aexecute\s+(.+)\z/
           [action_call(Regexp.last_match(1), line), index + 1]
         when /\Abot\s+(.+)\z/
@@ -133,7 +133,8 @@ module Vangrail
         if index < lines.length && lines[index].text == 'else' && lines[index].indent == line.indent
           else_lines, index = block(lines, index + 1, lines[index].indent)
         end
-        [If.new(condition: condition, then_body: statements(then_lines), else_body: statements(else_lines)), index]
+        [If.new(condition: condition, then_body: statements(then_lines), else_body: statements(else_lines)),
+         index]
       end
 
       def expression(text, line)
@@ -168,8 +169,8 @@ module Vangrail
         return unquote(value) if quoted?(value)
         return Var.new(name: Regexp.last_match(1)) if value =~ /\A\$(\w+)\z/
         return value.to_i if value.match?(/\A-?\d+\z/)
-        return true if value == 'True' || value == 'true'
-        return false if value == 'False' || value == 'false'
+        return true if %w[True true].include?(value)
+        return false if %w[False false].include?(value)
 
         raise error("unsupported argument value #{value.inspect}", line.number)
       end
@@ -194,7 +195,10 @@ module Vangrail
 
       def strings(lines)
         lines.map do |line|
-          raise error("expected a quoted message, got #{line.text.inspect}", line.number) unless quoted?(line.text)
+          unless quoted?(line.text)
+            raise error("expected a quoted message, got #{line.text.inspect}",
+                        line.number)
+          end
 
           unquote(line.text)
         end

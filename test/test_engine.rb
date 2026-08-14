@@ -69,7 +69,7 @@ class TestEngine < Minitest::Test
   def test_context_carries_the_side_and_the_user_turn
     rail = scripted(R.passed(rail: 'a'))
     Vangrail::Engine.new(output: [rail]).check_output('answer', user_input: 'question',
-                                                            passages: [{ 'text' => 'p' }])
+                                                                passages: [{ 'text' => 'p' }])
     context = rail.seen.first[:context]
     assert_equal :output, context[:side]
     assert_equal 'question', context[:user_input]

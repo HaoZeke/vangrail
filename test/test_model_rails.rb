@@ -112,7 +112,7 @@ class TestModelRails < Minitest::Test
   def test_the_output_side_sends_both_turns_in_order
     rail, http = guard("safe\nnon_adversarial", preset: :apriel_guard)
     rail.call('the answer', side: :output, user_input: 'the question')
-    assert_equal %w[user assistant], http.last_payload['messages'].map { |m| m['role'] }
+    assert_equal(%w[user assistant], http.last_payload['messages'].map { |m| m['role'] })
   end
 
   # --- policy judge ---
@@ -171,7 +171,7 @@ class TestModelRails < Minitest::Test
     chat, http = chat_for('{"violation": 1, "policy_category": "G2", "rationale": "gpu_h200 appears in no passage"}')
     rail = Vangrail::Rails::Grounding.new(chat: chat, model: 'test/judge')
     result = rail.call('Use -p gpu_h200. [1]', side: :output,
-                       passages: [{ 'title' => 'GPU', 'text' => 'Use gpu_a100.' }])
+                                               passages: [{ 'title' => 'GPU', 'text' => 'Use gpu_a100.' }])
     assert result.blocked?
     assert_equal ['G2'], result.categories
     user = http.last_payload['messages'][1]['content']

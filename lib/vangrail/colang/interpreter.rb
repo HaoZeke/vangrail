@@ -54,7 +54,10 @@ module Vangrail
         end
 
         rewrite = CONTENT_VARS.filter_map { |v| state[v] if state.key?(v) }.last
-        return Outcome.new(status: :modified, content: rewrite.to_s, reason: flow_name, variables: state) if rewrite
+        if rewrite
+          return Outcome.new(status: :modified, content: rewrite.to_s, reason: flow_name,
+                             variables: state)
+        end
 
         Outcome.new(status: :passed, content: last_bot, reason: nil, variables: state)
       end

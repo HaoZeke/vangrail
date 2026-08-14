@@ -105,7 +105,7 @@ module Vangrail
     def initialize(name:, base_url:, models: {}, key_resolver: nil, guard_preset: nil,
                    local: false, probe: nil)
       @name = name.to_s
-      @base_url = base_url.to_s.sub(%r{/+\z}, '')
+      @base_url = base_url.to_s.sub(/\/+\z/, '')
       @models = models
       @key_resolver = key_resolver
       @guard_preset = guard_preset

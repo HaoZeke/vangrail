@@ -21,9 +21,9 @@ module Vangrail
   # to load.
   module Prompt
     FILTERS = {
-      'upper' => ->(s) { s.upcase },
-      'lower' => ->(s) { s.downcase },
-      'trim' => ->(s) { s.strip }
+      'upper' => lambda(&:upcase),
+      'lower' => lambda(&:downcase),
+      'trim' => lambda(&:strip)
     }.freeze
 
     TAG = /\{%\s*(\w+)\s*([^%]*?)\s*%\}/

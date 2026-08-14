@@ -25,7 +25,7 @@ module Vangrail
   # writes into the wiki page to close the block early.
   module Spotlight
     MODES = %i[delimit datamark encode].freeze
-    DEFAULT_MARK = "«"
+    DEFAULT_MARK = '«'
 
     Marked = Struct.new(:text, :mode, :tag, :instruction, keyword_init: true) do
       def to_s

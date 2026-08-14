@@ -28,13 +28,12 @@ class TestBuilder < Minitest::Test
   end
 
   def engine(env = {})
-
     Vangrail::Builder.new(env).engine
   end
 
   def test_off_builds_an_empty_engine
     e = engine('GUARDRAILS' => 'off', 'GUARDRAILS_GATEWAY_API_BASE' => 'https://gateway.invalid/api/v0',
-                 'GUARDRAILS_GATEWAY_API_KEY' => 'tok')
+               'GUARDRAILS_GATEWAY_API_KEY' => 'tok')
     assert e.empty?
     result = e.check_input('anything')
     assert result.passed?

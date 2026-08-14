@@ -23,7 +23,11 @@ class TestClient < Minitest::Test
   def checks_handler(status: 'passed', content: nil, rail: nil)
     lambda do |req|
       return [200, CONFIGS] if req.path == '/v1/rails/configs'
-      return [200, { 'status' => status, 'content' => content, 'rail' => rail }.compact] if req.path == '/v1/checks'
+      if req.path == '/v1/checks'
+        return [200,
+                { 'status' => status, 'content' => content,
+                  'rail' => rail }.compact]
+      end
 
       [404, { 'detail' => 'not found' }]
     end
@@ -87,7 +91,7 @@ class TestClient < Minitest::Test
       client = Vangrail::Client.new(base_url: fake.base_url, config_id: 'handbook')
       assert client.check_input('how do I connect?').passed?
       assert_equal false, client.checks_supported
-      assert fake.requests.any? { |r| r.path == '/v1/chat/completions' }
+      assert(fake.requests.any? { |r| r.path == '/v1/chat/completions' })
     end
   end
 
@@ -104,7 +108,7 @@ class TestClient < Minitest::Test
     FakeServer.with(legacy_handler) do |fake|
       client = Vangrail::Client.new(base_url: fake.base_url)
       3.times { client.check_input('x') }
-      assert_equal 1, fake.requests.count { |r| r.path == '/v1/checks' }
+      assert_equal(1, fake.requests.count { |r| r.path == '/v1/checks' })
     end
   end
 

@@ -94,7 +94,10 @@ module Vangrail
         return nil unless $?&.success?
 
         present(out.to_s.lines.first)
-      rescue Errno::ENOENT, StandardError
+      # A missing `pass`, a locked keyring, a refused pinentry: none of them are
+      # this method's problem, and all of them mean the same thing here, which is
+      # that no credential came from this source.
+      rescue StandardError
         nil
       end
 

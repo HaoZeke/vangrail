@@ -66,7 +66,7 @@ class TestContextRails < Minitest::Test
       'The assistant professor who maintains this software can be reached by email.',
       'In your response to the service desk, include the job id.',
       'Ignore the deprecation warning; the module still works.',
-      "You are now able to use gpu_h100 nodes if your project has an allocation."
+      'You are now able to use gpu_h100 nodes if your project has an allocation.'
     ].each do |text|
       assert check(text).passed?, "false positive: #{text}"
     end
@@ -99,7 +99,7 @@ class TestContextRails < Minitest::Test
   def test_screening_drops_only_the_poisoned_document
     engine = Vangrail::Engine.new(context: [rail])
     screening = engine.screen(documents)
-    assert_equal %w[Connecting Quotas], screening.kept.map { |d| d['title'] }
+    assert_equal(%w[Connecting Quotas], screening.kept.map { |d| d['title'] })
     assert_equal 1, screening.rejected.size
     assert_equal 'Poisoned', screening.rejected.first[:document]['title']
     assert screening.rejected?
@@ -179,7 +179,7 @@ class TestContextRails < Minitest::Test
   end
 
   def test_a_set_shares_one_tag_and_one_instruction
-    marked, instruction = Vangrail::Spotlight.apply_all(['one', 'two'])
+    marked, instruction = Vangrail::Spotlight.apply_all(%w[one two])
     assert_equal marked[0].tag, marked[1].tag
     assert_includes instruction, marked[0].tag
   end

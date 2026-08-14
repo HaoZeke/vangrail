@@ -58,7 +58,7 @@ module Vangrail
       uncertain = nil
 
       Array(documents).each_with_index do |document, index|
-        result = check_context(text_of(document), **context.merge(document: document, index: index))
+        result = check_context(text_of(document), **context, document: document, index: index)
         uncertain ||= result unless result.certain?
         if result.blocked?
           rejected << { document: document, result: result }
@@ -206,7 +206,10 @@ module Vangrail
     # call, and either way the pass carries the reason rather than a silence.
     def failed(rail, error)
       reason = "#{rail.name} failed: #{error.class.name.split('::').last}: #{error.message}"
-      return Result.new(status: :blocked, rail: rail.name, certain: false, reason: reason) if on_error == :block
+      if on_error == :block
+        return Result.new(status: :blocked, rail: rail.name, certain: false,
+                          reason: reason)
+      end
 
       Result.unchecked(rail: rail.name, reason: reason)
     end

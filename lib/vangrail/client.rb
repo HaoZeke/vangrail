@@ -34,7 +34,10 @@ module Vangrail
     def initialize(base_url:, config_id: nil, model: nil, api_key: nil, protocol: :auto,
                    open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT, read_timeout: HTTP::DEFAULT_READ_TIMEOUT,
                    http: nil)
-      raise ArgumentError, "protocol must be one of #{PROTOCOLS.join(', ')}" unless PROTOCOLS.include?(protocol)
+      unless PROTOCOLS.include?(protocol)
+        raise ArgumentError,
+              "protocol must be one of #{PROTOCOLS.join(', ')}"
+      end
 
       @config_id = config_id
       @model = model

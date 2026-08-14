@@ -5,7 +5,7 @@ require_relative '../lib/vangrail'
 # Stands in for Vangrail::HTTP. Records every call and replays scripted
 # answers, so the whole suite runs with no network and no server.
 class StubHTTP
-  attr_reader :calls
+  attr_reader :calls, :base_url
 
   def initialize(base_url: 'http://stub.invalid/v1', responses: {}, raises: {})
     @base_url = base_url
@@ -13,8 +13,6 @@ class StubHTTP
     @raises = raises
     @calls = []
   end
-
-  attr_reader :base_url
 
   def get_json(path)
     record(:get, path, nil)
@@ -59,7 +57,8 @@ def chat_body(content, extra = {})
     'object' => 'chat.completion',
     'model' => 'test-model',
     'choices' => [
-      { 'index' => 0, 'message' => { 'role' => 'assistant', 'content' => content }, 'finish_reason' => 'stop' }
+      { 'index' => 0, 'message' => { 'role' => 'assistant', 'content' => content },
+        'finish_reason' => 'stop' }
     ]
   }.merge(extra)
 end

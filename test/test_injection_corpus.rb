@@ -90,7 +90,7 @@ class TestInjectionCorpus < Minitest::Test
   # --- the two numbers, reported together ---
 
   def test_benign_documentation_is_not_flagged
-    missed = BENIGN.reject { |text| !blocked?(text) }
+    missed = BENIGN.select { |text| blocked?(text) }
     assert_empty missed, "flagged ordinary documentation:\n  #{missed.join("\n  ")}"
   end
 

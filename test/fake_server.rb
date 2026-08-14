@@ -10,7 +10,10 @@ require 'socket'
 # This does, on an ephemeral loopback port, with no gem outside the standard
 # library so the test suite keeps the same promise the gem makes.
 class FakeServer
-  Request = Struct.new(:method, :path, :body, keyword_init: true) do
+  # `verb` rather than `method`: a Struct member called `method` shadows
+  # Object#method, and a test double that breaks reflection is a bad trade
+  # for one familiar word.
+  Request = Struct.new(:verb, :path, :body, keyword_init: true) do
     def json
       body.to_s.empty? ? {} : JSON.parse(body)
     end
@@ -66,14 +69,14 @@ class FakeServer
     request_line = socket.gets
     return if request_line.nil?
 
-    method, path, = request_line.split
+    verb, path, = request_line.split
     length = 0
     while (line = socket.gets) && line.strip != ''
       key, value = line.split(':', 2)
       length = value.to_i if key.to_s.downcase == 'content-length'
     end
     body = length.positive? ? socket.read(length) : ''
-    request = Request.new(method: method, path: path, body: body)
+    request = Request.new(verb: verb, path: path, body: body)
     @requests << request
 
     status, payload = @handler.call(request)

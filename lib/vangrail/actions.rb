@@ -52,9 +52,9 @@ module Vangrail
     # polarity those flows branch on.
     def self.from_rails(input: nil, output: nil, facts: nil)
       actions = new
-      actions.register('self_check_input') { |_args, ctx| input && input.call(ctx[:text], ctx).allowed? }
-      actions.register('self_check_output') { |_args, ctx| output && output.call(ctx[:text], ctx).allowed? }
-      actions.register('self_check_facts') { |_args, ctx| facts && facts.call(ctx[:text], ctx).allowed? }
+      actions.register('self_check_input') { |_args, ctx| input&.call(ctx[:text], ctx)&.allowed? }
+      actions.register('self_check_output') { |_args, ctx| output&.call(ctx[:text], ctx)&.allowed? }
+      actions.register('self_check_facts') { |_args, ctx| facts&.call(ctx[:text], ctx)&.allowed? }
       actions
     end
   end

@@ -56,7 +56,7 @@ module Vangrail
 
       yaml = load_yaml(File.join(dir, 'config.yml')) || load_yaml(File.join(dir, 'config.yaml')) || {}
       prompts = Array((load_yaml(File.join(dir, 'prompts.yml')) || {})['prompts'])
-      flows = Dir[File.join(dir, '**', '*.co')].sort.to_h do |file|
+      flows = Dir[File.join(dir, '**', '*.co')].to_h do |file|
         [File.basename(file, '.co'), File.read(file)]
       end
 
@@ -75,7 +75,7 @@ module Vangrail
     def self.load_yaml(file)
       return nil unless File.file?(file)
 
-      YAML.safe_load(File.read(file), aliases: true)
+      YAML.safe_load_file(file, aliases: true)
     end
 
     # --- running ---
@@ -167,7 +167,7 @@ module Vangrail
     def provider_for(entry, provider)
       base = entry.dig('parameters', 'base_url')
       return provider if base.nil? || base.to_s.strip.empty?
-      return provider if provider && provider.base_url == base.to_s.sub(%r{/+\z}, '')
+      return provider if provider && provider.base_url == base.to_s.sub(/\/+\z/, '')
 
       key = provider&.api_key
       Provider.new(name: entry['type'].to_s, base_url: base, models: { judge: entry['model'] },

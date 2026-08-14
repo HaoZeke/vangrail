@@ -43,7 +43,7 @@ class TestConfig < Minitest::Test
 
   def provider
     Vangrail::Provider.new(name: 'test', base_url: 'http://endpoint.invalid/v1',
-                                 models: { judge: 'some/instruct' }, key_resolver: -> { 'k' })
+                           models: { judge: 'some/instruct' }, key_resolver: -> { 'k' })
   end
 
   # A folder that names only built-in flows and ships no .co file is the
@@ -69,7 +69,8 @@ class TestConfig < Minitest::Test
   end
 
   def test_prompts_yml_becomes_the_policy_the_judge_sees
-    prompts = { 'prompts' => [{ 'task' => 'self_check_input', 'content' => 'Company rule: block everything.' }] }
+    prompts = { 'prompts' => [{ 'task' => 'self_check_input',
+                                'content' => 'Company rule: block everything.' }] }
     Dir.mktmpdir do |dir|
       folder = write_config(dir, config_yaml: STOCK, prompts_yaml: YAML.dump(prompts))
       config = Vangrail::Config.load(folder)
@@ -122,7 +123,7 @@ class TestConfig < Minitest::Test
     Dir.mktmpdir do |dir|
       config = Vangrail::Config.load(write_config(dir, config_yaml: STOCK))
       elsewhere = Vangrail::Provider.new(name: 'elsewhere', base_url: 'http://other.invalid/v1',
-                                               models: { judge: 'other' }, key_resolver: -> { 'k' })
+                                         models: { judge: 'other' }, key_resolver: -> { 'k' })
       rail = config.send(:self_check_rail, 'self_check_input', :input, elsewhere, nil)
       assert_equal 'http://endpoint.invalid/v1', rail.chat.http.base_url
     end
@@ -132,7 +133,7 @@ class TestConfig < Minitest::Test
 
   def test_a_provider_configuration_names_its_models_and_flows
     config = Vangrail::Config.for_provider(provider)
-    assert_equal %w[main self_check_input self_check_output], config.models.map { |m| m['type'] }
+    assert_equal(%w[main self_check_input self_check_output], config.models.map { |m| m['type'] })
     assert(config.models.all? { |m| m.dig('parameters', 'base_url') == 'http://endpoint.invalid/v1' })
     assert_equal ['self check input'], config.rails.dig('input', 'flows')
   end

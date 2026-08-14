@@ -16,7 +16,7 @@ module Vangrail
 
     def initialize(base_url:, api_key: nil, open_timeout: DEFAULT_OPEN_TIMEOUT,
                    read_timeout: DEFAULT_READ_TIMEOUT, retries: 1, headers: {})
-      @base_url = base_url.to_s.sub(%r{/+\z}, '')
+      @base_url = base_url.to_s.sub(/\/+\z/, '')
       raise ArgumentError, 'base_url is required' if @base_url.empty?
 
       @api_key = api_key
@@ -48,7 +48,7 @@ module Vangrail
     private
 
     def request(klass, path, payload)
-      uri = URI.join("#{base_url}/", path.to_s.sub(%r{\A/+}, ''))
+      uri = URI.join("#{base_url}/", path.to_s.sub(/\A\/+/, ''))
       attempt = 0
       begin
         attempt += 1
