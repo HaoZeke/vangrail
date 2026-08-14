@@ -1,5 +1,21 @@
 # frozen_string_literal: true
 
+# Coverage is opt-in and guarded, so `ruby test/test_engine.rb` keeps working on
+# a machine that has never heard of SimpleCov. The gem needs nothing outside the
+# standard library, and a test helper that hard-requires a gem would quietly
+# make that untrue.
+if ENV['COVERAGE']
+  begin
+    require 'simplecov'
+    SimpleCov.start do
+      enable_coverage :branch
+      add_filter '/test/'
+    end
+  rescue LoadError
+    warn 'COVERAGE requested but simplecov is not installed'
+  end
+end
+
 require 'minitest/autorun'
 require 'tmpdir'
 require_relative '../lib/vangrail'
