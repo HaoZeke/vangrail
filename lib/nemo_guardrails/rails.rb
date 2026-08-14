@@ -24,13 +24,15 @@ module NemoGuardrails
     DEFAULT_RAILS = %i[input output].freeze
     ALL_RAILS = %i[input output grounding].freeze
 
-    attr_reader :mode, :backend, :enabled, :on_error
+    attr_reader :mode, :backend, :enabled, :on_error, :judge_model
 
-    def initialize(backend: nil, mode: nil, enabled: DEFAULT_RAILS, on_error: :allow)
+    def initialize(backend: nil, mode: nil, enabled: DEFAULT_RAILS, on_error: :allow,
+                   judge_model: Willma::FALLBACK_JUDGE_MODEL)
       @backend = backend
       @mode = mode || infer_mode(backend)
       @enabled = Array(enabled).map(&:to_sym) & ALL_RAILS
       @on_error = on_error.to_sym
+      @judge_model = judge_model
     end
 
     # Build from the environment:
@@ -43,9 +45,12 @@ module NemoGuardrails
     #   GUARDRAILS_RAILS=input,output,grounding
     #   GUARDRAILS_ON_ERROR=allow|block
     def self.from_env(env = ENV)
-      enabled = parse_rails(env['GUARDRAILS_RAILS'])
-      on_error = env['GUARDRAILS_ON_ERROR'].to_s.strip.downcase == 'block' ? :block : :allow
-      return new(backend: nil, mode: :off, enabled: enabled, on_error: on_error) if off?(env['GUARDRAILS'])
+      common = {
+        enabled: parse_rails(env['GUARDRAILS_RAILS']),
+        on_error: env['GUARDRAILS_ON_ERROR'].to_s.strip.downcase == 'block' ? :block : :allow,
+        judge_model: present(env['GUARDRAILS_JUDGE_MODEL']) || Willma::FALLBACK_JUDGE_MODEL
+      }
+      return new(backend: nil, mode: :off, **common) if off?(env['GUARDRAILS'])
 
       server_url = env['GUARDRAILS_SERVER'].to_s.strip
       unless server_url.empty?
@@ -54,18 +59,18 @@ module NemoGuardrails
           config_id: present(env['GUARDRAILS_CONFIG_ID']),
           api_key: present(env['GUARDRAILS_SERVER_API_KEY'])
         )
-        return new(backend: server, mode: :server, enabled: enabled, on_error: on_error)
+        return new(backend: server, mode: :server, **common)
       end
 
       api_key = present(env['GUARDRAILS_API_KEY']) || Willma.token
-      return new(backend: nil, mode: :off, enabled: enabled, on_error: on_error) unless api_key
+      return new(backend: nil, mode: :off, **common) unless api_key
 
       guard = GuardModel.new(
         model: present(env['GUARDRAILS_MODEL']),
         base_url: present(env['GUARDRAILS_API_BASE']) || Willma.base_url,
         api_key: api_key
       )
-      new(backend: guard, mode: :guard_model, enabled: enabled, on_error: on_error)
+      new(backend: guard, mode: :guard_model, **common)
     end
 
     def self.off?(value)
@@ -137,14 +142,17 @@ module NemoGuardrails
 
     private
 
+    # Grounding needs a model that can answer a policy prompt. A guard-model
+    # backend running a classifier preset gets a judge on the same endpoint and
+    # credentials; a server backend needs one built from the hub token.
     def grounding_backend
       return @grounding_backend if defined?(@grounding_backend)
 
       @grounding_backend =
         if backend.is_a?(GuardModel)
-          backend
+          backend.policy_capable? ? backend : backend.policy_judge(judge_model)
         elsif Willma.available?
-          GuardModel.new(model: Willma::FALLBACK_JUDGE_MODEL, preset: :policy)
+          GuardModel.new(model: judge_model, preset: :policy, max_tokens: 256)
         end
     end
 

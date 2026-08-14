@@ -157,6 +157,29 @@ class TestGuardModel < Minitest::Test
     assert_includes http.last_payload['messages'][0]['content'], 'Grounding policy'
   end
 
+  # A classifier answers with its own label tokens whatever it is asked, so a
+  # policy prompt sent to one comes back empty. Refuse loudly instead.
+  def test_a_classifier_refuses_to_judge_grounding
+    g, = guard("safe\n", preset: :llama_guard)
+    err = assert_raises(ArgumentError) { g.check_grounding('draft', passages: []) }
+    assert_includes err.message, 'policy_judge'
+  end
+
+  def test_a_classifier_judges_grounding_with_an_explicit_model
+    g, http = guard('{"violation": 0}', preset: :apriel_guard)
+    g.check_grounding('draft', passages: [], model: 'some/instruct-model')
+    assert_equal 'some/instruct-model', http.last_payload['model']
+  end
+
+  def test_policy_judge_reuses_the_endpoint_and_credentials
+    g, http = guard("safe\n", preset: :apriel_guard)
+    judge = g.policy_judge('some/instruct-model')
+    assert_equal :policy, judge.preset
+    assert_same http, judge.http
+    judge.check_grounding('draft', passages: [])
+    assert_equal 'some/instruct-model', http.last_payload['model']
+  end
+
   def test_deterministic_settings_are_sent
     g, http = guard("safe\n", preset: :llama_guard)
     g.check_input('x')

@@ -91,9 +91,26 @@ module NemoGuardrails
       end
     end
 
-    # Does the answer say only what the passages support. Always a policy call:
-    # safety classifiers score hazards, not attribution.
+    # A policy judge on the same endpoint and credentials. Classifier presets
+    # answer with their own label tokens whatever they are asked, so a policy
+    # prompt sent to one comes back empty; grounding needs an instruct model.
+    def policy_judge(judge_model)
+      self.class.new(model: judge_model, preset: :policy, http: http, max_tokens: 256)
+    end
+
+    def policy_capable?
+      preset == :policy
+    end
+
+    # Does the answer say only what the passages support. A policy call, because
+    # safety classifiers score hazards rather than attribution.
     def check_grounding(answer, passages:, model: nil)
+      unless policy_capable? || model
+        raise ArgumentError,
+              "#{@model} is a #{preset} classifier and cannot judge grounding; " \
+              'build one with GuardModel#policy_judge(model) instead'
+      end
+
       judge(
         Policies.grounding_policy,
         Policies.grounding_prompt(answer, passages),

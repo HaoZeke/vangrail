@@ -167,6 +167,24 @@ class TestRails < Minitest::Test
     assert_includes http.last_payload['messages'][0]['content'], 'Grounding policy'
   end
 
+  # The input and output rails run on a classifier; grounding cannot, so it is
+  # routed to a judge model on the same endpoint rather than failing quietly.
+  def test_grounding_routes_around_a_classifier_backend
+    rails, http = guard_rails('{"violation": 0}', preset: :apriel_guard, enabled: %i[grounding])
+    v = rails.check_grounding('draft', passages: [])
+    assert v.certain?
+    assert_equal NemoGuardrails::Willma::FALLBACK_JUDGE_MODEL, http.last_payload['model']
+  end
+
+  def test_judge_model_is_configurable
+    ENV['WILLMA_API_KEY'] = 'tok'
+    ENV['GUARDRAILS_JUDGE_MODEL'] = 'some/instruct-model'
+    NemoGuardrails::Willma.reset!
+    assert_equal 'some/instruct-model', NemoGuardrails::Rails.from_env.judge_model
+  ensure
+    ENV.delete('GUARDRAILS_JUDGE_MODEL')
+  end
+
   def test_grounding_is_skipped_when_not_enabled
     rails, = guard_rails('{"violation": 1}', preset: :policy, enabled: %i[input])
     v = rails.check_grounding('anything', passages: [])
