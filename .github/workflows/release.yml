@@ -1,0 +1,53 @@
+# Builds the gem on a version tag, and publishes only when asked.
+#
+# Tagging is cheap and reversible; publishing to RubyGems is neither, since a
+# pushed version can be yanked but never replaced. So the tag produces an
+# artifact and stops, and the push is a deliberate manual dispatch.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Push the built gem to RubyGems'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: false
+
+      - name: Install minitest
+        run: gem install --no-document minitest
+
+      # A tag that fails its own tests is a tag worth catching before the
+      # artifact exists, not after it is on a package index.
+      - name: Test
+        run: rake test
+
+      - name: Build
+        run: gem build vangrail.gemspec
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gem
+          path: '*.gem'
+          if-no-files-found: error
+
+      - name: Publish
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: gem push ./*.gem

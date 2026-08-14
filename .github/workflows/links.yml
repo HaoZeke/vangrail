@@ -1,0 +1,31 @@
+# Checks that the links in the documentation still resolve.
+#
+# On a schedule as well as on change, because a link rots without anybody
+# touching the file that holds it.
+name: Links
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '**/*.org'
+      - .lychee.toml
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config .lychee.toml --no-progress './**/*.md' './**/*.org'
+          fail: true
