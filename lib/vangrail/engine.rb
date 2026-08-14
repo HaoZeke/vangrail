@@ -21,10 +21,11 @@ module Vangrail
   # about: a redaction rail that runs before a policy rail should have the
   # policy rail judge the redacted text, not the original.
   class Engine
-    attr_reader :input_rails, :output_rails, :on_error, :cache
+    attr_reader :input_rails, :context_rails, :output_rails, :on_error, :cache
 
-    def initialize(input: [], output: [], on_error: :allow, cache: true)
+    def initialize(input: [], context: [], output: [], on_error: :allow, cache: true)
       @input_rails = Array(input)
+      @context_rails = Array(context)
       @output_rails = Array(output)
       @on_error = on_error.to_sym
       raise ArgumentError, 'on_error must be :allow or :block' unless %i[allow block].include?(@on_error)
@@ -40,8 +41,63 @@ module Vangrail
       run(:output, output_rails, text, context.merge(user_input: user_input, passages: passages))
     end
 
+    # One retrieved document, before it goes anywhere near a prompt.
+    def check_context(text, **context)
+      run(:context, context_rails, text, context)
+    end
+
+    # Screens a set of retrieved documents and reports what survived.
+    #
+    # A document that fails is dropped rather than failing the whole turn. One
+    # poisoned wiki page should cost a reader that page, not their answer, and
+    # an application that refuses outright teaches its readers that the
+    # guardrail is the problem.
+    def screen(documents, **context)
+      kept = []
+      rejected = []
+      uncertain = nil
+
+      Array(documents).each_with_index do |document, index|
+        result = check_context(text_of(document), **context.merge(document: document, index: index))
+        uncertain ||= result unless result.certain?
+        if result.blocked?
+          rejected << { document: document, result: result }
+        else
+          kept << (result.modified? ? replace_text(document, result.content) : document)
+        end
+      end
+
+      Screening.new(kept: kept, rejected: rejected, certain: uncertain.nil?, reason: uncertain&.reason)
+    end
+
+    # What screen returns. `certain` means what it means on a Result: false says
+    # a rail did not reach a decision about some document, so "nothing was
+    # rejected" is not evidence that nothing was wrong.
+    Screening = Struct.new(:kept, :rejected, :certain, :reason, keyword_init: true) do
+      def certain?
+        certain
+      end
+
+      def rejected?
+        !rejected.empty?
+      end
+
+      def to_h
+        {
+          'kept' => kept.size,
+          'rejected' => rejected.map { |r| r[:result].to_h },
+          'certain' => certain?,
+          'reason' => reason
+        }.compact
+      end
+    end
+
     def rails(side)
-      side.to_sym == :input ? input_rails : output_rails
+      case side.to_sym
+      when :input then input_rails
+      when :context then context_rails
+      else output_rails
+      end
     end
 
     def rail_names(side)
@@ -51,17 +107,18 @@ module Vangrail
     # True when every configured rail decides without a network call, which is
     # the only case where an unreachable endpoint cannot weaken the check.
     def offline?
-      all = input_rails + output_rails
+      all = input_rails + context_rails + output_rails
       !all.empty? && all.all?(&:offline?)
     end
 
     def empty?
-      input_rails.empty? && output_rails.empty?
+      input_rails.empty? && context_rails.empty? && output_rails.empty?
     end
 
     def to_h
       {
         'input' => rail_names(:input),
+        'context' => (rail_names(:context) unless context_rails.empty?),
         'output' => rail_names(:output),
         'on_error' => on_error.to_s,
         'offline' => offline?,
@@ -74,6 +131,7 @@ module Vangrail
 
       parts = []
       parts << "input=#{rail_names(:input).join('+')}" unless input_rails.empty?
+      parts << "context=#{rail_names(:context).join('+')}" unless context_rails.empty?
       parts << "output=#{rail_names(:output).join('+')}" unless output_rails.empty?
       parts << "on_error=#{on_error}"
       parts << 'offline' if offline?
@@ -81,6 +139,21 @@ module Vangrail
     end
 
     private
+
+    def text_of(document)
+      return document.to_s unless document.is_a?(Hash)
+
+      (document['text'] || document[:text]).to_s
+    end
+
+    # A context rail may rewrite a document rather than reject it, so the
+    # replacement has to go back into the shape the caller passed in.
+    def replace_text(document, content)
+      return content.to_s unless document.is_a?(Hash)
+
+      key = document.key?('text') ? 'text' : :text
+      document.merge(key => content.to_s)
+    end
 
     def run(side, rails, text, context)
       return Result.unchecked(rail: side, reason: "no #{side} rails configured") if rails.empty?

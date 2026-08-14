@@ -17,11 +17,20 @@ module Vangrail
   # application can write one in five lines, test it without a network, and put
   # it in the same ordered list as the model-backed ones.
   class Rail
-    SIDES = %i[input output].freeze
+    # Three sides, not two. `:context` is text the application retrieved and is
+    # about to put in a prompt: a wiki page, a search result, a file. It is the
+    # side an attacker usually reaches without touching the application at all,
+    # and a stack that checks only what the user typed and what the model
+    # answered never looks at it.
+    SIDES = %i[input context output].freeze
+
+    # What a rail gets by default. Context is opt-in per rail, because a rail
+    # written to judge a question is rarely the right one to judge a document.
+    DEFAULT_SIDES = %i[input output].freeze
 
     attr_reader :name, :sides
 
-    def initialize(name: nil, sides: SIDES)
+    def initialize(name: nil, sides: DEFAULT_SIDES)
       @name = (name || default_name).to_s
       @sides = Array(sides).map(&:to_sym)
       unknown = @sides - SIDES
