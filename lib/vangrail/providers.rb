@@ -2,32 +2,68 @@
 
 require_relative 'provider'
 require_relative 'providers/llmlite'
-require_relative 'providers/willma'
+require_relative 'providers/gateway'
 
 module Vangrail
-  # Endpoint presets, in the order `Provider.resolve` tries them.
+  # The provider registry, in the order `Provider.resolve` tries it.
   #
   # Order is the whole policy: local before shared. A proxy on the loopback
   # costs nothing per call, keeps rail traffic on the machine, and needs no
   # shared credential, so an application with one running should use it without
-  # being told to. A gateway is the next choice, and it brings a safety
-  # classifier the local one does not have.
+  # being told to.
   #
-  # An application that wants a different order says so with
-  # GUARDRAILS_PROVIDER, and an endpoint nobody registered is reachable through
-  # GUARDRAILS_API_BASE without touching this file.
+  # Only vendor-neutral entries are built in. A hostname compiled into this gem
+  # is an endpoint every installation inherits whether it can reach it or not,
+  # and a credential path compiled in is worse, because it publishes where
+  # somebody's secrets live. A shared gateway is therefore registered by the
+  # application that has one, or described by environment:
+  #
+  #   Vangrail::Providers.register_gateway(name: 'hub', base_url: '...', ...)
+  #   GUARDRAILS_GATEWAY_API_BASE=...  GUARDRAILS_GATEWAY_API_KEY=...
+  #
+  # An endpoint needed for a single run needs no registration at all:
+  # GUARDRAILS_API_BASE with GUARDRAILS_API_KEY beats the whole registry.
   module Providers
     module_function
 
     def install!(env = ENV)
       Provider.registry.clear
       Provider.register(Llmlite.provider(env))
-      Provider.register(Willma.provider(env))
+      register_environment_gateway(env)
+      registered_specs.each { |spec| Provider.register(Gateway.provider(spec, env)) }
       Provider.registry
     end
 
+    # Gateways an application asked for, in the order it asked.
+    def registered_specs
+      @registered_specs ||= []
+    end
+
+    # Registers a shared gateway and returns its Provider. Registering a name
+    # twice replaces it, so reloading an application is not a duplicate.
+    def register_gateway(name:, base_url:, models: {}, guard_preset: nil, key_env: nil,
+                         file_env: nil, pass_env: nil, key_file: nil, pass_entry: nil, env: ENV)
+      spec = Gateway::Spec.new(
+        name: name.to_s, base_url: base_url, models: models, guard_preset: guard_preset,
+        key_env: key_env, file_env: file_env, pass_env: pass_env,
+        key_file: key_file, pass_entry: pass_entry
+      )
+      registered_specs.reject! { |s| s.name == spec.name }
+      registered_specs << spec
+      Provider.register(Gateway.provider(spec, env))
+    end
+
+    def register_environment_gateway(env = ENV)
+      spec = Gateway.from_environment(env)
+      return nil unless spec
+
+      Provider.register(Gateway.provider(spec, env))
+    end
+
+    # Forgets registered gateways along with any cached credential, so a test
+    # that points a lookup at nothing gets what it asked for.
     def reset!
-      Willma.reset!
+      @registered_specs = []
       install!
     end
   end

@@ -14,12 +14,27 @@ class TestBuilder < Minitest::Test
     restore_env!
   end
 
+  # A gateway is configuration now, not something the gem ships, so a test that
+  # wants one describes it the way a deployment would.
+  def gateway_env
+    {
+      'GUARDRAILS_GATEWAY_NAME' => 'hub',
+      'GUARDRAILS_GATEWAY_API_BASE' => 'https://gateway.invalid/api/v0',
+      'GUARDRAILS_GATEWAY_API_KEY' => 'tok',
+      'GUARDRAILS_GATEWAY_JUDGE_MODEL' => 'some/instruct',
+      'GUARDRAILS_GATEWAY_GUARD_MODEL' => 'some/guard',
+      'GUARDRAILS_GATEWAY_GUARD_PRESET' => 'apriel_guard'
+    }
+  end
+
   def engine(env = {})
+
     Vangrail::Builder.new(env).engine
   end
 
   def test_off_builds_an_empty_engine
-    e = engine('GUARDRAILS' => 'off', 'WILLMA_API_KEY' => 'tok')
+    e = engine('GUARDRAILS' => 'off', 'GUARDRAILS_GATEWAY_API_BASE' => 'https://gateway.invalid/api/v0',
+                 'GUARDRAILS_GATEWAY_API_KEY' => 'tok')
     assert e.empty?
     result = e.check_input('anything')
     assert result.passed?
@@ -46,7 +61,7 @@ class TestBuilder < Minitest::Test
   end
 
   def test_a_reachable_classifier_endpoint_gets_a_classifier_rail
-    e = engine('WILLMA_API_KEY' => 'tok')
+    e = engine(gateway_env)
     assert_includes e.rail_names(:input), 'apriel_guard'
   end
 
@@ -60,23 +75,23 @@ class TestBuilder < Minitest::Test
   end
 
   def test_the_secrets_rail_rides_along_with_the_output_side
-    assert_includes engine('WILLMA_API_KEY' => 'tok').rail_names(:output), 'secrets'
+    assert_includes engine(gateway_env).rail_names(:output), 'secrets'
   end
 
   def test_rails_can_be_selected_by_name
-    e = engine('WILLMA_API_KEY' => 'tok', 'GUARDRAILS_RAILS' => 'patterns,secrets')
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
     assert_equal ['injection_patterns'], e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
   end
 
   def test_all_turns_on_grounding_too
-    e = engine('WILLMA_API_KEY' => 'tok', 'GUARDRAILS_RAILS' => 'all')
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'all'))
     assert_includes e.rail_names(:output), 'grounding'
   end
 
   def test_none_leaves_nothing
-    assert engine('WILLMA_API_KEY' => 'tok', 'GUARDRAILS_RAILS' => 'none').empty?
+    assert engine(gateway_env.merge('GUARDRAILS_RAILS' => 'none')).empty?
   end
 
   def test_a_server_url_builds_a_remote_rail
@@ -100,7 +115,8 @@ class TestBuilder < Minitest::Test
             flows:
               - self check input
       YAML
-      e = engine('GUARDRAILS_CONFIG' => folder, 'WILLMA_API_KEY' => 'tok')
+      e = engine('GUARDRAILS_CONFIG' => folder, 'GUARDRAILS_GATEWAY_API_BASE' => 'https://gateway.invalid/api/v0',
+                 'GUARDRAILS_GATEWAY_API_KEY' => 'tok')
       assert_equal ['self check input'], e.rail_names(:input)
     end
   end

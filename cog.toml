@@ -1,0 +1,57 @@
+# Cocogitto 7+ release driver for vangrail (https://docs.cocogitto.io)
+# Prepare:  cog bump --auto   (or --minor / --major / --version X.Y.Z)
+# Hooks rewrite lib/vangrail/version.rb, then cog writes CHANGELOG.md and
+# creates the version commit plus the vX.Y.Z tag.
+# Publish stays the owner's call: .github/workflows/release.yml builds the gem
+# on a v* tag and only pushes to RubyGems on a manual dispatch.
+#
+# One gem, one version. There is no monorepo here, so no package table.
+
+from_latest_tag = true
+ignore_merge_commits = true
+disable_bump_commit = false
+tag_prefix = "v"
+skip_ci = "[skip ci]"
+skip_untracked = false
+branch_whitelist = ["main", "release/**"]
+
+# The single version surface is lib/vangrail/version.rb; the gemspec reads it.
+pre_bump_hooks = [
+    "sed -i \"s/^  VERSION = '.*'$/  VERSION = '{{version}}'/\" lib/vangrail/version.rb",
+    # Fail the bump if the constant did not actually move.
+    "ruby -Ilib -e \"require 'vangrail/version'; abort 'version.rb is not at {{version}}' unless Vangrail::VERSION == '{{version}}'\"",
+    # Same invocation as the Rakefile: one process per test file, no network.
+    "sh -c 'for f in test/test_*.rb; do ruby \"$f\" >/dev/null || exit 1; done'",
+    # Packaging sanity: the gemspec has to build at the new version.
+    "gem build vangrail.gemspec",
+]
+
+post_bump_hooks = [
+    "git --no-pager show --stat HEAD",
+    "echo \"Prepared v{{version}}. Push the version commit and tag 'v{{version}}' to run release.yml.\"",
+    "echo \"release.yml builds the gem; publishing to RubyGems needs a manual workflow_dispatch with publish=true.\"",
+]
+
+[commit_types]
+feat     = { changelog_title = "Features" }
+fix      = { changelog_title = "Bug Fixes" }
+perf     = { changelog_title = "Performance" }
+refactor = { changelog_title = "Refactoring" }
+docs     = { changelog_title = "Documentation" }
+test     = { changelog_title = "Tests" }
+build    = { changelog_title = "Build System" }
+ci       = { changelog_title = "CI" }
+chore    = { changelog_title = "Miscellaneous" }
+style    = { changelog_title = "Style" }
+revert   = { changelog_title = "Reverts" }
+
+[changelog]
+path = "CHANGELOG.md"
+remote = "github.com"
+owner = "HaoZeke"
+repository = "vangrail"
+authors = [{ username = "HaoZeke", signature = "Rohit Goswami" }]
+
+[git_hooks]
+
+[bump_profiles]

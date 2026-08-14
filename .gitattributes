@@ -1,0 +1,3 @@
+# GitHub language stats: count the gem, not the fixtures the tests write.
+*.co linguist-language=Text
+test/** linguist-documentation=false

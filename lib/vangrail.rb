@@ -49,11 +49,12 @@ module Vangrail
   #   GUARDRAILS=off              nothing runs
   #   GUARDRAILS_CONFIG=<dir>     load a configuration folder and run its flows
   #   GUARDRAILS_SERVER=<url>     call an existing server as a rail
-  #   GUARDRAILS_PROVIDER=<name>  pin the endpoint preset (llmlite, willma, ...)
+  #   GUARDRAILS_PROVIDER=<name>  pin a registered provider by name
   #   GUARDRAILS_API_BASE + _KEY  an endpoint nobody registered
+  #   GUARDRAILS_GATEWAY_*        describe a shared gateway (see Providers)
   #   GUARDRAILS_MODEL=<model>    classifier, where the provider hosts one
   #   GUARDRAILS_JUDGE_MODEL=<m>  instruct model for policy and grounding rails
-  #   GUARDRAILS_RAILS=input,output,grounding,secrets,patterns
+  #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns
   #   GUARDRAILS_ON_ERROR=allow|block
   #   GUARDRAILS_REASONING=1      ask a classifier for a written rationale
   #   GUARDRAILS_CACHE=0          turn off the in-process memo
@@ -169,16 +170,16 @@ module Vangrail
       rails.compact
     end
 
-# Deterministic, offline, and free, so it is on by default. The document a
-# retrieval step just fetched is the side an attacker can usually reach
-# without touching the application, and nothing else in this engine reads it.
-def context_rails
-  return [] unless on?(:context)
+    # Deterministic, offline, and free, so it is on by default. The document a
+    # retrieval step just fetched is the side an attacker can usually reach
+    # without touching the application, and nothing else in this engine reads it.
+    def context_rails
+      return [] unless on?(:context)
 
-  [Rails::InjectedInstructions.new]
-end
+      [Rails::InjectedInstructions.new]
+    end
 
-def output_rails
+    def output_rails
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
       rails << judged(:output) if on?(:output)
@@ -192,7 +193,7 @@ def output_rails
     # differently rather than the same job skipped.
     def judged(side)
       return remote(side) if server_url
-      return missing(side) unless provider&.available?
+      return missing("#{side}_model", side) unless provider&.available?
       return guard_model(side) if provider.guard?
 
       Rails::SelfCheck.new(provider: provider, sides: [side], name: "policy_#{side}")
@@ -200,14 +201,18 @@ def output_rails
 
     # Asked for and unbuildable. Kept in the list rather than dropped, so the
     # engine's pass stays uncertain instead of resting on the offline rails.
-    def missing(side)
+    #
+    # `name` is what the rail would have been; `side` is where it would have
+    # run. They are not the same thing, and conflating them is how a grounding
+    # placeholder ends up claiming a side that does not exist.
+    def missing(name, side)
       reason =
         if provider
           "#{provider.name} is not available at #{provider.base_url}"
         else
           'no endpoint resolved: set GUARDRAILS_API_BASE, or start a local one'
         end
-      Rails::Missing.new(reason: reason, name: "#{side}_model", sides: [side])
+      Rails::Missing.new(reason: reason, name: name.to_s, sides: [side])
     end
 
     def remote(side)
@@ -221,7 +226,7 @@ def output_rails
     end
 
     def grounding
-      return missing(:grounding) unless provider&.available?
+      return missing('grounding', :output) unless provider&.available?
 
       Rails::Grounding.new(provider: provider)
     end

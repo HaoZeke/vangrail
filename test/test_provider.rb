@@ -31,10 +31,54 @@ class TestProvider < Minitest::Test
     Vangrail::Providers.install!
   end
 
-  # Local first. A loopback endpoint costs nothing per call and needs no shared
-  # credential, so an application with one running should use it untold.
-  def test_registration_order_decides_and_local_is_registered_first
-    assert_equal %w[llmlite willma], Vangrail::Provider.names
+  # Only vendor-neutral entries are built in. A hostname compiled into the gem
+  # is an endpoint every installation inherits whether it can reach it or not.
+  def test_only_the_local_provider_is_built_in
+    assert_equal %w[llmlite], Vangrail::Provider.names
+  end
+
+  # Local first. A loopback endpoint costs nothing per call and needs no
+  # shared credential, so an application with one running should use it untold.
+  def test_a_registered_gateway_comes_after_the_local_provider
+    Vangrail::Providers.register_gateway(
+      name: 'hub', base_url: 'https://gateway.invalid/api/v0',
+      models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
+    )
+    assert_equal %w[llmlite hub], Vangrail::Provider.names
+  ensure
+    Vangrail::Providers.reset!
+  end
+
+  def test_registering_a_name_twice_replaces_it
+    2.times do
+      Vangrail::Providers.register_gateway(
+        name: 'hub', base_url: 'https://gateway.invalid/api/v0', key_env: 'HUB_KEY'
+      )
+    end
+    assert_equal 1, Vangrail::Provider.names.count('hub')
+  ensure
+    Vangrail::Providers.reset!
+  end
+
+  # A deployment should not need code to name its own endpoint.
+  def test_a_gateway_can_be_described_entirely_by_environment
+    env = {
+      'GUARDRAILS_GATEWAY_NAME' => 'hub',
+      'GUARDRAILS_GATEWAY_API_BASE' => 'https://gateway.invalid/api/v0',
+      'GUARDRAILS_GATEWAY_API_KEY' => 'tok',
+      'GUARDRAILS_GATEWAY_JUDGE_MODEL' => 'some/instruct',
+      'GUARDRAILS_GATEWAY_GUARD_MODEL' => 'some/guard',
+      'GUARDRAILS_GATEWAY_GUARD_PRESET' => 'apriel_guard'
+    }
+    Vangrail::Providers.install!(env)
+    hub = Vangrail::Provider['hub']
+    refute_nil hub
+    assert_equal 'https://gateway.invalid/api/v0', hub.base_url
+    assert_equal 'some/instruct', hub.model(:judge)
+    assert hub.guard?
+    assert_equal :apriel_guard, hub.guard_preset
+  ensure
+    Vangrail::Providers.reset!
   end
 
   def test_resolve_takes_the_first_available_provider
@@ -79,8 +123,7 @@ class TestProvider < Minitest::Test
 
   def test_model_overrides_reach_a_registered_provider
     chosen = Vangrail::Provider.resolve(
-      'GUARDRAILS_PROVIDER' => 'willma',
-      'WILLMA_API_KEY' => 'tok',
+      'GUARDRAILS_PROVIDER' => 'llmlite',
       'GUARDRAILS_JUDGE_MODEL' => 'my/judge'
     )
     assert_equal 'my/judge', chosen.model(:judge)
@@ -95,12 +138,17 @@ class TestProvider < Minitest::Test
   end
 
   def test_a_gateway_with_a_classifier_reports_one
-    ENV['WILLMA_API_KEY'] = 'tok'
-    Vangrail::Providers.install!
-    willma = Vangrail::Provider['willma']
-    assert willma.guard?
-    assert_equal :apriel_guard, willma.guard_preset
-    refute willma.local
+    Vangrail::Providers.register_gateway(
+      name: 'hub', base_url: 'https://gateway.invalid/api/v0',
+      models: { judge: 'some/instruct', guard: 'some/guard' },
+      guard_preset: :apriel_guard, key_env: 'HUB_KEY', env: { 'HUB_KEY' => 'tok' }
+    )
+    hub = Vangrail::Provider['hub']
+    assert hub.guard?
+    assert_equal :apriel_guard, hub.guard_preset
+    refute hub.local
+  ensure
+    Vangrail::Providers.reset!
   end
 
   def test_chat_raises_for_a_role_the_provider_cannot_serve
@@ -139,27 +187,42 @@ class TestProvider < Minitest::Test
 
   # --- gateway token resolution ---
 
+  # Most explicit first: the environment variable, then a key file, then pass.
+  def spec(key_file: nil, pass_entry: nil)
+    Vangrail::Providers::Gateway::Spec.new(
+      name: 'hub', base_url: 'https://gateway.invalid/api/v0', models: {},
+      key_env: 'HUB_KEY', key_file: key_file, pass_entry: pass_entry
+    )
+  end
+
   def test_the_gateway_token_comes_from_the_environment_first
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'api_key')
       File.write(path, "from-file\n")
-      env = { 'WILLMA_API_KEY_FILE' => path, 'WILLMA_API_KEY' => 'from-env' }
-      Vangrail::Providers::Willma.reset!
-      assert_equal 'from-env', Vangrail::Providers::Willma.token(env)
+      env = { 'HUB_KEY' => 'from-env' }
+      assert_equal 'from-env', Vangrail::Providers::Gateway.token(spec(key_file: path), env)
     end
-  ensure
-    Vangrail::Providers::Willma.reset!
   end
 
   def test_the_gateway_token_falls_back_to_a_key_file
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'api_key')
       File.write(path, "  file-token  \n")
-      Vangrail::Providers::Willma.reset!
-      env = { 'WILLMA_API_KEY_FILE' => path, 'WILLMA_PASS_ENTRY' => 'absent/entry' }
-      assert_equal 'file-token', Vangrail::Providers::Willma.token(env)
+      assert_equal 'file-token',
+                   Vangrail::Providers::Gateway.token(spec(key_file: path, pass_entry: 'absent/entry'), {})
     end
-  ensure
-    Vangrail::Providers::Willma.reset!
+  end
+
+  def test_a_key_file_can_be_pointed_somewhere_else_by_environment
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'elsewhere')
+      File.write(path, "redirected\n")
+      env = { 'HUB_KEY_FILE' => path }
+      assert_equal 'redirected', Vangrail::Providers::Gateway.token(spec(key_file: '/nowhere'), env)
+    end
+  end
+
+  def test_no_source_resolving_is_no_token
+    assert_nil Vangrail::Providers::Gateway.token(spec(key_file: '/nowhere'), {})
   end
 end

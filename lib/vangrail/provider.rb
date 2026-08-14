@@ -52,9 +52,11 @@ module Vangrail
       # Returning nil is a legitimate answer: no endpoint is reachable, and the
       # caller builds an engine with only the offline rails on it.
       def resolve(env = ENV)
+        candidates = registry.each_value.to_a + [gateway_in(env)].compact
+
         wanted = present(env['GUARDRAILS_PROVIDER'])
         if wanted
-          found = self[wanted]
+          found = candidates.find { |p| p.name == wanted }
           raise ConfigError, "unknown provider #{wanted.inspect}; known: #{names.join(', ')}" unless found
 
           return found.with_env(env)
@@ -63,7 +65,20 @@ module Vangrail
         explicit = from_env_pair(env)
         return explicit if explicit
 
-        registry.each_value.map { |p| p.with_env(env) }.find(&:available?)
+        candidates.map { |p| p.with_env(env) }.find(&:available?)
+      end
+
+      # A gateway described by the environment this call was handed, rather than
+      # by the one the registry happened to be installed from. Resolution is
+      # then a function of (registry, env), which is what a caller passing an
+      # env hash is entitled to assume.
+      def gateway_in(env)
+        return nil if env.equal?(ENV)
+
+        spec = Providers::Gateway.from_environment(env)
+        spec && Providers::Gateway.provider(spec, env)
+      rescue NameError
+        nil
       end
 
       # An endpoint given directly, which is how anything unregistered is used.

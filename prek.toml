@@ -1,0 +1,44 @@
+# Git hooks via `prek` (https://prek.j178.dev), a Rust drop-in for pre-commit.
+# Install locally: `prek install`
+# Run all hooks:   `prek run -a`
+#:schema https://www.schemastore.org/prek.json
+
+minimum_prek_version = "0.3.0"
+
+exclude = """(?x)(
+    ^coverage/|
+    ^pkg/|
+    ^\\.bundle/
+)"""
+
+# Fast native implementations (no clone / no Python env).
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-yaml" },
+  { id = "check-toml" },
+  { id = "check-merge-conflict" },
+  { id = "check-added-large-files", args = ["--maxkb=1000"] },
+  { id = "detect-private-key" },
+]
+
+# The test suite is intentionally not a hook: `rake test` starts one Ruby
+# process per file and belongs in CI, not in front of every commit.
+
+# Project-local tools (must be on PATH: `gem install rubocop`).
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "rubocop",
+    name = "rubocop",
+    entry = "rubocop",
+    language = "system",
+    types = ["ruby"],
+    # --force-exclusion so the .rubocop.yml excludes still apply when prek
+    # hands rubocop an explicit file list.
+    args = ["--force-exclusion"],
+  },
+]
