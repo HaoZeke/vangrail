@@ -1,0 +1,84 @@
+#+TITLE: Screen Retrieved Documents
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Screen Retrieved Documents
+
+Run the documents a retrieval step just fetched through the context rails
+before any of them reaches a prompt.
+
+** The call
+
+#+begin_src ruby
+engine = Vangrail.from_env
+screening = engine.screen(documents, user_input: question)
+
+prompt_passages = screening.kept
+#+end_src
+
+=documents= is an array of hashes carrying a =text= key (string or symbol), or
+an array of plain strings. Whatever shape goes in comes back out: a rail that
+rewrites a document returns it in the same shape, with only the text replaced.
+
+** What comes back
+
+| Method       | What it holds                                              |
+|--------------+------------------------------------------------------------|
+| =kept=       | the documents that survived, in order                      |
+| =rejected=   | =[{ document:, result: }]= for each one dropped            |
+| =rejected?=  | whether anything was dropped                               |
+| =certain?=   | false when some document was not actually checked          |
+| =reason=     | why, when =certain?= is false                              |
+
+A poisoned document is dropped rather than failing the turn. One bad page
+should cost a reader that page, not their answer, and an application that
+refuses the whole question teaches its readers that the guardrail is the
+problem.
+
+** Tell the reader a page went missing
+
+Do not drop a source silently. A missing citation looks like a retrieval bug,
+and the reader has no way to tell the difference.
+
+#+begin_src ruby
+if screening.rejected?
+  count = screening.rejected.size
+  note = "#{count} retrieved #{count == 1 ? 'page was' : 'pages were'} left out: " \
+         'they contain text addressed to this assistant rather than to you.'
+end
+#+end_src
+
+** Mark what survives as data
+
+Screening removes documents carrying instructions. Spotlighting handles the
+ones that carry something subtler, by making the boundary between your prompt
+and their text unmistakable.
+
+#+begin_src ruby
+marked, instruction = Vangrail::Spotlight.apply_all(
+  screening.kept.map { |d| d['text'] }
+)
+
+system_prompt = [base_instructions, instruction].join("\n\n")
+#+end_src
+
+State the rule once, from =instruction=, rather than per passage. The delimiter
+tag is random per request, because a fixed tag is one an attacker writes into a
+page to close the block early.
+
+** Check the posture, not just the result
+
+#+begin_src ruby
+unless screening.certain?
+  logger.warn("context rails incomplete: #{screening.reason}")
+end
+#+end_src
+
+=certain?= false means some document was not checked. Everything still passed,
+and that is not the same as everything being clean.
+
+** Cost
+
+The default context rail is deterministic and offline, so screening a set of
+six passages costs microseconds and cannot fail because an endpoint is down.
+That is why it is on by default.

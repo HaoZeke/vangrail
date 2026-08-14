@@ -1,0 +1,65 @@
+#+TITLE: Contributing
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Contributing
+
+** Running the tests
+
+The suite is stdlib minitest run as plain files. There is no bundle to install.
+
+#+begin_src bash
+gem install minitest   # not a default gem since Ruby 3.4
+rake test
+#+end_src
+
+A single file runs on its own, which is the fastest loop while working:
+
+#+begin_src bash
+ruby test/test_engine.rb
+#+end_src
+
+No test touches the network. Transport is exercised against a loopback server
+the suite starts itself, and model responses come from a recorded double.
+
+** Style
+
+#+begin_src bash
+rubocop        # -a to autocorrect
+#+end_src
+
+Thresholds in =.rubocop.yml= are adjusted rather than departments switched off,
+and each adjustment carries a comment saying why. If a new offence is genuinely
+a fight with the cop rather than a problem with the code, raise the threshold
+and say so in the same commit; do not add an inline disable.
+
+** The standard-library promise
+
+Nothing outside the standard library at runtime. This is checked in CI by
+loading the whole library with no bundle at all, not asserted in prose. A
+development dependency is fine; a runtime one is a change to what the gem is.
+
+** Adding a rail
+
+Rails are objects with one method. See
+[[file:../howto/writing-a-rail.org][Write your own rail]]. A new detection rail
+needs two things beside its code:
+
+- cases in =test/test_injection_corpus.rb= or its own suite, and
+- benign cases that must keep passing.
+
+The second is not optional. A rail that costs a reader a page is worse than one
+that misses a weak signal, and the only way to know which you have built is to
+measure both.
+
+** Commits
+
+Conventional Commits, since =cog= builds the changelog from them. The subject
+says what changed; the body says why it was worth changing. A commit that fixes
+a defect should say what the defect actually did, not that a test now passes.
+
+** Releasing
+
+=cog bump= rewrites the version, writes the changelog, and tags. Pushing the tag
+builds and tests the gem; publishing to RubyGems is a separate manual dispatch,
+because a published version can be yanked but never replaced.

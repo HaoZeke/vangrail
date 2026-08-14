@@ -1,0 +1,96 @@
+#+TITLE: Point the Model-Backed Rails Somewhere
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Point the Model-Backed Rails Somewhere
+
+The deterministic rails need nothing. The rest need an OpenAI-compatible
+endpoint, and there are four ways to name one.
+
+** A local proxy, with no configuration at all
+
+If something is listening on =127.0.0.1:8760= serving an OpenAI-compatible
+API, it is used without being asked. That is the built-in =llmlite= provider,
+and it is tried first because a loopback endpoint costs nothing per call, keeps
+rail traffic on the machine, and needs no shared credential.
+
+#+begin_src bash
+LLMLITE_PORT=11434 LLMLITE_MODEL=llama3.1 ruby your_app.rb
+#+end_src
+
+Availability is a TCP connect rather than a request, so a proxy that is not
+running costs microseconds to rule out.
+
+** One endpoint, for one run
+
+#+begin_src bash
+GUARDRAILS_API_BASE=https://api.example/v1 \
+GUARDRAILS_API_KEY=... \
+GUARDRAILS_JUDGE_MODEL=some/instruct-model \
+  ruby your_app.rb
+#+end_src
+
+This beats the registry. Nothing has to be registered for it to work.
+
+** A shared gateway, described by environment
+
+#+begin_src bash
+GUARDRAILS_GATEWAY_NAME=hub \
+GUARDRAILS_GATEWAY_API_BASE=https://gateway.example/api/v0 \
+GUARDRAILS_GATEWAY_PASS_ENTRY=hub/token \
+GUARDRAILS_GATEWAY_JUDGE_MODEL=some/instruct-model \
+GUARDRAILS_GATEWAY_GUARD_MODEL=some/guard-model \
+GUARDRAILS_GATEWAY_GUARD_PRESET=apriel_guard \
+  ruby your_app.rb
+#+end_src
+
+** A shared gateway, registered in code
+
+For an application that ships with one endpoint in mind.
+
+#+begin_src ruby
+Vangrail::Providers.register_gateway(
+  name: 'hub',
+  base_url: 'https://gateway.example/api/v0',
+  models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
+  guard_preset: :apriel_guard,
+  key_env: 'HUB_API_KEY',
+  file_env: 'HUB_API_KEY_FILE',
+  pass_env: 'HUB_PASS_ENTRY',
+  key_file: File.join(Dir.home, '.config', 'hub', 'api_key'),
+  pass_entry: 'hub/token'
+)
+#+end_src
+
+No institution's endpoint ships in this gem. A hostname compiled into a library
+is an endpoint every installation inherits whether it can reach it or not, and
+a credential path compiled in publishes where somebody's secrets live.
+
+** What the endpoint decides
+
+Whether it hosts a classifier changes which rail gets built, not just which
+model gets called.
+
+| =model(:guard)= | Input and output rails become                     |
+|-----------------+---------------------------------------------------|
+| set             | =Rails::GuardModel=, a purpose-built classifier   |
+| nil             | =Rails::SelfCheck=, a written policy in front of an instruct model |
+
+Same job, different means, and never silently skipped.
+
+** When nothing resolves
+
+The engine keeps its deterministic rails and inserts a =Rails::Missing= where
+each model-backed rail would have been. Checks still run, results still come
+back allowed, and =certain?= is false with a reason naming the endpoint that
+was not there.
+
+#+begin_src ruby
+result = Vangrail.from_env.check_input('How do I submit a job?')
+result.passed?   # => true
+result.certain?  # => false
+result.reason    # => "llmlite is not available at http://127.0.0.1:8760/v1"
+#+end_src
+
+That is the correct outcome, not a degraded one: the application keeps working
+and stops claiming a check it is not performing.

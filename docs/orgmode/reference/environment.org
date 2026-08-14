@@ -1,0 +1,79 @@
+#+TITLE: Environment Variables
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Environment Variables
+
+Read by =Vangrail.from_env=. Nothing here is required: with none of it set, the
+engine keeps its deterministic rails and reports every model-backed check as
+unchecked.
+
+** Which rails run
+
+| Variable               | Effect                                                     |
+|------------------------+------------------------------------------------------------|
+| =GUARDRAILS=           | =off=, =0=, =no=, or =false= turns every rail off          |
+| =GUARDRAILS_RAILS=     | comma list, or =all=, or =none=                            |
+| =GUARDRAILS_ON_ERROR=  | =allow= (default) or =block= when a rail raises            |
+| =GUARDRAILS_CACHE=     | =0= turns off the in-process result memo                   |
+
+Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
+=secrets=, =patterns=. The default set is =input,context,output=.
+
+** Where the model-backed rails call
+
+| Variable                    | Effect                                          |
+|-----------------------------+-------------------------------------------------|
+| =GUARDRAILS_PROVIDER=       | pin a registered provider by name               |
+| =GUARDRAILS_API_BASE=       | an endpoint nobody registered                   |
+| =GUARDRAILS_API_KEY=        | its credential                                  |
+| =GUARDRAILS_MODEL=          | classifier, where the provider hosts one        |
+| =GUARDRAILS_JUDGE_MODEL=    | instruct model for policy and grounding rails   |
+| =GUARDRAILS_REASONING=      | =1= asks a classifier for a written rationale   |
+
+An unknown =GUARDRAILS_PROVIDER= raises rather than falling back, because an
+operator who named an endpoint deserves to see it fail.
+
+** Describing a shared gateway
+
+No institution's endpoint ships in this gem. A deployment describes its own
+without writing code:
+
+| Variable                          | Effect                                |
+|-----------------------------------+---------------------------------------|
+| =GUARDRAILS_GATEWAY_NAME=         | its name in the registry              |
+| =GUARDRAILS_GATEWAY_API_BASE=     | base URL; presence enables the rest   |
+| =GUARDRAILS_GATEWAY_API_KEY=      | credential, first source tried        |
+| =GUARDRAILS_GATEWAY_KEY_FILE=     | a file holding the credential         |
+| =GUARDRAILS_GATEWAY_PASS_ENTRY=   | a =pass= entry holding it             |
+| =GUARDRAILS_GATEWAY_JUDGE_MODEL=  | instruct model                        |
+| =GUARDRAILS_GATEWAY_GUARD_MODEL=  | classifier, if it hosts one           |
+| =GUARDRAILS_GATEWAY_GUARD_PRESET= | =apriel_guard= or =llama_guard=       |
+
+Credentials resolve most explicit first: the variable, then the file, then
+=pass=. An override replaces the configured source rather than being tried
+before it, so pointing a key file at nothing means there is no key.
+
+** The local proxy
+
+| Variable            | Effect                                    |
+|---------------------+-------------------------------------------|
+| =LLMLITE_HOST=      | default =127.0.0.1=                       |
+| =LLMLITE_PORT=      | default =8760=; =GROK_SHIM_PORT= also read |
+| =LLMLITE_MODEL=     | default =grok-4.5=                        |
+| =LLMLITE_API_KEY=   | default =grok-inside=                     |
+
+Availability is decided by a TCP connect, not a request: a proxy that is not
+running is the ordinary case, and finding that out has to cost microseconds.
+
+** Running something else entirely
+
+| Variable                       | Effect                                       |
+|--------------------------------+----------------------------------------------|
+| =GUARDRAILS_CONFIG=            | a configuration folder to load and run       |
+| =GUARDRAILS_SERVER=            | call an existing NeMo Guardrails server      |
+| =GUARDRAILS_CONFIG_ID=         | which server config to use                   |
+| =GUARDRAILS_SERVER_API_KEY=    | credential for that server                   |
+
+=GUARDRAILS_CONFIG= wins over the direct rails; =GUARDRAILS= off wins over
+everything.

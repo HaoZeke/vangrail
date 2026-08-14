@@ -1,0 +1,8 @@
+#+TITLE: Changelog
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+
+* Changelog
+
+The changelog lives at the repository root in [[file:../../CHANGELOG.md][CHANGELOG.md]],
+in Keep a Changelog form. Released sections are written from the commit history
+by =cog bump=; the =Unreleased= section is written by hand.

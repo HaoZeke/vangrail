@@ -1,0 +1,52 @@
+#+TITLE: vangrail
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* vangrail
+
+Guardrails that run inside a Ruby process. Input and output rails, plus rails
+for the documents a retrieval step just fetched, with no Python service
+anywhere in the path and nothing outside the standard library at runtime.
+
+/Vangrail/ is Dutch for the steel barrier at the edge of a road. It does not
+stop you driving; it stops one bad moment becoming a worse one.
+
+A rail is an object with one method, returning one of three statuses. A regex
+check, a safety classifier, a Colang flow, and a call out to somebody's NeMo
+Guardrails server all use that protocol, sit in the same ordered list, and
+answer the same way.
+
+** Tutorials
+
+Start here if you have not used this before.
+
+- [[file:tutorials/first-rails.org][Stop an injected instruction in ten
+  minutes]]. No key, no endpoint, no network.
+
+** How-to
+
+Task-shaped, for when you know what you want.
+
+- [[file:howto/writing-a-rail.org][Write your own rail]]
+- [[file:howto/screening-documents.org][Screen retrieved documents]]
+- [[file:howto/choosing-an-endpoint.org][Point the model-backed rails somewhere]]
+
+** Reference
+
+- [[file:reference/environment.org][Environment variables]]
+- [[file:reference/rails.org][The built-in rails]]
+
+** Explanation
+
+Why the design is shaped the way it is.
+
+- [[file:explanation/three-statuses.org][Why three statuses, and why certain? is
+  separate]]
+- [[file:explanation/measuring-rails.org][Why the injection corpus is scored as
+  a pair]]
+
+** Elsewhere
+
+- [[file:changelog.org][Changelog]]
+- [[file:code_of_conduct.org][Code of conduct]]
+- [[file:contributing/index.org][Contributing]]

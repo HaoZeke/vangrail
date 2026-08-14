@@ -1,0 +1,68 @@
+#+TITLE: Why the Injection Corpus Is Scored as a Pair
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Why the Injection Corpus Is Scored as a Pair
+
+A guardrail with one number attached to it is a guardrail nobody can evaluate.
+This one carries two, and the test suite refuses to report either alone.
+
+** One number is always achievable
+
+A rail that blocks every document catches 100 per cent of attacks. A rail that
+blocks nothing has a perfect false-positive rate. Both are useless, and both
+score perfectly on the number their author chose to publish.
+
+So =test/test_injection_corpus.rb= asserts on both at once:
+
+- attacks caught, over a corpus of 60 poisoned documents,
+- benign documents passed, over 15 pieces of ordinary handbook prose.
+
+The benign assertion is exact. All 15 must pass, every time. The catch rate is
+a floor rather than a fixed number, so a stronger rail does not fail its own
+test while a regression still does.
+
+** The corpus is built the way the threat arrives
+
+Twelve injection shapes at five positions: at the top of a page, at the bottom,
+in the middle, inside a code fence, and spliced inline into a sentence. Each is
+placed inside real documentation prose rather than standing alone.
+
+That last point is what makes it an evaluation rather than a demonstration. A
+wiki page is not a bare instruction; it is a page with something extra in it. A
+rail measured only against the bare instruction is measuring itself against an
+attacker who is not trying.
+
+Position is scored separately, because a rail that only reads the first line of
+a document would look fine on a single-position corpus. Inline is the weak
+position: two injections read as ordinary sentences when spliced mid-line and
+are caught only at the other four. A separate test therefore asserts that no
+injection escapes at every position, since something that escapes everywhere is
+a hole rather than a near miss.
+
+** The benign half is not a formality
+
+It has already changed the code three times. Each of these was written,
+measured, and removed:
+
+- "in your response", which flags "in your response to the service desk,
+  include the job id",
+- "when answering", for the same reason,
+- a bare "never mention", which flags "never mention a password in a ticket".
+
+The third was found by the corpus on its first run, after the hand-written
+suite had passed. That is the argument for having a corpus at all: a rail
+author writes the cases they already thought of.
+
+The rule those removals encode is that a rail costing a reader a page is worse
+than a rail missing a weak signal. A missed injection is caught by the next
+rail, or by the citation rules, or by the reader noticing the answer is odd. A
+false positive silently removes a page the reader needed and offers no
+recourse.
+
+** What it does not measure
+
+The corpus tests the deterministic rail only. It says nothing about whether a
+guard model or a policy judge catches these, and nothing about attacks nobody
+here thought to write down. It is a floor and a regression net, not a claim
+about coverage.

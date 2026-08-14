@@ -1,0 +1,101 @@
+#+TITLE: The Built-In Rails
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* The Built-In Rails
+
+| Rail                        | Sides         | Network | Statuses                   |
+|-----------------------------+---------------+---------+----------------------------|
+| =Rails::Pattern=            | either        | no      | passed, blocked            |
+| =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
+| =Rails::Secrets=            | output        | no      | passed, modified           |
+| =Rails::GuardModel=         | either        | yes     | passed, blocked            |
+| =Rails::SelfCheck=          | either        | yes     | passed, blocked            |
+| =Rails::Grounding=          | output        | yes     | passed, blocked            |
+| =Rails::ColangFlow=         | either        | depends | passed, modified, blocked  |
+| =Rails::Remote=             | either        | yes     | passed, modified, blocked  |
+| =Rails::Missing=            | either        | no      | passed, never certain      |
+
+Every rail can also return =passed= with =certain?= false when it could not
+reach a decision.
+
+** Rails::Pattern
+
+Blocks text matching any of a set of patterns. Takes a hash of label to
+=Regexp= (or string, which is escaped), an array, or a single pattern. The
+matched label becomes the result's category.
+
+Memoizable on the text alone.
+
+** Rails::InjectedInstructions
+
+Reads a retrieved document for instructions aimed at the model rather than at
+the reader. Context side only, deterministic, offline, and on by default.
+
+Categories:
+
+| Category            | What it matches                                          |
+|---------------------+----------------------------------------------------------|
+| =role_header=       | a chat role header mid-document                          |
+| =override_above=    | an override aimed at what came before it in the prompt   |
+| =role_assignment=   | a document telling the assistant what it now is          |
+| =answer_shaping=    | concealment tied to the user or to the act of answering  |
+| =exfiltration=      | a request for the prompt, a key, or the conversation     |
+| =hidden_directive=  | an instruction inside an HTML comment                    |
+
+Deterministic on purpose: the text is written by whoever wants it believed, so
+a model asked to judge it is reading an argument composed to persuade it.
+
+** Rails::Secrets
+
+Redacts credentials and returns =modified=. Output side by default. Recognises
+private key blocks, provider key prefixes, tokens, JWTs, bearer headers, and
+inline password assignments. An inline assignment keeps its key name and loses
+its value, so the reader still learns which setting was being discussed.
+
+** Rails::GuardModel
+
+A safety classifier over an OpenAI-compatible endpoint. Presets:
+
+| Preset          | Response shape                                            |
+|-----------------+-----------------------------------------------------------|
+| =:llama_guard=  | =safe= or =unsafe=, then =S1,S10=                         |
+| =:apriel_guard= | =safe= or =unsafe-O14,O12=, then adversarial or not       |
+
+The second returns two independent judgements, and either blocks: a jailbreak
+with no hazard category is still a jailbreak. =reasoning: true= sends a
+chat-template switch that asks for a written assessment first, which costs
+roughly 10 s against 0.8 s.
+
+Requires a provider whose =model(:guard)= is set. Where none exists, use
+=Rails::SelfCheck= instead: same job, different means.
+
+** Rails::SelfCheck
+
+Puts a written policy in the system message and the text in the user message.
+Any instruct model can serve. This is what a NeMo =self check input= or =self
+check output= flow resolves to. Reads a JSON verdict, a bare 0 or 1, or Yes/No.
+
+** Rails::Grounding
+
+Asks whether an answer says only what its passages support. Output side, never
+memoized, and it returns =passed= with =certain?= false when no passages were
+supplied. Categories G1 to G4 cover an unsupported fact, an invented
+identifier, a wrong number, and a miscitation.
+
+** Rails::ColangFlow
+
+Runs a named flow from a parsed Colang program. Not memoized, because a flow
+can call any registered action and this class cannot know what those read.
+
+** Rails::Remote
+
+Wraps =Client= as a rail, so a NeMo Guardrails server sits in the same ordered
+list as the local rails. Useful for comparing the two on live traffic.
+
+** Rails::Missing
+
+A placeholder for a rail that was configured and could not be built. Always
+returns =passed= with =certain?= false and a reason naming what is absent. It
+exists so an engine holding only its offline rails cannot report a clean,
+certain pass.

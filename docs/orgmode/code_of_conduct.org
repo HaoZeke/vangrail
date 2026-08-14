@@ -1,0 +1,8 @@
+#+TITLE: Code of Conduct
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+
+* Code of Conduct
+
+This project follows the Contributor Covenant 2.1. The text lives at the
+repository root in [[file:../../CODE_OF_CONDUCT.md][CODE_OF_CONDUCT.md]], and
+reports go to rohit.goswami@surf.nl.

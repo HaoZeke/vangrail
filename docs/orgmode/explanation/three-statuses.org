@@ -1,0 +1,72 @@
+#+TITLE: Why Three Statuses, and Why certain? Is Separate
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Why Three Statuses, and Why certain? Is Separate
+
+Most guardrail interfaces answer a yes-or-no question: is this allowed. This
+one answers two questions, and the second is the reason the first can be
+trusted.
+
+** Passed, modified, blocked
+
+A rail returns one of three statuses. The middle one is the one people leave
+out, and it is the one that pays for itself.
+
+Consider an answer that explains a configuration file and quotes a live API key
+while doing it. It is useful text with one bad span in it. Blocking throws away
+help the reader asked for; passing leaks a credential. Neither is right, and a
+two-state interface forces you to pick one of them.
+
+=Rails::Secrets= returns =modified= with the span replaced. The reader keeps
+the answer and the key does not travel. The caller can also see from the status
+that what it is about to show was edited rather than accepted as written.
+
+The engine threads a rewrite through the rails that follow it. A redaction rail
+running before a policy rail means the policy rail judges the redacted text,
+which is the text that will actually be shown. Judging the original would be
+judging something nobody sees.
+
+** certain? is not a status
+
+=certain?= answers a different question: did a rail actually reach this
+decision.
+
+Without that split there is no way to tell these two situations apart:
+
+- a guard model read the text and cleared it,
+- no guard model ran, because the endpoint was down.
+
+Both produce =passed=. An application that treats them as the same thing has a
+guardrail on paper. A status page built on the boolean reports a safety posture
+the server is not maintaining, and nobody finds out until an incident.
+
+So a rail that is off, not enabled, unreachable, or unable to parse what came
+back returns =passed= with =certain?= false. The reason says which of those
+happened.
+
+** What follows from the split
+
+The failure posture becomes a choice rather than an accident. =on_error:
+:allow= keeps the desk answering when a rail breaks, and every result it
+produces says it was not fully checked. =on_error: :block= stops instead. Both
+are defensible; what is not defensible is failing open in silence, which is
+what a two-state interface does by default.
+
+Placeholders become possible. When a configuration asks for a model-backed rail
+and the endpoint is unavailable, the engine keeps a =Rails::Missing= in the
+list rather than dropping it. Without that, an engine holding only its offline
+rails would report a clean, certain pass, and the check the operator configured
+would have vanished without a word.
+
+The memo becomes safe. An uncertain result is never cached. Caching one would
+turn a single unlucky moment, a timeout during a deploy, into a session-long
+hole where every repeat of that text reads as checked.
+
+** The cost
+
+Two fields where most libraries have one, and a caller that ignores =certain?=
+still gets sensible behaviour, since an unchecked result is allowed. The cost
+lands on the code that reports a posture: it has to read both. That is the
+right place for it to land, because that is the code making a claim about
+safety to somebody else.

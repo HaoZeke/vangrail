@@ -1,0 +1,125 @@
+#+TITLE: Write Your Own Rail
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Write Your Own Rail
+
+A rail is an object with one method. Nothing built into this library is
+privileged over one you write this afternoon, and the built-in rails are
+written against the same protocol you are about to use.
+
+** The smallest useful rail
+
+#+begin_src ruby
+class TicketRail < Vangrail::Rail
+  def offline? = true
+
+  def call(text, _context)
+    return pass if text.match?(/EINF-\d+/)
+
+    block(reason: 'no ticket id')
+  end
+end
+#+end_src
+
+=pass=, =block=, =modify=, and =unchecked= are protected helpers on =Rail=;
+each builds a =Result= with this rail's name already filled in.
+
+** Say which sides it applies to
+
+Sides are =:input=, =:context=, and =:output=. A rail declares its own, and the
+engine skips it on any other side.
+
+#+begin_src ruby
+TicketRail.new(sides: [:input])
+#+end_src
+
+The default is input and output. Context is opt-in, because a rail written to
+judge a question is rarely the right one to judge a document.
+
+** Read the context hash
+
+The second argument carries what the engine knows about the turn.
+
+| Key           | Present on          | What it holds                        |
+|---------------+---------------------+--------------------------------------|
+| =:side=       | always              | =:input=, =:context=, or =:output=   |
+| =:user_input= | output              | the question the answer replies to   |
+| =:passages=   | output              | the retrieved set, when supplied     |
+| =:document=   | context, via screen | the document as the caller passed it  |
+| =:index=      | context, via screen | its position in the set              |
+
+Anything else a caller passes to =check_input=, =check_output=, or =screen=
+arrives here untouched, which is how an application threads its own state
+through to its own rails.
+
+** Rewrite instead of refusing
+
+Returning =modify= replaces the text for every rail after yours, and the engine
+reports the turn as modified unless something later blocks it.
+
+#+begin_src ruby
+class NoTrailingWhitespace < Vangrail::Rail
+  def offline? = true
+
+  def call(text, _context)
+    cleaned = text.gsub(/[ \t]+$/, '')
+    return pass if cleaned == text
+
+    modify(cleaned, reason: 'trimmed trailing whitespace')
+  end
+end
+#+end_src
+
+** Let the engine memoize you, or refuse to be memoized
+
+Implement =cache_key= to say what your decision depends on. Return nil when it
+depends on something the key cannot capture.
+
+#+begin_src ruby
+def cache_key(text, context)
+  context[:side] == :input ? text : "#{context[:user_input]} #{text}"
+end
+#+end_src
+
+A rail reading =:passages= should return nil, because a changed retrieval is a
+different question with the same text.
+
+** Say when you did not decide
+
+A rail that cannot reach a decision must not look like one that cleared the
+text.
+
+#+begin_src ruby
+def call(text, _context)
+  return unchecked('scorer unavailable') unless scorer.up?
+
+  scorer.score(text) > 0.9 ? block(reason: 'scored high') : pass
+end
+#+end_src
+
+=unchecked= allows the turn and sets =certain?= to false, which is what a
+status page needs to distinguish "checked and clean" from "not checked".
+
+** Raising is allowed
+
+A rail that raises a =Vangrail::Error= is handled by the engine according to
+its =on_error= setting: =:allow= keeps going and marks the pass uncertain,
+=:block= stops the turn. Either way the reason travels with the result, so
+raising is a reasonable thing to do when something is genuinely broken.
+
+Any other exception class propagates, because a =NoMethodError= in a rail is a
+bug rather than a policy decision.
+
+** Put it in an engine
+
+#+begin_src ruby
+engine = Vangrail::Engine.new(
+  input: [TicketRail.new(sides: [:input])],
+  output: [NoTrailingWhitespace.new(sides: [:output])]
+)
+#+end_src
+
+Order is the policy. The first block ends the pass, so put the cheap
+deterministic rails first: they cost microseconds and they still work when the
+endpoint does not.
