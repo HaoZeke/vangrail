@@ -48,16 +48,23 @@ module NemoGuardrails
 
     PRESETS = %i[llama_guard apriel_guard policy].freeze
 
-    attr_reader :model, :preset, :http, :max_tokens, :temperature
+    # Chat-template switch that turns AprielGuard's reasoning output on. The
+    # gateway forwards these to the serving engine's template, so a rationale
+    # costs nothing but tokens and latency.
+    REASONING_KWARGS = { 'chat_template_kwargs' => { 'reasoning_mode' => 'on' } }.freeze
+    REASONING_MAX_TOKENS = 900
+
+    attr_reader :model, :preset, :http, :max_tokens, :temperature, :reasoning
 
     def initialize(model: nil, preset: nil, base_url: nil, api_key: nil, http: nil,
-                   max_tokens: 128, temperature: 0,
+                   max_tokens: nil, temperature: 0, reasoning: false,
                    open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT, read_timeout: 20)
       @model = model || Willma.guard_model
       @preset = (preset || Willma.preset_for(@model)).to_sym
       raise ArgumentError, "preset must be one of #{PRESETS.join(', ')}" unless PRESETS.include?(@preset)
 
-      @max_tokens = max_tokens
+      @reasoning = reasoning && @preset == :apriel_guard
+      @max_tokens = max_tokens || (@reasoning ? REASONING_MAX_TOKENS : 128)
       @temperature = temperature
       @http = http || HTTP.new(
         base_url: base_url || Willma.base_url,
@@ -167,6 +174,7 @@ module NemoGuardrails
         'max_tokens' => max_tokens || @max_tokens,
         'stream' => false
       }
+      payload = payload.merge(REASONING_KWARGS) if reasoning && model.nil?
       t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       body = http.post_json(COMPLETIONS_PATH, payload)
       [body, ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0) * 1000).round]
@@ -198,7 +206,12 @@ module NemoGuardrails
 
     # "safe\nnon_adversarial" or "unsafe-O14,O12\nadversarial". Either line can
     # condemn the turn: a jailbreak attempt with no hazard category is still one.
+    # With reasoning on, the same two verdicts arrive as labelled fields after
+    # their assessments, so that form is tried first.
     def parse_apriel(text)
+      reasoned = parse_apriel_reasoned(text)
+      return reasoned if reasoned
+
       lines = text.to_s.strip.lines.map(&:strip).reject(&:empty?)
       safety = lines.find { |l| l.match?(/\A(safe|unsafe)/i) }
       adversarial = lines.find { |l| l.match?(/\A(non_adversarial|adversarial)/i) }
@@ -212,6 +225,45 @@ module NemoGuardrails
 
       reason = unsafe ? describe(codes - ['adversarial'], {}, 'unsafe') : 'adversarial input'
       { decided: true, allowed: false, categories: codes, reason: reason }
+    end
+
+    # Reasoning mode:
+    #
+    #   safety_risks_assessment_reasoning: ## Step 1 ...
+    #   safety_risks_class: unsafe,
+    #   safety_risks_categories: ['O15'],
+    #   adversarial_attacks_assessment_reasoning: ## Step 1 ...
+    #   adversarial_attacks_class: adversarial
+    #
+    # Returns nil when the text is not in this form, so the caller can try the
+    # two-line one.
+    def parse_apriel_reasoned(text)
+      body = text.to_s
+      return nil unless body.include?('safety_risks_class')
+
+      fields = {}
+      body.each_line do |line|
+        m = line.chomp.match(/\A(safety_risks_class|safety_risks_categories|adversarial_attacks_class)\s*:\s*(.*)\z/)
+        fields[m[1]] = m[2].strip.sub(/,\z/, '') if m
+      end
+      unsafe = fields['safety_risks_class'].to_s.match?(/unsafe/i)
+      attack = fields['adversarial_attacks_class'].to_s.match?(/\Aadversarial/i)
+      return { decided: true, allowed: true, categories: [], reason: nil } unless unsafe || attack
+
+      codes = extract_codes(fields['safety_risks_categories'], /O\d{1,2}/i)
+      codes += ['adversarial'] if attack
+      block = unsafe ? 'safety_risks' : 'adversarial_attacks'
+      { decided: true, allowed: false, categories: codes, reason: rationale(body, block) }
+    end
+
+    # Last step of an assessment block, which is where the model states its
+    # conclusion rather than restating the input.
+    def rationale(body, block)
+      section = body[/#{block}_assessment_reasoning:(.*?)(?=^[a-z_]+:)/m, 1]
+      return nil unless section
+
+      steps = section.split(/^##\s*Step\s*\d+\s*$/m).map(&:strip).reject(&:empty?)
+      (steps.last || section).gsub(/\s+/, ' ').strip[0, 240]
     end
 
     # JSON verdict first, then a bare 0/1, then Yes/No.

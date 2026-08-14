@@ -68,13 +68,18 @@ module NemoGuardrails
       guard = GuardModel.new(
         model: present(env['GUARDRAILS_MODEL']),
         base_url: present(env['GUARDRAILS_API_BASE']) || Willma.base_url,
-        api_key: api_key
+        api_key: api_key,
+        reasoning: truthy?(env['GUARDRAILS_REASONING'])
       )
       new(backend: guard, mode: :guard_model, **common)
     end
 
     def self.off?(value)
       %w[0 off false no].include?(value.to_s.strip.downcase)
+    end
+
+    def self.truthy?(value)
+      %w[1 on true yes].include?(value.to_s.strip.downcase)
     end
 
     def self.parse_rails(value)
@@ -124,9 +129,13 @@ module NemoGuardrails
 
       where = case mode
               when :server then "server #{backend.base_url}#{backend.config_id ? " config=#{backend.config_id}" : ''}"
-              else "model #{backend.model}"
+              else "model #{backend.model}#{reasoning? ? ' reasoning' : ''}"
               end
       "#{where} rails=#{enabled.join(',')} on_error=#{on_error}"
+    end
+
+    def reasoning?
+      backend.respond_to?(:reasoning) && backend.reasoning == true
     end
 
     def to_h
@@ -135,6 +144,7 @@ module NemoGuardrails
         'rails' => enabled.map(&:to_s),
         'on_error' => on_error.to_s,
         'model' => (backend.respond_to?(:model) ? backend.model : nil),
+        'reasoning' => (reasoning? || nil),
         'server' => (mode == :server ? backend.base_url : nil),
         'config_id' => (mode == :server ? backend.config_id : nil)
       }.compact

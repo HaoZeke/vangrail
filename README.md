@@ -132,6 +132,7 @@ environment.
 | `GUARDRAILS_SERVER_API_KEY` | Bearer token for the server, when it has one |
 | `GUARDRAILS_MODEL` | Guard model for the direct path |
 | `GUARDRAILS_JUDGE_MODEL` | Instruct model for the grounding rail |
+| `GUARDRAILS_REASONING` | `1` asks AprielGuard for a written rationale (slow) |
 | `GUARDRAILS_API_BASE` | OpenAI-compatible base for the direct path |
 | `GUARDRAILS_API_KEY` | Key for that endpoint; falls back to the hub token |
 | `GUARDRAILS_RAILS` | `input,output,grounding`, `all`, or `none` |
@@ -152,6 +153,13 @@ environment.
 AprielGuard returns two independent judgements. A jailbreak with no hazard
 category still blocks: the adversarial line is a verdict, not a detail of the
 safety line.
+
+`reasoning: true` (or `GUARDRAILS_REASONING=1`) sends AprielGuard's
+`reasoning_mode` chat-template switch, and the two verdicts come back as
+labelled fields after a written assessment, which the client parses into
+`Verdict#reason`. Measured on the hub it costs about 10 s per check against
+0.8 s without, so it belongs in an investigation, not a request path. The
+switch is only sent for that preset, and never on a policy-judge call.
 
 ### Failure posture
 
