@@ -166,7 +166,11 @@ check that did not happen.
 rake test          # or: ruby test/test_guard_model.rb
 ```
 
-Stdlib minitest against a recorded HTTP double. No network, no server, no keys.
+81 tests, stdlib minitest. Payload shape and response parsing run against a
+recorded HTTP double; transport, status handling, the nested-to-flat protocol
+fallback, and a genuinely refused connection run against a loopback server the
+suite starts itself. No outbound network, no keys, and nothing outside the
+standard library, which is the promise the gem itself makes.
 
 ## Reading
 
