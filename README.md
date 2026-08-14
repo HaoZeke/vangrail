@@ -166,21 +166,30 @@ Stdlib minitest against a recorded HTTP double. No network, no server, no keys.
 The design choices here follow the published record; the notes entry beside this
 gem carries the full annotated bibliography.
 
-- Rebedea et al., *NeMo Guardrails: A Toolkit for Controllable and Safe LLM
-  Applications with Programmable Rails*, EMNLP 2023 demo.
-  [10.18653/v1/2023.emnlp-demo.40](https://doi.org/10.18653/v1/2023.emnlp-demo.40)
+- Rebedea, Dinu, Sreedhar, Parisien, Cohen, *NeMo Guardrails: A Toolkit for
+  Controllable and Safe LLM Applications with Programmable Rails*, EMNLP 2023
+  demo. [10.18653/v1/2023.emnlp-demo.40](https://doi.org/10.18653/v1/2023.emnlp-demo.40)
+  — the two-sided input/output rail split this gem mirrors.
 - Inan et al., *Llama Guard: LLM-based Input-Output Safeguard for Human-AI
   Conversations*. [10.48550/arXiv.2312.06674](https://doi.org/10.48550/arXiv.2312.06674)
-- Greshake et al., *Not What You've Signed Up For: Compromising Real-World
-  LLM-Integrated Applications with Indirect Prompt Injection*, AISec 2023.
-  [10.1145/3605764.3623985](https://doi.org/10.1145/3605764.3623985)
+  — where the `safe` / `unsafe` plus S-code response shape comes from.
+- Greshake, Abdelnabi, Mishra, Endres, Holz, Fritz, *Not What You've Signed Up
+  For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt
+  Injection*, AISec 2023. [10.1145/3605764.3623985](https://doi.org/10.1145/3605764.3623985)
+  — why retrieved passages are untrusted input, not context.
 - Dong et al., *Building Guardrails for Large Language Models*.
   [10.48550/arXiv.2402.01822](https://doi.org/10.48550/arXiv.2402.01822)
-- Gao et al., *Enabling Large Language Models to Generate Text with Citations*,
-  EMNLP 2023. [10.18653/v1/2023.emnlp-main.398](https://doi.org/10.18653/v1/2023.emnlp-main.398)
-- *RAGTruth: A Hallucination Corpus for Developing Trustworthy
+- Pantha, Ramasubramanian, Gurung, Maskey, Ramachandran, *Challenges in
+  Guardrailing Large Language Models for Science*.
+  [10.48550/arXiv.2411.08181](https://doi.org/10.48550/arXiv.2411.08181)
+  — why a technical-documentation policy has to enumerate the safe cases.
+- Gao, Yen, Yu, Chen, *Enabling Large Language Models to Generate Text with
+  Citations*, EMNLP 2023.
+  [10.18653/v1/2023.emnlp-main.398](https://doi.org/10.18653/v1/2023.emnlp-main.398)
+- Niu et al., *RAGTruth: A Hallucination Corpus for Developing Trustworthy
   Retrieval-Augmented Language Models*, ACL 2024.
   [10.18653/v1/2024.acl-long.585](https://doi.org/10.18653/v1/2024.acl-long.585)
+  — the failure the grounding rail targets, measured.
 
 ## License
 
