@@ -72,6 +72,12 @@ v.categories  # => ["G2"]   invented identifier
 The grounding rail is off by default, because it sends the passages plus the
 draft on every answer. Turn it on with `GUARDRAILS_RAILS=input,output,grounding`.
 
+It also needs a different model. A safety classifier answers with its own label
+tokens whatever it is asked, so a policy prompt sent to one comes back empty;
+`Rails` routes grounding to an instruct-model judge on the same endpoint and
+credentials. `GUARDRAILS_JUDGE_MODEL` picks it, defaulting to
+`mistralai/Mistral-Small-3.2-24B-Instruct-2506`, which is always on the hub.
+
 ## Talking to a NeMo Guardrails server
 
 ```ruby
@@ -125,6 +131,7 @@ environment.
 | `GUARDRAILS_CONFIG_ID` | Which server config to run |
 | `GUARDRAILS_SERVER_API_KEY` | Bearer token for the server, when it has one |
 | `GUARDRAILS_MODEL` | Guard model for the direct path |
+| `GUARDRAILS_JUDGE_MODEL` | Instruct model for the grounding rail |
 | `GUARDRAILS_API_BASE` | OpenAI-compatible base for the direct path |
 | `GUARDRAILS_API_KEY` | Key for that endpoint; falls back to the hub token |
 | `GUARDRAILS_RAILS` | `input,output,grounding`, `all`, or `none` |
