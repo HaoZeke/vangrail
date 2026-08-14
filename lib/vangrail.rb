@@ -84,8 +84,8 @@ module Vangrail
   # Reads the environment into an engine. A class rather than a method so each
   # decision is separable and testable on its own.
   class Builder
-    DEFAULT_RAILS = %i[input output].freeze
-    ALL_RAILS = %i[input output grounding secrets patterns].freeze
+    DEFAULT_RAILS = %i[input context output].freeze
+    ALL_RAILS = %i[input context output grounding secrets patterns].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -108,7 +108,8 @@ module Vangrail
       return Engine.new(on_error: on_error, cache: cache?) if off?
       return config_engine if config_dir
 
-      Engine.new(input: input_rails, output: output_rails, on_error: on_error, cache: cache?)
+      Engine.new(input: input_rails, context: context_rails, output: output_rails,
+                 on_error: on_error, cache: cache?)
     end
 
     def enabled
@@ -168,7 +169,16 @@ module Vangrail
       rails.compact
     end
 
-    def output_rails
+# Deterministic, offline, and free, so it is on by default. The document a
+# retrieval step just fetched is the side an attacker can usually reach
+# without touching the application, and nothing else in this engine reads it.
+def context_rails
+  return [] unless on?(:context)
+
+  [Rails::InjectedInstructions.new]
+end
+
+def output_rails
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
       rails << judged(:output) if on?(:output)
