@@ -35,6 +35,16 @@ class TestSession < Minitest::Test
     Vangrail::Session.new(engine: engine, prior: PRIOR, **kwargs)
   end
 
+  def test_the_builder_hands_out_a_session_against_the_same_engine
+    built = Vangrail::Builder.new('GUARDRAILS_RAILS' => 'context').session(prior: PRIOR)
+    from_env = Vangrail.session_from_env(prior: PRIOR, env: { 'GUARDRAILS_RAILS' => 'context' })
+
+    assert_instance_of Vangrail::Session, built
+    assert_instance_of Vangrail::Session, from_env
+    assert_in_delta PRIOR, built.prior, 1e-12
+    assert_equal engine.rail_names(:context), built.engine.rail_names(:context)
+  end
+
   def observe_all(session, texts)
     texts.map { |text| session.observe(text, side: :context) }
   end

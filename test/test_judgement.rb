@@ -3,6 +3,7 @@
 require_relative 'helper'
 require_relative 'test_paraphrase'
 require_relative 'test_multilingual'
+require_relative 'test_language'
 
 # Engine#assess: the same rails, read as evidence instead of as a switch.
 class TestJudgement < Minitest::Test
@@ -74,6 +75,24 @@ class TestJudgement < Minitest::Test
     assert_includes names, 'injected_instructions'
     assert_includes names, 'similarity'
     assert_operator names.size, :>=, 4
+  end
+
+  # Language is posture, not evidence. A German page that no lexicon rail
+  # can read must not look like a clean page whose silence pushed the
+  # posterior down.
+  def test_an_unread_language_is_uncertain_and_not_innocent
+    judgement = assess(TestLanguage::GERMAN, prior: 1e-2)
+
+    refute_predicate judgement, :certain?
+    assert_in_delta judgement.prior, judgement.posterior, 1e-6
+    assert_empty judgement.fired
+  end
+
+  def test_a_clean_english_page_is_still_certain_after_the_language_rail
+    judgement = assess(CLEAN)
+
+    assert_predicate judgement, :certain?
+    assert_operator judgement.posterior, :<, judgement.prior
   end
 
   # A rail that could not decide contributes no term and is reported.

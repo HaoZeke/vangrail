@@ -36,15 +36,26 @@ module Vangrail
         true
       end
 
+      def posture?
+        true
+      end
+
       def cache_key(text, _context)
         "#{supported.join('+')}\n#{text}"
       end
 
       def call(text, _context)
-        return pass if NLP.words(text).size < floor
+        tokens = NLP.words(text)
+        return pass if tokens.size < floor
 
         found = NLP.language(text)
         return pass if supported.include?(found)
+
+        # A twelve-word handbook sentence often has too few function words
+        # for the detector to name it, and that is not evidence it is
+        # German. Only a page long enough to have been identified, and
+        # that still was not, is unread.
+        return pass if tokens.size < (floor * 2)
 
         unchecked("text is not in a language this engine reads (#{supported.join(', ')}); " \
                   'the deterministic rails do not apply to it')

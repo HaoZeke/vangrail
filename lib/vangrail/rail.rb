@@ -61,6 +61,20 @@ module Vangrail
       false
     end
 
+    # True when this rail's job is to say whether the other rails apply, not
+    # to contribute a hit. Language is the case: it never blocks, and a miss
+    # means the lexicon rails did not read the page.
+    def posture?
+      false
+    end
+
+    # True when a hit or a silence is meaningful even if the page is not in a
+    # language the lexicons cover. Markup, budgets, and secrets do not care
+    # what language the words are in. Pattern and concept rails do.
+    def language_agnostic?
+      false
+    end
+
     def to_s
       name
     end

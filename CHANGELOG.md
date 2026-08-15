@@ -75,7 +75,18 @@ below `Unreleased` is written by hand until it is released.
 
 Nothing has been released yet. This section describes what exists.
 
+### Fixed
+
+- `Engine#assess` no longer treats an unread language as a clean page.
+  When `Rails::Language` reports that the text is outside the lexicons,
+  silence from the word rails is abstention rather than innocence, and
+  the posterior stays at the prior.
+
 ### Added
+
+- `Builder#session` and `Vangrail.session_from_env`, so a deployment
+  that already builds from the environment can carry a posterior across
+  turns without constructing the engine twice.
 
 - `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
   a suffix stripper, a concept lexicon with negation and multiword phrases,

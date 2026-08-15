@@ -177,6 +177,15 @@ A clean page ends below its prior, because every rail that could have fired and
 did not said something. Under an OR gate a clean page is indistinguishable from
 a page nothing was run against.
 
+*** An unread language is abstention
+
+=Rails::Language= is posture, not a detector. It never blocks, and it
+never contributes a term. When it reports that the page is outside the
+lexicons, the word rails did not read the page, so their silence is not
+recorded. The posterior stays at the prior and the judgement is
+uncertain. Treating that silence as evidence of a clean page would be
+the same error as treating a down endpoint as a pass.
+
 *** Abstention is not innocence
 
 A rail that was off, unreachable, or undecided contributes no term at all: a

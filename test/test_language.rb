@@ -67,6 +67,16 @@ class TestLanguage < Minitest::Test
     assert_predicate result, :certain?
   end
 
+  # Twelve tokens is the detector's floor, and a handbook sentence that
+  # sits there often has too few function words to be named. That is not
+  # a page in German.
+  def test_a_short_handbook_sentence_is_not_called_foreign
+    result = check('Your home quota is 200 GB; project space is allocated per grant.')
+
+    assert_predicate result, :passed?
+    assert_predicate result, :certain?
+  end
+
   def test_the_supported_set_is_what_decides
     dutch_only = Vangrail::Rails::Language.new(supported: [:nl])
     english = TestParaphrase::BENIGN.join(' ')
@@ -87,6 +97,7 @@ class TestLanguage < Minitest::Test
 
   def test_it_is_offline_and_memoizable
     assert_predicate rail, :offline?
+    assert_predicate rail, :posture?
     assert_equal "en+nl\ntext", rail.cache_key('text', {})
   end
 

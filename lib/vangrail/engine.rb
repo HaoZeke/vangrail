@@ -257,26 +257,44 @@ module Vangrail
       skipped = []
 
       queue = rails(side).select do |rail|
+        next false unless rail.applies_to?(side)
+        next true if rail.posture?
         next true if rail.respond_to?(:quantifies?) && rail.quantifies?
 
-        rail.applies_to?(side) && evidence[rail.name]&.measured?
+        evidence[rail.name]&.measured?
       end
-      queue = queue.select { |rail| rail.applies_to?(side) }
-      # Cheap first when escalating, so the rails that cost a round trip are
-      # the ones an early stop can save.
-      queue = queue.partition(&:offline?).flatten if escalation
+      # Posture first, so a page nothing can read is known before silence is
+      # recorded. Cheap first after that when escalating, so a round trip is
+      # what an early stop can save.
+      posture, rest = queue.partition(&:posture?)
+      rest = rest.partition(&:offline?).flatten if escalation
+      queue = posture + rest
+      readable = true
 
       queue.each_with_index do |rail, index|
-        if escalation && settled?(observations, queue[index..], evidence, escalation)
+        if escalation && !rail.posture? && settled?(observations, queue[index..], evidence, escalation)
           skipped = queue[index..].map(&:name)
           break
         end
 
         result = invoke(rail, body, ctx)
+        if rail.posture?
+          unless result.certain?
+            certain = false
+            readable = false
+          end
+          next
+        end
+
         unless result.certain?
           certain = false
           next
         end
+
+        # A hit still counts: a hidden English injection inside a German
+        # page is a hit. Silence does not. A rail that cannot read this
+        # language and did not fire has not said the page is clean.
+        next unless readable || rail.language_agnostic? || result.blocked?
 
         # A rail that computed a likelihood ratio reports it in `raw`, and is
         # read that way rather than being flattened to whether it blocked.
