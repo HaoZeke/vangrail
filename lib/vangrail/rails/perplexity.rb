@@ -89,10 +89,11 @@ module Vangrail
         return nil if logprobs.size < @floor
 
         size = [window, logprobs.size].min
-        (0..(logprobs.size - size)).map do |start|
+        means = (0..(logprobs.size - size)).map do |start|
           slice = logprobs[start, size]
           -slice.sum / slice.size
-        end.max
+        end
+        means.max
       end
     end
   end
