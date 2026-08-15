@@ -113,7 +113,7 @@ Two objects close those, and both are opt-in:
 
 ```ruby
 guard = Vangrail::StreamGuard.new(engine, user_input: question)
-stream.each { |chunk| break if guard.push(chunk)&.blocked?; emit(chunk) }
+stream.each { |chunk| break if guard.push(chunk)&.blocked?; emit(guard.take) }
 guard.finish
 
 convo = Vangrail::Conversation.new(engine)
