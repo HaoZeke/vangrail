@@ -8,6 +8,68 @@ All notable changes to this project are recorded here, in the format of
 below `Unreleased` is written by hand until it is released.
 
 - - -
+## v0.1.0 - 2026-08-15
+#### Features
+- (**ask**) guardrails on every turn, and an honest BYOK panel - (6b32345) - *HaoZeke*
+- (**builder**) context rails on by default - (cae4844) - *HaoZeke*
+- (**config**) run retrieval and context flows as context rails - (be2a7f8) - *HaoZeke*
+- (**guardrails**) memoize rail verdicts in process - (827e6af) - *HaoZeke*
+- (**guardrails**) rationales from AprielGuard, and a live smoke target - (3c2e54f) - *HaoZeke*
+- (**guardrails**) Ruby bindings for NeMo Guardrails - (0611bf8) - *HaoZeke*
+- (**stream**) hand out only unseen text after a mid-stream rewrite - (6354c4f) - *HaoZeke*
+- stream-time rails, conversation history, and encoded-injection decoding - (adeaf3e) - *HaoZeke*
+- take the confusables table from Unicode instead of from memory - (3e86db1) - *HaoZeke*
+- the safe prompt shape in one call - (53c4c33) - *HaoZeke*
+- detect an injection by whether it worked, and report that it does not - (35eb30e) - *HaoZeke*
+- strip what executes, refuse what only costs - (ebbae80) - *HaoZeke*
+- keep the reader's own details out of the request - (43cb8ef) - *HaoZeke*
+- read the parts of a page nobody looks at - (409a104) - *HaoZeke*
+- a fake conversation, and a marker that proves a leak - (2f85b4b) - *HaoZeke*
+- ask a model where the conversation is going - (bf1edef) - *HaoZeke*
+- make the new rails reachable from the environment - (a29cb2c) - *HaoZeke*
+- judge the sequence, not just the message - (3abbee3) - *HaoZeke*
+- read the text an attacker meant rather than the text they wrote - (b33933c) - *HaoZeke*
+- refuse the URLs an answer has no business emitting - (6414f8d) - *HaoZeke*
+- check the answer while it is still arriving - (a850752) - *HaoZeke*
+- rails for the retrieved document, not just the question and the answer - (d264329) - *HaoZeke*
+- a rails engine, not a REST client - (71e6acf) - *HaoZeke*
+#### Bug Fixes
+- (**guardrails**) route grounding to a judge model, not the classifier - (6d68349) - *HaoZeke*
+- (**stream**) hand out only text a rail has actually read - (4faaf0b) - *HaoZeke*
+- commit the two config files git was hiding - (2bc86ec) - *HaoZeke*
+- report the rail that ran, not the rail that was never built - (da2b3ef) - *HaoZeke*
+- an empty dialogue is an answer, not a missing one - (9bf432d) - *HaoZeke*
+- a base64 blob ending in + lost its last character - (6aa1207) - *HaoZeke*
+#### Performance
+- (**ask**) overlap the rails with the work they guard - (db9267a) - *HaoZeke*
+#### Documentation
+- (**guardrails**) document the grounding judge model and measured rail latency - (41ec631) - *HaoZeke*
+- (**readme**) emit StreamGuard#take rather than the raw chunk - (dc893c5) - *HaoZeke*
+- (**readme**) the third side, registered gateways, and the measured score - (77878d7) - *HaoZeke*
+- publish the YARD class reference on GitHub Pages - (d9841b5) - *HaoZeke*
+- map the rails onto the published categories, gaps included - (fc08a0e) - *HaoZeke*
+- write down what the new rails do and what they do not - (4cce4fb) - *HaoZeke*
+- a Diataxis tree, with the tutorial that needs no key - (167d8ba) - *HaoZeke*
+- changelog, code of conduct, ownership, and the release path - (3d482e3) - *HaoZeke*
+#### Tests
+- print the injection-corpus pair from the shipped rail - (babcaa2) - *HaoZeke*
+- the prompt shape does help, at a sample size that can tell - (93f472d) - *HaoZeke*
+- measure the prompt itself, and report that the result is inconclusive - (2172977) - *HaoZeke*
+- measure the trajectory judge against a live endpoint - (23ea2b8) - *HaoZeke*
+- measure the corpus again with the encodings applied - (11f10cb) - *HaoZeke*
+- an injection corpus, scored on both numbers at once - (4f9209d) - *HaoZeke*
+#### Refactoring
+- (**providers**) no institution's endpoint ships in the gem - (1da7dca) - *HaoZeke*
+- rename to vangrail - (c3ed8b2) - *HaoZeke*
+#### Miscellaneous
+- (**changelog**) add the cocogitto separator so the first bump can write - (31278b1) - *HaoZeke*
+- (**deps**) bump the dependencies group with 3 updates - (332a206) - dependabot[bot]
+- ignore generated YARD output and local agent state - (a568819) - *HaoZeke*
+- coverage, opt-in and guarded - (c862175) - *HaoZeke*
+- CI, lint, and a style settled once - (4486a5b) - *HaoZeke*
+
+- - -
+
 
 ## [Unreleased]
 
