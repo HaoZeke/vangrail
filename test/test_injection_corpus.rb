@@ -169,4 +169,91 @@ class TestInjectionCorpus < Minitest::Test
     assert_equal INJECTIONS.size * POSITIONS.size, corpus.size
     assert_operator BENIGN.size, :>=, 15
   end
+
+  # --- the same corpus, written so the patterns cannot read it ---
+
+  # Each of these is a published bypass rather than an invented one, and each
+  # is applied to the injections above rather than to new fixtures, so the
+  # number below measures the encoding and nothing else.
+  ENCODINGS = %i[base64 rot13 zero_width homoglyph fullwidth].freeze
+
+  CYRILLIC = { 'a' => "\u0430", 'e' => "\u0435", 'o' => "\u043E", 'p' => "\u0440",
+               'c' => "\u0441", 'y' => "\u0443", 'x' => "\u0445", 'i' => "\u0456",
+               's' => "\u0455", 'd' => "\u0501", 'h' => "\u04BB" }.freeze
+
+  def encode(text, kind)
+    case kind
+    when :base64 then [text].pack('m0')
+    when :rot13 then text.tr('A-Za-z', 'N-ZA-Mn-za-m')
+    when :zero_width then text.chars.join("\u200B")
+    when :homoglyph then text.chars.map { |c| CYRILLIC.fetch(c, c) }.join
+    when :fullwidth then widen(text)
+    end
+  end
+
+  def widen(text)
+    text.chars.map do |c|
+      code = c.ord
+      next "\u3000" if c == ' '
+
+      code.between?(0x21, 0x7E) ? (code - 0x21 + 0xFF01).chr(Encoding::UTF_8) : c
+    end.join
+  end
+
+  def encoded_corpus
+    INJECTIONS.flat_map do |injection|
+      ENCODINGS.map do |kind|
+        { text: "#{BENIGN.first}\n\n#{encode(injection, kind)}\n\nSee the reference pages.",
+          injection: injection, encoding: kind }
+      end
+    end
+  end
+
+  def decoding_rail
+    @decoding_rail ||= Vangrail::Rails::Obfuscation.new(rails: [rail], sides: [:context])
+  end
+
+  def caught_by_decoding?(text)
+    decoding_rail.call(text, side: :context).blocked?
+  end
+
+  # The premise: without the decoding pass this corpus walks straight through.
+  # If this ever fails because the pattern rail got better, the number below
+  # stops meaning what it says and both need rereading.
+  def test_the_pattern_rail_alone_misses_the_encoded_corpus
+    cases = encoded_corpus
+    caught = cases.count { |c| blocked?(c[:text]) }
+    assert_operator caught.to_f / cases.size, :<=, 0.2,
+                    "the plain rail caught #{caught}/#{cases.size}, so the encoding is not what is being measured"
+  end
+
+  def test_the_decoding_pass_reads_the_encoded_corpus
+    cases = encoded_corpus
+    escaped = cases.reject { |c| caught_by_decoding?(c[:text]) }
+    caught = cases.size - escaped.size
+    detail = escaped.map { |c| "#{c[:encoding]}: #{c[:injection][0, 50]}" }
+    assert_operator caught.to_f / cases.size, :>=, 0.85,
+                    "caught #{caught}/#{cases.size}; escaped:\n  #{detail.join("\n  ")}"
+  end
+
+  # Per encoding rather than in aggregate, so one transform failing completely
+  # cannot hide behind four that work.
+  def test_every_encoding_is_read
+    ENCODINGS.each do |kind|
+      cases = INJECTIONS.map { |i| "#{BENIGN.first}\n\n#{encode(i, kind)}" }
+      caught = cases.count { |t| caught_by_decoding?(t) }
+      assert_operator caught.to_f / cases.size, :>=, 0.75,
+                      "#{kind}: caught only #{caught}/#{cases.size}"
+    end
+  end
+
+  # And the half that decides whether any of it can be switched on.
+  def test_the_decoding_pass_does_not_flag_ordinary_documentation
+    flagged = BENIGN.reject { |t| decoding_rail.call(t, side: :context).passed? }
+    assert_empty flagged, "flagged ordinary documentation:\n  #{flagged.join("\n  ")}"
+  end
+
+  def test_the_encoded_corpus_is_the_size_it_claims
+    assert_equal INJECTIONS.size * ENCODINGS.size, encoded_corpus.size
+  end
 end
