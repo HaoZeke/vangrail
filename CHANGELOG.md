@@ -81,12 +81,21 @@ Nothing has been released yet. This section describes what exists.
   When `Rails::Language` reports that the text is outside the lexicons,
   silence from the word rails is abstention rather than innocence, and
   the posterior stays at the prior.
+- `Rails::Language` now sits on the input side as well as on context, so
+  a long question in an unread language no longer certain-passes
+  `check_input`.
 
 ### Added
 
 - `Builder#session` and `Vangrail.session_from_env`, so a deployment
   that already builds from the environment can carry a posterior across
   turns without constructing the engine twice.
+- `Config#engine(stdlib: true)` prepends the deterministic input and
+  context rails in front of the folder's flows, so a NeMo configuration
+  whose judge is down still refuses a reworded injection and still
+  refuses to call an unread language a clean pass. Off by default so
+  the same folder still describes one set of rails on either runtime.
+- `Builder.deterministic`, the shared list those two paths install.
 
 - `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
   a suffix stripper, a concept lexicon with negation and multiword phrases,

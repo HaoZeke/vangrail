@@ -12,7 +12,7 @@
 | =Rails::Paraphrase=         | input, context | no     | passed, blocked            |
 | =Rails::Similarity=         | input, context | no     | passed, blocked            |
 | =Rails::Bayes=              | input, context | no     | passed, blocked            |
-| =Rails::Language=           | context       | no      | passed, never blocks       |
+| =Rails::Language=           | input, context | no     | passed, never blocks       |
 | =Rails::PromptLeak=         | output        | no      | passed, modified           |
 | =Rails::Semantic=           | input, context | yes    | passed, blocked            |
 | =Rails::Perplexity=         | input, context | yes    | passed, blocked            |
@@ -204,8 +204,9 @@ cross-validated number and a fresh calibration attached.
 
 ** Rails::Language
 
-Reports that a page is in a language nothing here reads. Context side,
-deterministic, offline, on by default, and it never blocks.
+Reports that a page or a question is in a language nothing here reads.
+Input and context, deterministic, offline, on by default, and it never
+blocks.
 
 Every other deterministic rail is a rule about English or Dutch words, so a page
 in German is passed by all of them without being read. This rail identifies the

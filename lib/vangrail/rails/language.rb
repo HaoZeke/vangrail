@@ -5,13 +5,14 @@ require_relative '../rail'
 
 module Vangrail
   module Rails
-    # Reports that a page is in a language nothing here can read.
+    # Reports that a page or a question is in a language nothing here can read.
     #
     # Every other deterministic rail in this gem is a rule about English or
     # Dutch words. Handed a page in German, all of them return passed, and an
     # application reading that result cannot tell "checked and clean" from "the
     # checks do not apply to this text". That is precisely the distinction this
-    # gem promises to keep, so the promise has to hold across languages too.
+    # gem promises to keep, so the promise has to hold across languages too,
+    # and on the question as well as on the retrieved page.
     #
     # So this rail never blocks. A page in an unsupported language is not an
     # attack, and refusing it would break a site that has one; what it is, is
@@ -24,7 +25,7 @@ module Vangrail
     # the posture into noise, which is a different way of making it useless.
     class Language < Rail
       def initialize(supported: NLP::LANGUAGES, floor: NLP::LANGUAGE_FLOOR,
-                     name: 'language', sides: [:context])
+                     name: 'language', sides: %i[input context])
         super(name: name, sides: sides)
         @supported = Array(supported).map(&:to_sym)
         @floor = floor

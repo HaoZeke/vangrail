@@ -109,11 +109,17 @@ module Vangrail
     # `chat:` overrides where model-backed actions call, which is what tests and
     # a caller with its own client pass. `actions:` adds or replaces actions by
     # name, so a team's own check joins the built-ins without touching the gem.
-    def engine(provider: nil, chat: nil, actions: {}, on_error: :allow, cache: true)
+    #
+    # `stdlib:` prepends the deterministic input and context rails this gem
+    # ships (patterns, paraphrase, language posture). Off by default so a
+    # folder still describes one set of rails on either runtime; on so a
+    # folder whose judge is down still refuses a reworded injection and
+    # still refuses to call an unread language a clean pass.
+    def engine(provider: nil, chat: nil, actions: {}, on_error: :allow, cache: true, stdlib: false)
       registry = self_check_actions(provider, chat).merge(actions)
       Engine.new(
-        input: rails_for(:input, registry),
-        context: rails_for(:context, registry),
+        input: compose(:input, rails_for(:input, registry), stdlib),
+        context: compose(:context, rails_for(:context, registry), stdlib),
         output: rails_for(:output, registry),
         on_error: on_error,
         cache: cache
@@ -133,6 +139,12 @@ module Vangrail
     end
 
     private
+
+    def compose(side, flows, stdlib)
+      return flows unless stdlib
+
+      Builder.deterministic(side) + flows
+    end
 
     # The three tasks a stock configuration expects, each backed by a rail this
     # gem implements. A configuration that names none of them gets none of them.

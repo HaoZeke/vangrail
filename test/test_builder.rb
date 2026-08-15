@@ -84,7 +84,7 @@ class TestBuilder < Minitest::Test
   # pattern list with a published bypass.
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
-    assert_equal %w[injection_patterns jailbreak paraphrase similarity many_shot obfuscation],
+    assert_equal %w[injection_patterns jailbreak paraphrase similarity many_shot obfuscation language],
                  e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
@@ -209,6 +209,22 @@ class TestBuilder < Minitest::Test
 
   def test_the_decoding_pass_reads_documents_as_well_as_questions
     assert_includes engine(gateway_env).rail_names(:context), 'obfuscation'
+  end
+
+  # The lexicon rails are English and Dutch. A long question in neither
+  # used to certain-pass the input side because Language only sat on
+  # context. Patterns-only is the case that exposes it: no placeholder
+  # for a missing model rail can be blamed for the uncertainty.
+  def test_an_unread_question_is_not_a_certain_pass
+    require_relative 'test_language'
+
+    e = engine('GUARDRAILS_RAILS' => 'patterns')
+    german = TestLanguage::GERMAN
+
+    assert_includes e.rail_names(:input), 'language'
+    assert e.check_input(german).passed?
+    refute e.check_input(german).certain?
+    assert e.check_input('Submit a batch job with sbatch and check it with squeue.').certain?
   end
 
   # Nothing can be checked without a token, so naming one is the switch.

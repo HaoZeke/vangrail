@@ -161,13 +161,13 @@ using a word for it.
 Both languages load by default. `languages: [:en]` restricts it, and a language
 nobody wrote a lexicon for raises rather than silently reading nothing.
 
-A page in a third language is the case worth being careful about. Every
-deterministic rail here is a rule about English or Dutch words, so a page in
-German is passed by all of them without being read, and a clean pass would say
-the wrong thing:
+A page or a question in a third language is the case worth being careful about.
+Every deterministic rail here is a rule about English or Dutch words, so a page
+in German is passed by all of them without being read, and a clean pass would
+say the wrong thing:
 
 ```ruby
-result = engine.check_context(german_page)
+result = engine.check_input(german_question)
 result.passed?    # => true, and it is not blocked: another language is not an attack
 result.certain?   # => false
 result.reason     # => "text is not in a language this engine reads (en, nl); ..."
@@ -562,7 +562,7 @@ one when the local rails cover it.
 | `Rails::Paraphrase` | input, context | no | passed, blocked |
 | `Rails::Similarity` | input, context | no | passed, blocked |
 | `Rails::Bayes` | input, context | no | passed, blocked |
-| `Rails::Language` | context | no | passed, never blocks |
+| `Rails::Language` | input, context | no | passed, never blocks |
 | `Rails::PromptLeak` | output | no | passed, modified |
 | `Rails::Semantic` | input, context | yes | passed, blocked |
 | `Rails::Perplexity` | input, context | yes | passed, blocked |

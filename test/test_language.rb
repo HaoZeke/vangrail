@@ -86,13 +86,21 @@ class TestLanguage < Minitest::Test
   end
 
   # An engine's whole answer has to carry it, or the rail is a fact nobody
-  # reads.
+  # reads. Input as well as context: a long German question used to
+  # certain-pass `check_input` because the posture rail only sat on
+  # retrieved pages.
   def test_the_uncertainty_reaches_the_engine
-    engine = Vangrail::Engine.new(context: [rail, Vangrail::Rails::InjectedInstructions.new])
+    engine = Vangrail::Engine.new(context: [rail, Vangrail::Rails::InjectedInstructions.new],
+                                  input: [rail, Vangrail::Rails::Paraphrase.new(sides: [:input])])
     result = engine.check_context(GERMAN)
 
     assert_predicate result, :passed?
     refute_predicate result, :certain?
+
+    asked = engine.check_input(GERMAN)
+
+    assert_predicate asked, :passed?
+    refute_predicate asked, :certain?
   end
 
   def test_it_is_offline_and_memoizable

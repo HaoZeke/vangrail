@@ -169,6 +169,29 @@ module Vangrail
       Session.new(engine: engine, prior: prior, **kwargs)
     end
 
+    # The offline stack that does not need a folder or an endpoint: patterns,
+    # concepts, near-copies, the decoding pass, and the language posture.
+    # `Config#engine(stdlib: true)` prepends the same list so a NeMo folder
+    # does not certain-pass a question nothing here can read.
+    def self.deterministic(side)
+      side = side.to_sym
+      return [] if side == :output
+
+      core = [
+        (Rails::InjectedInstructions.new if side == :context),
+        (Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
+                            sides: [side]) if side == :input),
+        Rails::Jailbreak.new(sides: [side]),
+        Rails::Paraphrase.new(sides: [side]),
+        Rails::Similarity.new(sides: [side]),
+        Rails::ManyShot.new(sides: [side])
+      ].compact
+      extras = [Rails::Obfuscation.new(rails: core, sides: [side])]
+      extras << Rails::Hidden.new(rails: core) if side == :context
+      extras << Rails::Language.new(sides: [side])
+      core + extras
+    end
+
     def enabled
       text = env['GUARDRAILS_RAILS'].to_s.strip
       return DEFAULT_RAILS if text.empty?
@@ -221,13 +244,7 @@ module Vangrail
     def input_rails
       return [] unless on?(:input) || on?(:patterns)
 
-      deterministic = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
-                                          sides: [:input]),
-                       Rails::Jailbreak.new(sides: [:input]),
-                       Rails::Paraphrase.new(sides: [:input]),
-                       Rails::Similarity.new(sides: [:input]),
-                       Rails::ManyShot.new(sides: [:input])]
-      rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:input])]
+      rails = self.class.deterministic(:input)
       # A question carrying the canary is too late to prevent and worth
       # knowing: the prompt is already out.
       rails << canary(:input) if canary_token
@@ -260,19 +277,14 @@ module Vangrail
     def context_rails
       return [] unless on?(:context)
 
-      deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context]),
-                       Rails::Paraphrase.new(sides: [:context]), Rails::Similarity.new(sides: [:context]),
-                       Rails::ManyShot.new(sides: [:context])]
       # Two passes over the same definitions, for the two ways a page hides
       # one: encoded so the patterns cannot read it, or in markup a reader
-      # never sees.
-      rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                               Rails::Hidden.new(rails: deterministic)]
-      # Outside the decoding pass, and last. It reads the page rather than
-      # judging it: every rail above is a rule about English or Dutch words, and
-      # a page in neither has been passed by all of them without being read.
-      # Reporting that costs a token count and keeps `certain?` honest.
-      rails << Rails::Language.new
+      # never sees. Language sits outside the decoding pass and last among
+      # the free rails: every rail above is a rule about English or Dutch
+      # words, and a page in neither has been passed by all of them without
+      # being read. Reporting that costs a token count and keeps `certain?`
+      # honest.
+      rails = self.class.deterministic(:context)
       rails << Rails::Bayes.new(sides: [:context]) if on?(:bayes)
       rails << semantic(:context) if on?(:semantic)
       rails << perplexity(:context) if on?(:perplexity)
