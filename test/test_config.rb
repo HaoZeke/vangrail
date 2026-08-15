@@ -57,6 +57,56 @@ class TestConfig < Minitest::Test
     end
   end
 
+  # NeMo names the retrieved-document side `retrieval`. That is this gem's
+  # context side. A folder that only lists input and output would screen
+  # nothing, which is how a poisoned page reaches the prompt.
+  def test_retrieval_flows_become_context_rails
+    flow = <<~CO
+      define flow ticket required
+        $ok = execute has_ticket
+        if not $ok
+          bot refuse
+          stop
+
+      define bot refuse
+        "no ticket"
+    CO
+    yaml = STOCK.sub(
+      "  output:\n    flows:\n      - self check output\n",
+      "  output:\n    flows:\n      - self check output\n  retrieval:\n    flows:\n      - ticket required\n"
+    )
+    Dir.mktmpdir do |dir|
+      config = Vangrail::Config.load(write_config(dir, config_yaml: yaml, flows: { 'ctx' => flow }))
+      actions = { 'has_ticket' => ->(_a, ctx) { ctx[:text].to_s.match?(/EINF-\d+/) } }
+      engine = config.engine(provider: provider, actions: actions)
+      assert_equal ['ticket required'], engine.rail_names(:context)
+      screening = engine.screen([{ 'title' => 'P', 'text' => 'no ticket here' }])
+      assert_equal 1, screening.rejected.size
+      kept = engine.screen([{ 'title' => 'K', 'text' => 'see EINF-9' }])
+      assert_equal 1, kept.kept.size
+    end
+  end
+
+  def test_context_is_accepted_as_an_alias_for_retrieval
+    flow = <<~CO
+      define flow refuse all
+        bot no
+        stop
+
+      define bot no
+        "no"
+    CO
+    yaml = STOCK.sub(
+      "  output:\n    flows:\n      - self check output\n",
+      "  output:\n    flows:\n      - self check output\n  context:\n    flows:\n      - refuse all\n"
+    )
+    Dir.mktmpdir do |dir|
+      config = Vangrail::Config.load(write_config(dir, config_yaml: yaml, flows: { 'ctx' => flow }))
+      engine = config.engine(provider: provider)
+      assert_equal ['refuse all'], engine.rail_names(:context)
+    end
+  end
+
   def test_the_engine_runs_the_flow_against_the_configured_model
     Dir.mktmpdir do |dir|
       config = Vangrail::Config.load(write_config(dir, config_yaml: STOCK))

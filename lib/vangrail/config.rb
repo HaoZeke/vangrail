@@ -89,7 +89,10 @@ module Vangrail
     end
 
     def flow_names(side)
-      Array(rails.dig(side.to_s, 'flows')).map(&:to_s)
+      keys = [side.to_s]
+      # NeMo names the retrieved-document side `retrieval`. That is :context.
+      keys << 'retrieval' if side.to_sym == :context
+      keys.flat_map { |key| Array(rails.dig(key, 'flows')) }.map(&:to_s).uniq
     end
 
     def prompt_for(task)
@@ -110,6 +113,7 @@ module Vangrail
       registry = self_check_actions(provider, chat).merge(actions)
       Engine.new(
         input: rails_for(:input, registry),
+        context: rails_for(:context, registry),
         output: rails_for(:output, registry),
         on_error: on_error,
         cache: cache

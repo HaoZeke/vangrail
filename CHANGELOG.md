@@ -13,6 +13,13 @@ Nothing has been released yet. This section describes what exists.
 
 ### Added
 
+- `StreamGuard#take`, which hands out only the text not yet shown, so a
+  mid-stream redaction does not reprint the prefix already on screen.
+- `Config#engine` runs `rails.retrieval` / `rails.context` flows as context
+  rails, so a NeMo folder that screens retrieved documents screens them here.
+- Gem metadata: homepage, source, changelog, bug tracker, and
+  `allowed_push_host` for RubyGems.
+
 - Rails as ordinary Ruby objects, each with one `call` method, returning a
   `Result`. A regex check, a safety classifier, a Colang flow, and a call out
   to a NeMo Guardrails server all use the same protocol and sit in one ordered

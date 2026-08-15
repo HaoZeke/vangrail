@@ -19,10 +19,16 @@ Gem::Specification.new do |spec|
   spec.email = ['rohit.goswami@surf.nl']
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.1'
+  spec.homepage = 'https://github.com/HaoZeke/vangrail'
 
   spec.files = Dir['lib/**/*.rb'] + %w[README.md LICENSE]
   spec.require_paths = ['lib']
 
+  spec.metadata['homepage_uri'] = spec.homepage
+  spec.metadata['source_code_uri'] = "#{spec.homepage}/tree/main"
+  spec.metadata['changelog_uri'] = 'https://github.com/HaoZeke/vangrail/blob/main/CHANGELOG.md'
+  spec.metadata['bug_tracker_uri'] = 'https://github.com/HaoZeke/vangrail/issues'
+  spec.metadata['allowed_push_host'] = 'https://rubygems.org'
   spec.metadata['rubygems_mfa_required'] = 'true'
 
   # Development only, and deliberately so. unicode-confusable supplies the
