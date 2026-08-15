@@ -58,6 +58,13 @@ module Vangrail
         \bI\s+(?:was|am|have\s+been)\s+(?:told|instructed|configured|programmed|asked)\b
         |
         \b(?:system|developer)\s+(?:prompt|message)\s+(?:says|states|reads|is)\b
+        |
+        \b(?:mijn|deze|die|jouw|uw)\s+
+          (?:instructies?|regels?|richtlijnen?|systeemprompt|voorschriften?)\b
+        |
+        \bik\s+(?:ben|werd|was)\s+(?:geïnstrueerd|geïnstrueerd|verteld|geconfigureerd|geprogrammeerd|gevraagd)\b
+        |
+        \bsysteemprompt\s+(?:zegt|staat|luidt|is)\b
       /xi
 
       # Shorter than this, a sentence is not evidence. "You may not." is inside

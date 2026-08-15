@@ -62,11 +62,20 @@ module Vangrail
         score = score_for(text)
         evidence = bits(text)
         payload = { 'bits' => evidence, 'score' => score }
+        # The middle calibration band has both classes in it (22 attacks and
+        # 8 ordinary pages between 0 and the threshold). A score there is
+        # not a decision. Above the threshold no held-out benign document
+        # landed, and at or below 0 no held-out attack did.
+        return unchecked('score sits in a band the calibration cannot separate', raw: payload) if overlap?(score)
         return pass(raw: payload) if score <= threshold
 
         block(categories: ['bayes'], raw: payload,
               reason: format('scores %<score>+.1f, worth %<bits>+.1f bits of evidence', score: score,
                                                                                         bits: evidence))
+      end
+
+      def overlap?(score)
+        score.positive? && score <= threshold
       end
 
       # The worst clause's raw naive Bayes score. Not a likelihood ratio and not

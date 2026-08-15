@@ -43,7 +43,7 @@ module Vangrail
 
       # A role header at the start of a line, which is how a pasted transcript
       # is written when it is not using template tokens.
-      TURN = /^\s{0,3}(?:###\s*)?(?:system|user|human|assistant|ai|bot|q|a)\s*:\s*\S/i
+      TURN = /^\s{0,3}(?:###\s*)?(?:system|user|human|assistant|ai|bot|q|a|systeem|gebruiker|assistent|mens)\s*:\s*\S/i
 
       attr_reader :max_turns, :placeholder
 

@@ -95,8 +95,8 @@ module Vangrail
 
     # A rail that could not reach a decision allows the text and says so. It
     # must never look like a clean check.
-    def unchecked(reason)
-      Result.unchecked(rail: name, reason: reason)
+    def unchecked(reason, **kwargs)
+      Result.unchecked(rail: name, reason: reason, **kwargs)
     end
 
     def default_name

@@ -103,6 +103,29 @@ class TestBayes < Minitest::Test
     assert_operator Vangrail::BayesData::CAUGHT.fdiv(Vangrail::BayesData::ATTACKS), :<, 0.5
   end
 
+  # The middle calibration band has both classes in it. A score there
+  # used to certain-pass (or certain-block if someone lowered the
+  # threshold). It is abstention: the corpus cannot separate the two.
+  def test_a_score_in_the_overlap_band_is_not_a_decision
+    mid = Vangrail::Rails::Bayes.new(weights: { 'marker' => 5.0 }, threshold: 9)
+    result = mid.call('marker', side: :context)
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+    assert_includes result.reason, 'cannot separate'
+    assert_in_delta 5.0, result.raw['score'], 1e-9
+  end
+
+  def test_overlap_abstention_contributes_no_bits_to_a_posterior
+    mid = Vangrail::Rails::Bayes.new(weights: { 'marker' => 5.0 }, threshold: 9)
+    engine = Vangrail::Engine.new(context: [mid], cache: false)
+    judgement = engine.assess('marker', side: :context, prior: 1e-2)
+
+    refute_predicate judgement, :certain?
+    assert_empty judgement.contributions
+    assert_in_delta 1e-2, judgement.posterior, 1e-9
+  end
+
   def test_it_is_offline_and_memoizable
     assert_predicate rail, :offline?
     assert_equal "9\ntext", rail.cache_key('text', {})

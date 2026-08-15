@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../nlp'
 require_relative '../rail'
 
 module Vangrail
@@ -43,7 +44,11 @@ module Vangrail
         \A[^.?!]{0,60}\b(?:as\s+i\s+(?:said|asked|mentioned)|like\s+i\s+(?:said|asked)|
            (?:the|my)\s+(?:previous|last|earlier)\s+(?:question|request|message)|
            try\s+again|answer\s+(?:it|that|the\s+question)\s+anyway|
-           just\s+(?:answer|tell|say)|come\s+on|continue|go\s+on|please\s+continue)\b
+           just\s+(?:answer|tell|say)|come\s+on|continue|go\s+on|please\s+continue|
+           zoals\s+ik\s+(?:zei|vroeg|al\s+zei)|
+           (?:de|mijn)\s+(?:vorige|eerdere|laatste)\s+(?:vraag|verzoek|bericht)|
+           probeer\s+opnieuw|beantwoord\s+(?:het|die\s+vraag)\s+gewoon|
+           ga\s+(?:gewoon\s+)?(?:door|verder)|alsjeblieft\s+doorgaan)\b
       /xi
 
       # The openers that exist to relabel a refused request as something else.
@@ -52,7 +57,10 @@ module Vangrail
            educational\s+purposes|academic\s+purposes)|purely\s+(?:academic|hypothetical)|
            what\s+if\s+i\s+(?:told\s+you|said)|imagine\s+(?:that\s+)?you|
            let\s+me\s+rephrase|to\s+(?:re)?phrase\s+(?:it|that)\s+differently|
-           you\s+misunderstood|that\s+is\s+not\s+what\s+i\s+(?:meant|asked))\b
+           you\s+misunderstood|that\s+is\s+not\s+what\s+i\s+(?:meant|asked)|
+           hypothetisch|in\s+theorie|voor\s+(?:een\s+vriend|onderzoek|een\s+paper)|
+           puur\s+(?:academisch|hypothetisch)|stel\s+dat|laat\s+me\s+(?:het\s+)?herformuleren|
+           je\s+hebt\s+me\s+verkeerd\s+begrepen|dat\s+is\s+niet\s+wat\s+ik\s+(?:bedoelde|vroeg))\b
       /xi
 
       STOP = %w[
@@ -60,6 +68,9 @@ module Vangrail
         from by as it its this that these those i you he she they we me my your do
         does did how what why when where can could would should will shall may
         might must not no yes if then than so about into over under please
+        de het een van en of maar is zijn was waren te in op aan voor met tot
+        bij als dan dat die dit deze ik je we zij jij u uw mijn niet geen ja
+        nee hoe wat waarom wanneer waar kan zou moet zal wel nog
       ].freeze
 
       attr_reader :overlap, :window, :tolerance
@@ -166,7 +177,7 @@ module Vangrail
       end
 
       def content_words(text)
-        text.to_s.downcase.scan(/[a-z0-9_-]{2,}/) - STOP
+        NLP.words(text).reject { |word| STOP.include?(word) }
       end
 
       def user?(turn)

@@ -104,6 +104,13 @@ Nothing has been released yet. This section describes what exists.
 - Markup, budget, secrets, canary, personal data, and exfiltration set
   `language_agnostic?`, so their silence on an unread page is still
   silence. Hidden and Obfuscation wrap lexicon rails and do not.
+- `Rails::Bayes` treats a score between 0 and the threshold as
+  abstention. That band is the one the calibration already reports as
+  mixed (22 attacks and 8 ordinary pages). Above the threshold no
+  held-out benign document landed; at or below 0 no held-out attack did.
+- Escalation, PromptLeak frames, and ManyShot role headers read Dutch
+  as well as English. A Dutch retry after a refusal, a `mijn instructies`
+  frame, and a `gebruiker:` / `assistent:` paste are no longer silent.
 
 ### Added
 

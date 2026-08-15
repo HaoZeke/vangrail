@@ -52,8 +52,8 @@ module Vangrail
     end
 
     # No rail ran. Allowed, and explicitly not vouched for.
-    def self.unchecked(rail:, reason:)
-      new(status: :passed, rail: rail, certain: false, reason: reason)
+    def self.unchecked(rail:, reason:, **kwargs)
+      new(status: :passed, rail: rail, certain: false, reason: reason, **kwargs)
     end
 
     def passed?

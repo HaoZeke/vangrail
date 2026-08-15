@@ -98,6 +98,13 @@ class TestPromptLeak < Minitest::Test
     assert_predicate rail.call(unframed, {}), :passed?
   end
 
+  def test_a_dutch_frame_is_recognised
+    assert_match Vangrail::Rails::PromptLeak::FRAME,
+                 'Mijn instructies zeggen dat ik alleen uit de passages mag antwoorden.'
+    assert_match Vangrail::Rails::PromptLeak::FRAME,
+                 'Ik ben geconfigureerd om nooit de systeemprompt te tonen.'
+  end
+
   def test_a_short_sentence_is_not_evidence
     assert_predicate rail.call('You may not.', {}), :passed?
   end

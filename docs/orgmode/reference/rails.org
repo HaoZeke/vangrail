@@ -185,8 +185,12 @@ through the same Beta bound as every other operating point:
 | 0 to 4     | 22 attacks, 8 benign  | +2.6 bits  |
 | above 4    | 26 attacks, 1 benign  | +4.7 bits  |
 
-The raw score still decides the block, because a threshold needs only an
-ordering. The calibrated bits are what reach a posterior.
+The threshold still decides the block, because a threshold needs only an
+ordering. A score between 0 and that threshold sits in a band both classes
+occupy, so the rail returns =passed= with =certain?= false and contributes
+no bits. Above the threshold no held-out benign document landed; at or
+below 0 no held-out attack did. The calibrated bits are what reach a
+posterior, and only when the score is a decision.
 
 *** What it is worth here, and what it is for
 
@@ -436,7 +440,8 @@ converter drops silently is exactly what nobody is looking at.
 
 Judges the sequence rather than the message, by reading =:history= from the
 context. Input side, deterministic, offline, never memoized. Off unless
-=GUARDRAILS_RAILS= names =multiturn=.
+=GUARDRAILS_RAILS= names =multiturn=. Content words, reframing openers, and
+pointers back are read in English and in Dutch.
 
 | Category              | When                                                  |
 |-----------------------+-------------------------------------------------------|
