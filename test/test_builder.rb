@@ -90,6 +90,27 @@ class TestBuilder < Minitest::Test
     assert e.offline?
   end
 
+  # Only the application knows what its prompt says, so naming the file is the
+  # opt-in, and a path that cannot be read is a configuration error rather than
+  # a rail that quietly does not exist.
+  def test_the_prompt_file_switches_the_leak_rail_on
+    refute_includes engine(gateway_env).rail_names(:output), 'prompt_leak'
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'prompt.txt')
+      File.write(path, "Answer only from the passages provided below, and say so when they do not cover it.\n")
+      guarded = engine(gateway_env.merge('GUARDRAILS_PROMPT_FILE' => path))
+
+      assert_includes guarded.rail_names(:output), 'prompt_leak'
+    end
+  end
+
+  def test_an_unreadable_prompt_file_is_refused_rather_than_skipped
+    assert_raises(Vangrail::ConfigError) do
+      engine(gateway_env.merge('GUARDRAILS_PROMPT_FILE' => '/nonexistent/prompt.txt'))
+    end
+  end
+
   # Naming the hosts is the opt-in. An application that never mentioned links
   # keeps the behaviour it had, because the empty allowlist means no links at
   # all and imposing that silently would break every answer with a reference

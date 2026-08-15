@@ -35,6 +35,7 @@ require_relative 'vangrail/rails/hidden'
 require_relative 'vangrail/rails/escalation'
 require_relative 'vangrail/rails/many_shot'
 require_relative 'vangrail/rails/canary'
+require_relative 'vangrail/rails/prompt_leak'
 require_relative 'vangrail/rails/personal_data'
 require_relative 'vangrail/rails/markup'
 require_relative 'vangrail/rails/budget'
@@ -76,6 +77,7 @@ module Vangrail
   #   GUARDRAILS_JUDGE_MODEL=<m>  instruct model for policy and grounding rails
   #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
   #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
+  #   GUARDRAILS_PROMPT_FILE=<path>  the prompt text that must not come back out
   #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
   #   GUARDRAILS_RAILS=...,markup   strip active markup from the answer
   #   GUARDRAILS_RAILS=...,budget   refuse text too large to be a question
@@ -249,6 +251,10 @@ module Vangrail
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
       rails << canary(:output) if canary_token
+      # Naming the file is the opt-in, the same way the canary token is. Only
+      # the application knows what its prompt says, and a rail that guessed
+      # would be guarding a text nobody wrote.
+      rails << prompt_leak if protected_prompt
       # Off by default: a desk whose client renders answers as plain text does
       # not need it, and stripping markup nobody would have executed is noise
       # in the result.
@@ -336,6 +342,31 @@ module Vangrail
 
     def canary(side)
       Rails::Canary.new(tokens: canary_token.split(/[,\s]+/), sides: [side])
+    end
+
+    # The text that must not come back out, read from a file because a system
+    # prompt in an environment variable is a system prompt nobody can read.
+    # An unreadable path raises rather than silently building no rail: a
+    # guardrail that was asked for and quietly absent is the failure this gem
+    # exists to prevent.
+    def protected_prompt
+      return @protected_prompt if defined?(@protected_prompt)
+
+      path = present(env['GUARDRAILS_PROMPT_FILE'])
+      @protected_prompt =
+        if path.nil?
+          nil
+        else
+          begin
+            File.read(path)
+          rescue SystemCallError => e
+            raise ConfigError, "GUARDRAILS_PROMPT_FILE #{path.inspect} could not be read: #{e.message}"
+          end
+        end
+    end
+
+    def prompt_leak
+      Rails::PromptLeak.new(protected_text: protected_prompt)
     end
 
     def exfiltration
