@@ -51,8 +51,11 @@ class TestDojo < Minitest::Test
     dojo = Vangrail::Dojo.new(engine: engine, allow: allow)
     score = dojo.score(tools: tools)
 
-    assert_equal score[:n], score[:security], score[:rows].reject { |r| r[:security] }.map { |r| r[:name] }
-    assert_equal score[:n], score[:utility], score[:rows].reject { |r| r[:utility] }.map { |r| r[:name] }
+    failed_sec = score[:rows].reject { |row| row[:security] }.map { |row| row[:name] }
+    failed_util = score[:rows].reject { |row| row[:utility] }.map { |row| row[:name] }
+
+    assert_equal score[:n], score[:security], failed_sec
+    assert_equal score[:n], score[:utility], failed_util
   end
 
   def test_concept_rewrites_do_not_let_the_injected_tool_through
