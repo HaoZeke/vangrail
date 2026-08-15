@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'beta'
+
 module Vangrail
   # One rail's measured operating point, read as evidence rather than as a
   # verdict.
@@ -49,11 +51,71 @@ module Vangrail
       (1 - detection) / (1 - false_alarm)
     end
 
+    # The rates a corpus this size can actually defend, rather than the ones it
+    # happens to have produced.
+    #
+    # A rail that fired on none of 48 benign texts has a point estimate of one
+    # in a hundred and a 95% upper bound of one in twenty-six. The difference is
+    # two bits of evidence that nobody measured, and reporting the point
+    # estimate spends them.
+    #
+    # Pessimistic on both sides at once: detection at the low end of its
+    # posterior and false alarms at the high end. That single operating point is
+    # conservative for a hit and for silence alike, because both ratios move the
+    # same way under it.
+    def detection_bound(confidence)
+      Beta.quantile(1 - confidence, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
+    end
+
+    def false_alarm_bound(confidence)
+      Beta.quantile(confidence, benign_flagged + 0.5, benign - benign_flagged + 0.5)
+    end
+
     # Evidence in bits, positive towards attack. Bits rather than nats because
     # an operator has to read these: one bit is a doubling of the odds, and
     # "this rail is worth four bits" is a sentence somebody can act on.
-    def bits(fired)
-      Math.log2(fired ? ratio_fired : ratio_silent)
+    #
+    # With a confidence, the bits are what the corpus can defend at that level
+    # rather than what it measured. A table built from a few hundred texts
+    # should be read this way; the point estimate is what it would say if the
+    # corpus were the world.
+    def bits(fired, confidence: nil)
+      return Math.log2(fired ? ratio_fired : ratio_silent) if confidence.nil?
+
+      detection = detection_bound(confidence)
+      false_alarm = false_alarm_bound(confidence)
+      Math.log2(fired ? detection / false_alarm : (1 - detection) / (1 - false_alarm))
+    end
+
+    # How much of the question this rail actually answers, at a given base rate.
+    #
+    # Detection and false-alarm rates describe a rail; they do not describe what
+    # it is worth in a deployment, because they say nothing about how often the
+    # thing being detected happens. The intrusion-detection literature settled
+    # this with an information-theoretic measure: the fraction of the
+    # uncertainty about "is this an attack" that the rail's verdict removes.
+    #
+    # Measured on the shipped table, the base rate costs every rail roughly two
+    # fifths of its capability between a balanced corpus and one attack in ten
+    # thousand: paraphrase falls from 0.52 to 0.28, and every other rail sits
+    # under 0.1 at both. many_shot manages 0.001, which is the honest reading of
+    # a rail that caught six of 270 because the corpus is mostly not its attack.
+    #
+    # Ranking rails by this rather than by detection rate is the point. It is
+    # the only number here that changes when the deployment does.
+    def capability(prior:)
+      return 0.0 unless measured?
+
+      mutual_information(prior) / entropy(prior)
+    end
+
+    def to_bits_h(prior:, confidence: nil)
+      {
+        'rail' => rail,
+        'bits_if_fired' => bits(true, confidence: confidence).round(2),
+        'bits_if_silent' => bits(false, confidence: confidence).round(2),
+        'capability' => capability(prior: prior).round(4)
+      }
     end
 
     # A rail that never fired on either corpus has measured nothing, whatever
@@ -70,6 +132,27 @@ module Vangrail
         'detection' => detection.round(4), 'false_alarm' => false_alarm.round(4),
         'bits_if_fired' => bits(true).round(2), 'bits_if_silent' => bits(false).round(2)
       }
+    end
+
+    private
+
+    def entropy(prior)
+      -((prior * Math.log2(prior)) + ((1 - prior) * Math.log2(1 - prior)))
+    end
+
+    # I(X;Y) over the two-by-two table of truth against verdict.
+    def mutual_information(prior)
+      joint = [[prior * detection, prior * (1 - detection)],
+               [(1 - prior) * false_alarm, (1 - prior) * (1 - false_alarm)]]
+      fires = joint[0][0] + joint[1][0]
+      quiet = joint[0][1] + joint[1][1]
+      marginals = [[prior * fires, prior * quiet], [(1 - prior) * fires, (1 - prior) * quiet]]
+
+      joint.flatten.zip(marginals.flatten).sum do |cell, marginal|
+        next 0.0 if cell <= 0 || marginal <= 0
+
+        cell * Math.log2(cell / marginal)
+      end
     end
   end
 
@@ -107,10 +190,10 @@ module Vangrail
     #
     # `observations` maps a rail name to true (fired), false (ran and did not
     # fire), or nil (did not run). The nils are the point.
-    def combine(prior:, observations:, evidence: EvidenceData::TABLE)
+    def combine(prior:, observations:, evidence: EvidenceData::TABLE, confidence: nil)
       raise ArgumentError, 'prior must be strictly between 0 and 1' unless prior.positive? && prior < 1
 
-      contributions = weigh(observations, evidence)
+      contributions = weigh(observations, evidence, confidence)
       total = contributions.sum { |c| c[:bits] }
       [from_odds(to_odds(prior) * (2**total)), contributions]
     end
@@ -121,7 +204,7 @@ module Vangrail
     # group; if none fired, the most sensitive member's silence speaks for it.
     # Both rules pick the single most informative member, which is the
     # conservative reading of a set of observations that are not independent.
-    def weigh(observations, evidence)
+    def weigh(observations, evidence, confidence = nil)
       seen = observations.filter_map do |rail, fired|
         next if fired.nil?
 
@@ -131,22 +214,22 @@ module Vangrail
         { rail: rail.to_s, group: entry.group || rail.to_s, fired: fired, entry: entry }
       end
 
-      seen.group_by { |o| o[:group] }.map { |group, members| speak_for(group, members) }
+      seen.group_by { |o| o[:group] }.map { |group, members| speak_for(group, members, confidence) }
     end
 
-    def speak_for(group, members)
+    def speak_for(group, members, confidence = nil)
       fired = members.select { |m| m[:fired] }
       chosen = if fired.empty?
                  members.max_by { |m| m[:entry].detection }
                else
-                 fired.max_by { |m| m[:entry].bits(true) }
+                 fired.max_by { |m| m[:entry].bits(true, confidence: confidence) }
                end
 
       {
         group: group,
         rail: chosen[:rail],
         fired: chosen[:fired],
-        bits: chosen[:entry].bits(chosen[:fired]),
+        bits: chosen[:entry].bits(chosen[:fired], confidence: confidence),
         spoke_for: members.map { |m| m[:rail] }
       }
     end

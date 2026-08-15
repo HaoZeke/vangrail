@@ -79,6 +79,76 @@ class TestEvidence < Minitest::Test
     assert_operator (0.5 / needed), :>, 5000
   end
 
+  # --- what the corpus can defend, rather than what it produced ---
+
+  # The point estimate spends evidence nobody measured. A rail that fired on
+  # none of a hundred benign texts has a false-alarm rate somewhere below a few
+  # percent, and the smoothing constant is not that number.
+  def test_a_confidence_level_reports_only_the_evidence_the_corpus_supports
+    point = STRONG.bits(true)
+    defensible = STRONG.bits(true, confidence: 0.95)
+
+    assert_operator defensible, :<, point
+    assert_operator defensible, :>, 0
+  end
+
+  def test_the_conservative_reading_weakens_silence_as_well_as_hits
+    point = STRONG.bits(false)
+    defensible = STRONG.bits(false, confidence: 0.95)
+
+    assert_operator defensible, :>, point
+    assert_operator defensible, :<, 0
+  end
+
+  # More corpus, more defensible evidence, converging on the point estimate.
+  def test_a_bigger_corpus_defends_more_of_what_it_measured
+    small = Vangrail::Evidence.new(rail: 'r', attacks_caught: 45, attacks: 50,
+                                   benign_flagged: 1, benign: 50)
+    large = Vangrail::Evidence.new(rail: 'r', attacks_caught: 4500, attacks: 5000,
+                                   benign_flagged: 100, benign: 5000)
+
+    assert_operator large.bits(true, confidence: 0.95), :>, small.bits(true, confidence: 0.95)
+    assert_in_delta large.bits(true), large.bits(true, confidence: 0.95), 0.3
+  end
+
+  def test_the_confidence_threads_through_the_combination
+    cautious = Vangrail::Posterior.combine(prior: 0.01, observations: { 'strong' => true },
+                                           evidence: TABLE, confidence: 0.95).first
+    plain = posterior(0.01, { 'strong' => true })
+
+    assert_operator cautious, :<, plain
+  end
+
+  # --- what a rail is worth where it is deployed ---
+
+  # Detection and false-alarm rates describe a rail. They say nothing about what
+  # it is worth when the thing it detects is rare, which is the measure the
+  # intrusion-detection literature settled on.
+  def test_capability_falls_as_the_thing_being_detected_gets_rarer
+    balanced = STRONG.capability(prior: 0.5)
+    rare = STRONG.capability(prior: 1e-4)
+
+    assert_operator balanced, :>, rare
+    assert_operator rare, :>, 0
+  end
+
+  def test_capability_ranks_the_shipped_rails_by_what_they_actually_answer
+    ranked = Vangrail::EvidenceData::ENTRIES.sort_by { |e| -e.capability(prior: 1e-4) }
+
+    assert_equal 'paraphrase', ranked.first.rail
+    # A rail whose attack family is a sliver of the corpus answers almost
+    # nothing, and its detection rate alone would not say so.
+    assert_operator ranked.last.capability(prior: 1e-4), :<, 0.01
+  end
+
+  def test_a_useless_rail_has_no_capability
+    coin = Vangrail::Evidence.new(rail: 'coin', attacks_caught: 50, attacks: 100,
+                                  benign_flagged: 50, benign: 100)
+
+    assert_in_delta 0.0, coin.capability(prior: 0.1), 1e-6
+    assert_in_delta 0.0, coin.bits(true), 1e-6
+  end
+
   # --- accumulation, which OR cannot express ---
 
   def test_two_weak_rails_say_more_than_either_alone

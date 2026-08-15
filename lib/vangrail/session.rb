@@ -51,16 +51,24 @@ module Vangrail
     # handful of turns while a pattern of them does not.
     DEFAULT_DECAY = 0.6
 
-    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns
+    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns, :alpha, :beta
 
-    def initialize(engine:, prior:, decay: DEFAULT_DECAY, policy: Policy::DEFAULT)
+    # `alpha` and `beta` are the error rates a sequential test is allowed: how
+    # often it may call an ordinary reader an attacker, and how often it may
+    # miss one. Given those two numbers the thresholds are not a choice, which
+    # is the whole appeal of the sequential test.
+    def initialize(engine:, prior:, decay: DEFAULT_DECAY, policy: Policy::DEFAULT,
+                   alpha: 0.01, beta: 0.05)
       raise ArgumentError, 'prior must be strictly between 0 and 1' unless prior.positive? && prior < 1
       raise ArgumentError, 'decay must be in (0, 1]' unless decay.positive? && decay <= 1
+      raise ArgumentError, 'alpha and beta must be in (0, 1)' unless [alpha, beta].all? { |v| v.positive? && v < 1 }
 
       @engine = engine
       @prior = prior
       @decay = decay
       @policy = policy
+      @alpha = alpha
+      @beta = beta
       @log_odds = Math.log2(Posterior.to_odds(prior))
       @turns = []
     end
@@ -113,6 +121,47 @@ module Vangrail
       action == :allow
     end
 
+    # Wald's sequential test over the same accumulated evidence.
+    #
+    # The posterior answers "how likely is this"; the sequential test answers a
+    # question an operator often prefers: "have I seen enough to decide, at
+    # error rates I chose in advance". It is the older machinery, it is what the
+    # network-detection work uses for exactly this shape of problem, and it
+    # costs nothing extra here because the log-likelihood ratio is already being
+    # accumulated.
+    #
+    # Two thresholds, both fixed by alpha and beta rather than by taste:
+    # accumulate until the evidence passes log((1 - beta) / alpha) and call it
+    # an attack, or falls below log(beta / (1 - alpha)) and call it ordinary.
+    # In between, the honest answer is that the session has not said enough yet.
+    #
+    # Reported beside the posterior rather than instead of it. They answer
+    # different questions and disagreeing is informative: a session that the
+    # test calls undecided while the policy says review is a session where the
+    # cost argument and the error-rate argument point different ways, and
+    # somebody should know that.
+    def verdict
+      return :attack if bits >= upper_threshold
+      return :benign if bits <= lower_threshold
+
+      :undecided
+    end
+
+    def upper_threshold
+      Math.log2((1 - beta) / alpha)
+    end
+
+    def lower_threshold
+      Math.log2(beta / (1 - alpha))
+    end
+
+    # How much more evidence the test needs before it can decide, in bits.
+    def bits_to_decide
+      return 0.0 unless verdict == :undecided
+
+      [upper_threshold - bits, bits - lower_threshold].min
+    end
+
     # False as soon as any turn was judged without every rail reaching a
     # decision, because the session's number inherits every gap in the turns
     # that built it.
@@ -128,6 +177,7 @@ module Vangrail
         'decay' => decay,
         'turns' => turns.size,
         'action' => action.to_s,
+        'verdict' => verdict.to_s,
         'certain' => certain?
       }
     end

@@ -159,10 +159,59 @@ class TestSession < Minitest::Test
     assert_match(/session review/, watched.to_s)
   end
 
+  # --- the sequential test, beside the posterior ---
+
+  # Two error rates chosen in advance fix both thresholds, which is the appeal:
+  # nobody picks the number at which a session becomes an attacker.
+  def test_the_thresholds_come_from_the_error_rates
+    watched = session(alpha: 0.01, beta: 0.05)
+
+    assert_in_delta Math.log2(0.95 / 0.01), watched.upper_threshold, 1e-9
+    assert_in_delta Math.log2(0.05 / 0.99), watched.lower_threshold, 1e-9
+  end
+
+  def test_the_test_withholds_a_verdict_until_the_evidence_arrives
+    watched = session
+    watched.observe(PROBES.first, side: :context)
+
+    assert_equal :undecided, watched.verdict
+    assert_operator watched.bits_to_decide, :>, 0
+
+    watched.observe(PROBES[1], side: :context)
+
+    assert_equal :attack, watched.verdict
+    assert_in_delta 0.0, watched.bits_to_decide, 1e-9
+  end
+
+  def test_an_ordinary_session_is_decided_the_other_way
+    watched = session
+    observe_all(watched, CLEAN)
+
+    assert_equal :benign, watched.verdict
+  end
+
+  # A tighter false-alarm budget takes more evidence before anyone is accused.
+  def test_a_stricter_error_budget_demands_more_evidence
+    strict = session(alpha: 1e-4)
+    loose = session(alpha: 0.1)
+
+    assert_operator strict.upper_threshold, :>, loose.upper_threshold
+  end
+
+  def test_the_two_readings_are_reported_together
+    watched = session
+    observe_all(watched, PROBES)
+
+    assert_equal 'review', watched.to_h['action']
+    assert_equal 'attack', watched.to_h['verdict']
+  end
+
   def test_the_guards_are_on_the_numbers_that_would_break_the_arithmetic
     assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 0.0) }
     assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 1.0) }
     assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 0.1, decay: 0.0) }
     assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 0.1, decay: 1.5) }
+    assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 0.1, alpha: 0) }
+    assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 0.1, beta: 1.0) }
   end
 end

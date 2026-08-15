@@ -192,9 +192,17 @@ File.write(OUT, <<~RUBY)
 RUBY
 
 puts "wrote #{OUT}"
+PRIORS = [0.5, 1e-2, 1e-4].freeze
+
+puts format('  %-24s %-16s %8s %8s %8s %8s', 'rail', 'caught/flagged', 'fired', 'at 95%', 'CID 0.5', 'CID 1e-4')
 rows.each do |row|
   entry = Vangrail::Evidence.new(**row)
-  puts format('  %-24s caught %3d/%-3d  flagged %2d/%-3d  fired %+.1f bits  silent %+.1f bits  group %s',
+  puts format('  %-24s %6d/%-3d %3d/%-3d %+8.1f %+8.1f %8.3f %8.3f',
               row[:rail], row[:attacks_caught], row[:attacks], row[:benign_flagged], row[:benign],
-              entry.bits(true), entry.bits(false), row[:group])
+              entry.bits(true), entry.bits(true, confidence: 0.95),
+              entry.capability(prior: PRIORS.first), entry.capability(prior: PRIORS.last))
 end
+puts
+puts 'fired    : bits a hit is worth, point estimate'
+puts 'at 95%   : bits this corpus can defend at 95% confidence, which is the number to trust'
+puts 'CID      : share of the uncertainty about "is this an attack" the rail removes, per base rate'
