@@ -25,17 +25,26 @@
 # of zero does not make a model deterministic across prompts that differ only
 # in their fencing.
 #
-# What this measured, so nobody has to rerun it to find out it is inconclusive:
-# at 48 trials an arm, 12 of 48 injections were obeyed with a plain prompt and
-# 8 of 48 with the marked one. That is z = 1.0, which is nothing. Separating
-# those two rates at eighty percent power needs about 375 trials an arm, which
-# is 750 calls, and is the run to do before anybody claims the prompt shape
-# helps on this model.
+# What this measured, at 384 trials an arm against an instruct model on a
+# shared gateway:
 #
-# The number that is not in doubt is the other one: eleven of these twelve
-# injections match no deterministic rail in this gem, and a quarter of them are
-# obeyed. That is the residual, and it is what the model-backed rails and the
-# grounding check exist to catch.
+#   plain prompt                        95 of 384 obeyed   24.7%
+#   fenced, hierarchy stated            68 of 384 obeyed   17.7%
+#
+# z = 2.38, p = 0.017, and the ninety-five percent interval on the difference
+# runs from 1.3 to 12.8 percentage points. So the prompt shape helps, by about
+# a quarter of the attacks in relative terms.
+#
+# An earlier run at 48 trials an arm gave 12 against 8, z = 1.0, and would have
+# been reported as a null result. Both numbers came from the same script; only
+# the sample size differed. That is the reason REPEATS exists and the reason a
+# short run should not be quoted either way.
+#
+# What it does not do is prevent obedience. Seventeen percent still get
+# through, and eleven of these twelve injections match no deterministic rail in
+# this gem. That residual is what the model-backed rails and the grounding
+# check exist to catch, and it is why fencing is a layer rather than an
+# answer.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'vangrail'

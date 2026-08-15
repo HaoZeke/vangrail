@@ -396,17 +396,22 @@ passages in place and no detector in the way, does the model obey the page or
 the instructions. Twelve injections, eleven of which match no deterministic
 rail here, against an instruct model on a shared gateway:
 
-| | injections obeyed |
-|---|---|
-| plain prompt | 12 of 48 |
-| fenced, with the hierarchy stated | 8 of 48 |
+| | injections obeyed | |
+|---|---|---|
+| plain prompt | 95 of 384 | 24.7% |
+| fenced, with the hierarchy stated | 68 of 384 | 17.7% |
 
-**That difference is not significant** (z = 1.0). Separating those rates would
-take roughly 375 trials an arm, and until somebody runs it, the honest reading
-is that the prompt shape has not been shown to help on this model. What the
-same run does establish is the residual: a quarter of injections that no
-pattern here catches are obeyed, which is what the model-backed rails and the
-grounding check are for.
+z = 2.38, p = 0.017, with the 95% interval on the difference running from 1.3
+to 12.8 percentage points. The prompt shape helps, by about a quarter of the
+attacks in relative terms.
+
+It does not prevent obedience: 17.7% still get through. That residual is what
+the model-backed rails and the grounding check are for, and it is why fencing
+is a layer rather than an answer.
+
+A first run at 48 trials an arm gave 12 against 8, z = 1.0, which would have
+been reported as a null result. Same script, smaller sample. `REPEATS` exists
+for that reason, and a short run of this should not be quoted either way.
 
 `Rails::Jailbreak` is scored the same way: fourteen circulating attack shapes
 caught, fourteen ordinary handbook sentences untouched, and an explicit test

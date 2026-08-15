@@ -96,9 +96,10 @@ Nothing has been released yet. This section describes what exists.
   are held to a stricter list than links, because an image is fetched without a
   click, and a payload in the query is refused even on an allowlisted host.
 - `script/spotlight_probe.rb`, which measures the prompt rather than a rail:
-  12 of 48 injections obeyed with a plain prompt, 8 of 48 with a fenced one,
-  a difference that is not significant. The residual it does establish is that
-  a quarter of injections no pattern catches are obeyed.
+  95 of 384 injections obeyed with a plain prompt against 68 of 384 with a
+  fenced one carrying the hierarchy (z = 2.38, p = 0.017). Fencing helps by
+  about a quarter in relative terms and does not prevent obedience; 17.7% still
+  get through, and none of those injections is recognisable to a pattern.
 - `Spotlight.messages`, the whole safe prompt shape in one call: hierarchy,
   marking rule, fenced passages, question.
 - `Spotlight::HIERARCHY` and `Spotlight.preamble`, which state what outranks
