@@ -636,7 +636,7 @@ disable.
 rake test
 ```
 
-526 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
+534 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
 a recorded double; transport, status handling, the `/v1/checks` fallback, and a
 genuinely refused connection run against a loopback server the suite starts
 itself. No outbound network, no keys, nothing outside the standard library.
