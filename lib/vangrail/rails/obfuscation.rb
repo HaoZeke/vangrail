@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../confusables'
 require_relative '../rail'
 
 module Vangrail
@@ -53,20 +54,9 @@ module Vangrail
       # cost was an HTML comment, whose pattern needs the closing marker.
       BASE64 = /(?<![A-Za-z0-9+\/=])[A-Za-z0-9+\/]{24,}={0,2}(?![A-Za-z0-9+\/=])/
 
-      # Latin lookalikes from Cyrillic and Greek. Deliberately short: these are
-      # the characters that appear in the published homoglyph attacks, and a
-      # bigger table starts folding legitimate text.
-      CONFUSABLES = {
-        'а' => 'a', 'е' => 'e', 'о' => 'o', 'р' => 'p', 'с' => 'c', 'у' => 'y',
-        'х' => 'x', 'і' => 'i', 'ѕ' => 's', 'ԁ' => 'd', 'һ' => 'h', 'ո' => 'n',
-        'ν' => 'v', 'ο' => 'o', 'α' => 'a', 'ρ' => 'p', 'τ' => 't', 'ѵ' => 'v',
-        'А' => 'A', 'В' => 'B', 'Е' => 'E', 'К' => 'K', 'М' => 'M', 'Н' => 'H',
-        'О' => 'O', 'Р' => 'P', 'С' => 'C', 'Т' => 'T', 'Х' => 'X'
-      }.freeze
-
       attr_reader :rails, :transforms
 
-      def initialize(rails:, transforms: %i[invisible confusables rot13 base64 nfkc],
+      def initialize(rails:, transforms: %i[invisible confusables confusables_all rot13 base64 nfkc],
                      name: 'obfuscation', sides: %i[input context])
         super(name: name, sides: sides)
         @rails = Array(rails)
@@ -137,16 +127,27 @@ module Vangrail
         case name
         when :invisible then body.gsub(INVISIBLE, '')
         when :confusables then defold(body)
+        when :confusables_all then Confusables.fold_all(body)
         when :rot13 then body.tr('A-Za-z', 'N-ZA-Mn-za-m')
         when :base64 then decode_base64(body)
         when :nfkc then normalise(body)
         end
       end
 
+      # Two readings of the same text, because the policies fail in opposite
+      # directions and a variant costs one comparison.
+      #
+      # :confusables folds only words that mix ASCII with imitators, which is
+      # what an imitation attack looks like and what leaves a page of Russian
+      # alone. It misses a word converted character for character, where
+      # nothing ASCII is left to mix with.
+      #
+      # :confusables_all folds everything and catches that, at the price of
+      # turning genuine Cyrillic into noise. The noise is never shown to
+      # anybody: a variant exists to be read by a pattern, and the corpus
+      # asserts that ordinary non-Latin prose does not match one.
       def defold(body)
-        return body unless body.match?(/[^\p{ASCII}]/)
-
-        body.chars.map { |c| CONFUSABLES.fetch(c, c) }.join
+        Confusables.fold(body)
       end
 
       # Every long base64 run in the text, decoded and joined. A run that is not

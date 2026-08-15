@@ -97,7 +97,8 @@ Vangrail::Rails::Obfuscation.new(
 | Transform      | What it undoes                                             |
 |----------------+------------------------------------------------------------|
 | =:invisible=   | zero-width joiners and bidi overrides, stripped and reported |
-| =:confusables= | Cyrillic and Greek lookalikes folded back to Latin         |
+| =:confusables= | mixed-script words folded back to the ASCII they imitate   |
+| =:confusables_all= | the same fold applied without the mixed-word test      |
 | =:rot13=       | the rotation                                                |
 | =:base64=      | runs of 24 characters or more that decode to printable text |
 | =:nfkc=        | the fullwidth and mathematical alphabets                    |
@@ -114,9 +115,26 @@ heuristic, because a cluster handbook is full of base64: ssh keys, checksums,
 =base64 -d= examples. A run either decodes to text a rail objects to or
 contributes nothing.
 
+The confusables table is generated from the Unicode data (UTS #39) by
+=script/generate_confusables.rb= and checked in as
+=lib/vangrail/confusables_data.rb=: 1645 entries, against the twenty-nine that
+preceded it and covered only the attacks somebody had already published. The
+gem that supplies the data is a development dependency; an installed vangrail
+still needs nothing but the standard library.
+
+Two passes over the same text, because they fail in opposite directions.
+=:confusables= folds only words that mix ASCII with imitators, which is what an
+imitation attack looks like and what leaves a page of Russian intact; it misses
+a word converted character for character. =:confusables_all= folds regardless
+and catches that, at the price of turning genuine Cyrillic into noise. A
+variant is only ever read by a pattern and never shown to a reader, and the
+corpus asserts that the noise matches nothing.
+
 Measured on the injection corpus rewritten five ways: the pattern rail alone
 catches 0 of 60, with the decoding pass 60 of 60, and ordinary documentation is
-untouched.
+untouched. A separate test walks seven Unicode blocks, taking its imitators
+from the shipped table rather than from typed codepoints, so a fixture cannot
+silently substitute nothing.
 
 ** Rails::ManyShot
 
