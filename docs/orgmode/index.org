@@ -37,6 +37,7 @@ Task-shaped, for when you know what you want.
 
 - [[file:reference/environment.org][Environment variables]]
 - [[file:reference/rails.org][The built-in rails]]
+- [[https://haozeke.github.io/vangrail/][YARD class reference]]
 
 ** Explanation
 

@@ -1,0 +1,50 @@
+# YARD API docs on GitHub Pages.
+#
+# The gem has no runtime documentation site of its own. This job builds
+# the YARD tree from lib/ and deploys it so a stranger can read the
+# classes without cloning. It does not install the gem and it does not
+# touch RubyGems.
+name: API docs
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  yard:
+    name: yard
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: false
+
+      - name: Install yard
+        run: gem install --no-document yard
+
+      - name: Build
+        run: yard doc
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: doc
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

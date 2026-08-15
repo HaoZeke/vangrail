@@ -19,6 +19,8 @@ Nothing has been released yet. This section describes what exists.
   rails, so a NeMo folder that screens retrieved documents screens them here.
 - Gem metadata: homepage, source, changelog, bug tracker, and
   `allowed_push_host` for RubyGems.
+- YARD class reference, built from the comments on the public objects
+  and published at https://haozeke.github.io/vangrail/.
 
 - Rails as ordinary Ruby objects, each with one `call` method, returning a
   `Result`. A regex check, a safety classifier, a Colang flow, and a call out

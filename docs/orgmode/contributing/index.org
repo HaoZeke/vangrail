@@ -58,6 +58,16 @@ Conventional Commits, since =cog= builds the changelog from them. The subject
 says what changed; the body says why it was worth changing. A commit that fixes
 a defect should say what the defect actually did, not that a test now passes.
 
+** API docs
+
+#+begin_src bash
+gem install yard
+yard doc          # writes ./doc from .yardopts
+#+end_src
+
+The =API docs= workflow deploys that tree to GitHub Pages on every push to
+=main= and on every version tag.
+
 ** Releasing
 
 =cog bump= rewrites the version, writes the changelog, and tags. Pushing the tag

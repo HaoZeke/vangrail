@@ -1,0 +1,12 @@
+--title "vangrail"
+--markup markdown
+--no-private
+--protected
+--embed-mixins
+--no-progress
+--output-dir doc
+lib/**/*.rb
+-
+README.md
+CHANGELOG.md
+LICENSE

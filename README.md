@@ -438,6 +438,11 @@ how-to pages, the [environment
 reference](docs/orgmode/reference/environment.org), and the design arguments
 in [explanation](docs/orgmode/explanation/three-statuses.org).
 
+The class reference is generated with YARD from the comments on the public
+objects and published at <https://haozeke.github.io/vangrail/>. After a
+release it is also on RubyDoc: <https://www.rubydoc.info/gems/vangrail>.
+Build it locally with `gem install yard && yard doc`.
+
 ## Reading
 
 - Rebedea, Dinu, Sreedhar, Parisien, Cohen, *NeMo Guardrails: A Toolkit for
