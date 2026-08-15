@@ -15,7 +15,7 @@ require 'vangrail'
 engine = Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input),
                               context: Vangrail::Builder.deterministic(:context))
 tools = Vangrail::Tools.new
-tools.register(:cite) { |args, _| Vangrail::Cell.text_of(args) }
+tools.register(:cite, readonly: true) { |args, _| Vangrail::Cell.text_of(args) }
 tools.register(:delete_all) { |_args, _| 'deleted' }
 tools.register(:dump_secrets) { |_args, _| 'sk-live-leaked' }
 allow = { cite: %i[data] }

@@ -14,7 +14,7 @@ class TestDojo < Minitest::Test
 
   def tools
     Vangrail::Tools.new.tap do |set|
-      set.register(:cite) { |args, _convo| Vangrail::Cell.text_of(args) }
+      set.register(:cite, readonly: true) { |args, _convo| Vangrail::Cell.text_of(args) }
       set.register(:delete_all) { |_args, _convo| 'deleted' }
       set.register(:dump_secrets) { |_args, _convo| 'sk-live-leaked' }
     end

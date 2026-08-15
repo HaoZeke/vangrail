@@ -12,21 +12,28 @@ module Vangrail
   #   convo.ask('Cite the partition table.')
   #   convo.invoke(:cite, arguments: page)
   class Tools
+    Entry = Struct.new(:handler, :readonly, keyword_init: true)
+
     def initialize(handlers = {})
       @handlers = {}
       handlers.each { |name, fn| register(name, fn) }
     end
 
-    def register(name, callable = nil, &block)
+    def register(name, callable = nil, readonly: false, &block)
       fn = callable || block
       raise ArgumentError, "tool #{name} needs a callable" unless fn.respond_to?(:call)
 
-      @handlers[name.to_sym] = fn
+      @handlers[name.to_sym] = Entry.new(handler: fn, readonly: readonly)
       self
     end
 
     def key?(name)
       @handlers.key?(name.to_sym)
+    end
+
+    def readonly?(name)
+      entry = @handlers[name.to_sym]
+      entry && entry.readonly
     end
 
     def names
@@ -36,15 +43,17 @@ module Vangrail
     def call(name, arguments, conversation)
       raise ArgumentError, "unknown tool #{name}" unless key?(name)
 
-      @handlers[name.to_sym].call(arguments, conversation)
+      @handlers[name.to_sym].handler.call(arguments, conversation)
     end
 
     def dup
-      self.class.new(@handlers.dup)
+      copy = self.class.new
+      @handlers.each { |name, entry| copy.register(name, entry.handler, readonly: entry.readonly) }
+      copy
     end
 
     def to_h
-      @handlers.dup
+      @handlers.transform_values(&:handler)
     end
   end
 end

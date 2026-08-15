@@ -380,6 +380,13 @@ only prompt that object will assemble: the last user turn plus the
 cells `screen` kept. A caller who pastes data into the instruction
 has to do it without that method.
 
+`Profile` is Grok Build's session-pinned sandbox, in this process.
+`workspace` grants cite and search and denies `delete_*` / `dump_*` /
+`shell`. `strict` is cite-only and read-only. Deny always wins, even
+if the plan named the tool. `Conversation#child_env` drops names
+matching KEY/SECRET/TOKEN. A `pre_invoke` hook can still refuse a
+granted call.
+
 `Conversation#intend` is the plan. It can only be called after `ask`
 and before `screen`. After retrieval the plan is locked. `invoke`
 refuses a tool that was not intended, even if the allowlist would

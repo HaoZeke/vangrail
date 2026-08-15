@@ -3,6 +3,7 @@
 require_relative 'engine'
 require_relative 'errors'
 require_relative 'origin'
+require_relative 'profile'
 require_relative 'result'
 require_relative 'session'
 require_relative 'spotlight'
@@ -60,10 +61,11 @@ module Vangrail
     DEFAULT_WINDOW = 12
 
     attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities,
-                :tools, :invocations, :intended
+                :tools, :invocations, :intended, :profile
 
     def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
-                   allow: {}, admission: nil, capabilities: nil, tools: nil, **context)
+                   allow: {}, admission: nil, capabilities: nil, tools: nil,
+                   profile: nil, deny: [], hooks: {}, **context)
       raise ArgumentError, 'pass session: or prior:, not both' if session && prior
 
       @engine = engine
@@ -74,15 +76,19 @@ module Vangrail
       @invocations = []
       @intended = []
       @locked = false
+      @pinned = false
+      @hooks = hooks
       @tools = tools || Tools.new
+      @profile = Profile.resolve(profile, allow: allow, deny: deny)
       @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).freeze
       @session = session || (prior && Session.new(engine: engine, prior: prior))
-      @admission = admission || Admission.new(allow: allow)
+      @admission = admission || Admission.new(allow: @profile.allow)
     end
 
     # Checks a question and records it, whatever the verdict. A blocked turn
     # stays in the history: it is the part the next check needs most.
     def ask(text, **context)
+      @pinned = true
       seen = history
       result = engine.check_input(text, history: seen, **@base_context, **context)
       @turns << Turn.new(role: :user, text: text.to_s, result: result, origin: Origin.user)
@@ -169,6 +175,21 @@ module Vangrail
       name = name.to_sym
       raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
 
+      if profile.denied?(name)
+        result = Result.blocked(rail: 'deny', reason: "capability #{name} is denied by profile")
+        record_invocation(name, arguments, result, nil)
+        return result
+      end
+
+      if profile.readonly? && !tools.readonly?(name)
+        result = Result.blocked(rail: 'profile', reason: "profile #{profile.name} is read-only")
+        record_invocation(name, arguments, result, nil)
+        return result
+      end
+
+      hook = run_pre_invoke(name, arguments)
+      return hook if hook
+
       unless intended.include?(name)
         result = Result.blocked(rail: 'plan', reason: "capability #{name} was not intended")
         record_invocation(name, arguments, result, nil)
@@ -218,6 +239,10 @@ module Vangrail
       turns.reverse.detect(&:user?)
     end
 
+    def child_env(source = ENV)
+      profile.strip_secrets? ? Profile.strip_secrets(source) : source.to_h
+    end
+
     def to_h
       {
         'turns' => turns.map(&:to_h),
@@ -225,11 +250,28 @@ module Vangrail
         'invoked' => invocations.select { |row| row[:result].allowed? }.map { |row| row[:name].to_s },
         'intended' => intended.map(&:to_s),
         'locked' => locked?,
+        'profile' => profile.name.to_s,
         'session' => session&.to_h,
       }.compact
     end
 
     private
+
+    def run_pre_invoke(name, arguments)
+      hook = @hooks[:pre_invoke]
+      return nil unless hook
+
+      verdict = hook.call(name, arguments, self)
+      if verdict.is_a?(Result)
+        record_invocation(name, arguments, verdict, nil)
+        return verdict
+      end
+      return nil if verdict
+
+      result = Result.blocked(rail: 'hook', reason: "pre_invoke refused #{name}")
+      record_invocation(name, arguments, result, nil)
+      result
+    end
 
     def record_invocation(name, arguments, result, cell)
       @invocations << { name: name, arguments: arguments, result: result, cell: cell }

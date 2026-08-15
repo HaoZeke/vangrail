@@ -118,6 +118,13 @@ Nothing has been released yet. This section describes what exists.
 
 ### Added
 
+- `Profile` (`workspace`, `strict`, `read_only`, `off`): named
+  postures pinned for the conversation, copied from Grok Build's
+  sandbox and permission model. Deny globs always win over allow and
+  over the plan. `strict` and `read_only` refuse a mutating tool.
+  `child_env` drops KEY/SECRET/TOKEN. A `pre_invoke` hook can still
+  block, the same way Grok Build hooks still apply under
+  always-approve.
 - `Conversation#intend` names the tools the question may use, before
   any page is seen. `screen` locks the plan. `invoke` refuses a tool
   that was not intended, even if Admission would have granted it.
