@@ -87,7 +87,7 @@ module Vangrail
       end
 
       def cells
-        kept.map { |document| Cell.data(Engine.document_text(document)) }
+        kept.map { |document| Cell.data(Cell.text_of(document)) }
       end
 
       def to_h
@@ -371,15 +371,8 @@ module Vangrail
         'an editable wiki is nearer 1e-4. The answer changes the verdict, and only you know it.'
     end
 
-    def self.document_text(document)
-      return document.value.to_s if document.is_a?(Cell)
-      return document.to_s unless document.is_a?(Hash)
-
-      (document['text'] || document[:text]).to_s
-    end
-
     def text_of(document)
-      self.class.document_text(document)
+      Cell.text_of(document)
     end
 
     # A context rail may rewrite a document rather than reject it, so the

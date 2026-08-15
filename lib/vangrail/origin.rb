@@ -142,6 +142,13 @@ module Vangrail
       new(value, origins: Origin.tool, capabilities: capabilities)
     end
 
+    def self.text_of(document)
+      return document.value.to_s if document.is_a?(self)
+      return document.to_s unless document.is_a?(Hash)
+
+      (document['text'] || document[:text]).to_s
+    end
+
     def privileged?
       origins.all?(&:privileged?)
     end
@@ -153,7 +160,8 @@ module Vangrail
     # Union of origins. The value is the caller's combination; this only
     # tracks what touched it.
     def mix(other, value: self.value)
-      self.class.new(value, origins: origins + other.origins,
+      self.class.new(value,
+                     origins: origins + other.origins,
                      capabilities: merge_capabilities(other))
     end
 

@@ -167,8 +167,10 @@ module Vangrail
     end
 
     def coerce_slot(value, slot)
-      cell = value.is_a?(Cell) ? value : Cell.new(value, origins: Origin.coerce(slot == :user ? :user : slot))
-      raise PrivilegeError, "#{slot} slot refuses origin #{cell.origins.map(&:to_s).join('+')}" unless slot_ok?(cell, slot)
+      origin = slot == :user ? Origin.user : Origin.coerce(slot)
+      cell = value.is_a?(Cell) ? value : Cell.new(value, origins: origin)
+      names = cell.origins.join('+')
+      raise PrivilegeError, "#{slot} slot refuses origin #{names}" unless slot_ok?(cell, slot)
 
       cell
     end
@@ -186,7 +188,7 @@ module Vangrail
     def coerce_passage(value)
       cell = value.is_a?(Cell) ? value : Cell.data(passage_text(value))
       unless cell.origins.all?(&:untrusted?)
-        raise PrivilegeError, "passage slot refuses origin #{cell.origins.map(&:to_s).join('+')}"
+        raise PrivilegeError, "passage slot refuses origin #{cell.origins.join('+')}"
       end
 
       cell
