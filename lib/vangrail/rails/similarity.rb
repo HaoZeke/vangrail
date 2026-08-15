@@ -77,7 +77,7 @@ module Vangrail
         return pass if score < threshold
 
         block(categories: ['known_attack'],
-              reason: format('near copy of a known attack (%.2f): %s', score, seed))
+              reason: format('near copy of a known attack (%<score>.2f): %<seed>s', score: score, seed: seed))
       end
 
       # The closest seed and how much of it is present, for a caller that wants

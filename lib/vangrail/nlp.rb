@@ -50,8 +50,13 @@ module Vangrail
     # Stemming is the hot path: every rule reads every token of every clause,
     # and real prose repeats its words. The memo turns six regexp attempts per
     # token into a hash hit for everything after the first sighting.
+    #
+    # Deliberately mutable, and deliberately without a lock. Two threads racing
+    # here lose an entry and recompute it, which costs one string comparison
+    # and cannot produce a wrong answer, because the value is a pure function
+    # of the key.
     STEM_CACHE = 8192
-    STEMS = {}
+    STEMS = {} # rubocop:disable Style/MutableConstant
 
     # An English suffix stripper, not Porter, and not applied per language.
     #
@@ -67,30 +72,30 @@ module Vangrail
     # list is cheap; a stemmer that silently collides two languages' vocabulary
     # is not.
     def stem(word)
-      w = word.to_s
-      return w if w.length <= 3
+      text = word.to_s
+      return text if text.length <= 3
 
-      cached = STEMS[w]
+      cached = STEMS[text]
       return cached if cached
 
-      stemmed = strip_suffix(w)
+      stemmed = strip_suffix(text)
       # Bounded, and bounded because the input is hostile. A memo that grows
       # with whatever arrives is a memory leak an attacker can drive; a
       # dictionary's worth of ordinary words fits well inside this, and past it
       # the cost falls back to what it was without the memo.
-      STEMS[w] = stemmed if STEMS.size < STEM_CACHE
+      STEMS[text] = stemmed if STEMS.size < STEM_CACHE
       stemmed
     end
 
-    def strip_suffix(w)
-      case w
+    def strip_suffix(word)
+      case word
       when /\A(.+)ies\z/ then "#{Regexp.last_match(1)}y"
       when /\A(.+ss)es\z/ then Regexp.last_match(1)
       when /\A(.+[^su])s\z/ then Regexp.last_match(1)
       when /\A(.{3,})ing\z/ then Regexp.last_match(1)
       when /\A(.{3,})ed\z/ then Regexp.last_match(1)
       when /\A(.{3,})ly\z/ then Regexp.last_match(1)
-      else w
+      else word
       end
     end
 
