@@ -31,6 +31,17 @@ end
 with =history:= filled in, and record the turn either way. A blocked question
 stays in the history: it is the part the next check needs most.
 
+Pass =prior:= and the same turns also feed a =Session=. Escalation sees the
+refusals; the posterior sees the sequence that never refused. They are
+different questions and they share one history.
+
+#+BEGIN_SRC ruby
+convo = Vangrail::Conversation.new(engine, prior: 1e-3)
+convo.ask(question)
+convo.session.posterior
+convo.session.action      # :allow, :review, or :block
+#+END_SRC
+
 ** Switch on the rail that uses it
 
 #+BEGIN_SRC sh

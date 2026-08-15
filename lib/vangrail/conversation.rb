@@ -2,6 +2,7 @@
 
 require_relative 'engine'
 require_relative 'result'
+require_relative 'session'
 
 module Vangrail
   # A dialogue, so rails can see more than the turn in front of them.
@@ -25,6 +26,14 @@ module Vangrail
   # informative event in a dialogue: the next message is either an ordinary
   # follow-up or the same request rewritten, and telling those apart is
   # impossible without knowing a refusal happened.
+  #
+  # Pass `prior:` and the same turns also feed a Session. Escalation sees
+  # the refusals; the posterior sees the sequence that never refused.
+  # They are different questions and they share one history.
+  #
+  #   convo = Vangrail::Conversation.new(engine, prior: 1e-3)
+  #   convo.ask(question)
+  #   convo.session.posterior
   class Conversation
     Turn = Struct.new(:role, :text, :result, keyword_init: true) do
       def blocked?
@@ -45,20 +54,25 @@ module Vangrail
     # an unbounded window makes the cost of a check grow with the session.
     DEFAULT_WINDOW = 12
 
-    attr_reader :engine, :turns, :window
+    attr_reader :engine, :turns, :window, :session
 
-    def initialize(engine, window: DEFAULT_WINDOW, **context)
+    def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil, **context)
+      raise ArgumentError, 'pass session: or prior:, not both' if session && prior
+
       @engine = engine
       @window = window
       @base_context = context
       @turns = []
+      @session = session || (prior && Session.new(engine: engine, prior: prior))
     end
 
     # Checks a question and records it, whatever the verdict. A blocked turn
     # stays in the history: it is the part the next check needs most.
     def ask(text, **context)
-      result = engine.check_input(text, history: history, **@base_context, **context)
+      seen = history
+      result = engine.check_input(text, history: seen, **@base_context, **context)
       @turns << Turn.new(role: :user, text: text.to_s, result: result)
+      @session&.observe(text, side: :input, history: seen)
       result
     end
 
@@ -93,7 +107,11 @@ module Vangrail
     end
 
     def to_h
-      { 'turns' => turns.map(&:to_h), 'blocked' => blocked_turns.size }
+      {
+        'turns' => turns.map(&:to_h),
+        'blocked' => blocked_turns.size,
+        'session' => session&.to_h
+      }.compact
     end
 
     private

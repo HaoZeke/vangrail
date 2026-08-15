@@ -99,6 +99,9 @@ Nothing has been released yet. This section describes what exists.
   refuses to call an unread language a clean pass. Off by default so
   the same folder still describes one set of rails on either runtime.
 - `Builder.deterministic`, the shared list those two paths install.
+- `Conversation` takes `prior:` or `session:`, so the turns Escalation
+  already sees also feed a Session. The two objects stay distinct; they
+  share one history.
 
 - `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
   a suffix stripper, a concept lexicon with negation and multiword phrases,
