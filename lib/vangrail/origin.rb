@@ -116,28 +116,30 @@ module Vangrail
   # cell. Taint does not wash off by quoting, summarising, or extracting
   # a field. That is the CaMeL rule, and it is the whole rule.
   class Cell
-    attr_reader :value, :origins
+    attr_reader :value, :origins, :capabilities
 
-    def initialize(value, origins:)
+    def initialize(value, origins:, capabilities: nil)
       @value = value
       @origins = Array(origins).map { |origin| Origin.coerce(origin) }.uniq.freeze
       raise ArgumentError, 'a cell needs at least one origin' if @origins.empty?
+
+      @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).uniq.freeze
     end
 
-    def self.system(value)
-      new(value, origins: Origin.system)
+    def self.system(value, capabilities: nil)
+      new(value, origins: Origin.system, capabilities: capabilities)
     end
 
-    def self.user(value)
-      new(value, origins: Origin.user)
+    def self.user(value, capabilities: nil)
+      new(value, origins: Origin.user, capabilities: capabilities)
     end
 
-    def self.data(value)
-      new(value, origins: Origin.data)
+    def self.data(value, capabilities: nil)
+      new(value, origins: Origin.data, capabilities: capabilities)
     end
 
-    def self.tool(value)
-      new(value, origins: Origin.tool)
+    def self.tool(value, capabilities: nil)
+      new(value, origins: Origin.tool, capabilities: capabilities)
     end
 
     def privileged?
@@ -151,17 +153,36 @@ module Vangrail
     # Union of origins. The value is the caller's combination; this only
     # tracks what touched it.
     def mix(other, value: self.value)
-      self.class.new(value, origins: origins + other.origins)
+      self.class.new(value, origins: origins + other.origins,
+                     capabilities: merge_capabilities(other))
     end
 
-    # A quoted or extracted form still carries every origin. Quoting is
-    # not a privilege escalation.
+    # A quoted or extracted form still carries every origin and every
+    # remaining capability. Quoting is not a privilege escalation.
     def quote
-      self.class.new(value, origins: origins)
+      self.class.new(value, origins: origins, capabilities: capabilities)
     end
 
     def to_h
-      { 'value' => value, 'origins' => origins.map(&:to_s), 'tainted' => tainted? }
+      {
+        'value' => value,
+        'origins' => origins.map(&:to_s),
+        'tainted' => tainted?,
+        'capabilities' => capabilities,
+      }.compact
+    end
+
+    private
+
+    # Any untrusted parent zeros the token set: data brings no authority.
+    # Two privileged parents intersect; nil on both sides stays unrestricted.
+    def merge_capabilities(other)
+      return [] if tainted? || other.tainted?
+      return nil if capabilities.nil? && other.capabilities.nil?
+      return other.capabilities if capabilities.nil?
+      return capabilities if other.capabilities.nil?
+
+      capabilities & other.capabilities
     end
   end
 
@@ -175,13 +196,19 @@ module Vangrail
   # deployment that does not say so cannot be surprised by a wiki
   # page that asked for a shell.
   #
-  #   gate = Admission.new(allow: { cite: %i[data], search: %i[data] })
+  #   gate = Admission.new(allow: { cite: %i[data], search: [] })
   #   gate.permit?(:cite, request: Cell.user(q), arguments: Cell.data(page))
   #   # => true
-  #   gate.permit?(:shell, request: Cell.user(q), arguments: Cell.data(page))
+  #   gate.permit?(:search, request: Cell.user(q))
+  #   # => true
+  #   gate.permit?(:shell, request: Cell.user(q))
   #   # => false
   #   gate.permit?(:shell, request: Cell.data(page))
   #   # => false
+  #
+  # An empty gate grants nothing. A key in `allow` is the grant; the
+  # value is which untrusted origins may supply arguments. A request
+  # cell that carries its own capability set must include the name.
   class Admission
     def initialize(allow: {})
       @allow = allow.transform_keys(&:to_sym)
@@ -192,11 +219,23 @@ module Vangrail
     def permit?(capability, request:, arguments: nil)
       raise ArgumentError, 'request must be a Cell' unless request.is_a?(Cell)
       raise ArgumentError, 'arguments must be a Cell' if !arguments.nil? && !arguments.is_a?(Cell)
+
+      cap = capability.to_sym
       return false unless request.privileged?
+      return false unless granted?(cap, request)
       return true if arguments.nil? || arguments.privileged?
 
-      allowed = @allow[capability.to_sym] || []
+      allowed = @allow[cap] || []
       arguments.origins.all? { |origin| origin.privileged? || allowed.include?(origin.kind) }
+    end
+
+    private
+
+    def granted?(capability, request)
+      return false unless @allow.key?(capability)
+      return request.capabilities.include?(capability) if request.capabilities
+
+      true
     end
   end
 end

@@ -62,6 +62,10 @@ pages onto contamination; =admit?= takes the last user turn as the
 request. =Admission= refuses a capability whose request is not
 privileged, or whose arguments are untrusted without an allowlist.
 Detection still runs. Promotion is what it no longer does.
+Measured on the shared 270/48 set at prior 1e-3: 270/270 attack
+pages leave the attack posterior unchanged when labeled data;
+267 move contamination; 267 would have moved the attack posterior
+if labeled as the user. =admit?(:shell)= is false on all 318.
 
 The last column is the information-theoretic reading of the same table: the
 share of the uncertainty about "is this an attack" that a rail's verdict

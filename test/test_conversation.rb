@@ -162,6 +162,26 @@ class TestConversation < Minitest::Test
     refute convo.admit?(:search)
   end
 
+  def test_messages_assemble_from_the_user_turn_and_retrieved_cells
+    guarded = Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input),
+                                   context: Vangrail::Builder.deterministic(:context))
+    convo = Vangrail::Conversation.new(guarded, prior: 1e-3, allow: { cite: %i[data] })
+    convo.ask('How do I submit a GPU job?')
+    convo.screen([{ 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
+    built = convo.messages(system: 'Cite every clause.')
+
+    assert_includes built.last['content'], 'How do I submit a GPU job?'
+    assert_includes built.last['content'], 'gpu_a100'
+    assert_equal 1, convo.retrieved.size
+    assert_predicate convo.retrieved.first, :tainted?
+  end
+
+  def test_messages_refuse_to_assemble_before_a_question
+    convo = Vangrail::Conversation.new(engine)
+
+    assert_raises(Vangrail::Error) { convo.messages(system: 's') }
+  end
+
   def test_session_and_prior_together_are_refused
     existing = Vangrail::Session.new(engine: engine, prior: 1e-3)
 

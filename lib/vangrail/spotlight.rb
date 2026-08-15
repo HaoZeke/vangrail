@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'securerandom'
+require_relative 'errors'
+require_relative 'origin'
 
 module Vangrail
   # Marks retrieved text as data, so a model can tell it from an instruction.
@@ -117,10 +119,19 @@ module Vangrail
     # the plain shape and this one is the difference the prompt side is worth,
     # and script/spotlight_probe.rb is that measurement.
     #
-    # Passages may be strings or hashes carrying 'text' with an optional
-    # 'title'; a title stays outside the fence so citation instructions can
-    # still refer to it.
+    # Passages may be strings, hashes carrying 'text' with an optional
+    # 'title', or Cells. A title stays outside the fence so citation
+    # instructions can still refer to it.
+    #
+    # Slots are typed. A raw string in `system:` is a system cell, in
+    # `question:` a user cell, in `passages:` a data cell. A Cell in the
+    # wrong slot raises PrivilegeError: data cannot become an instruction
+    # by being passed to the question, and a privileged cell cannot hide
+    # in a passage fence.
     def messages(system:, question:, passages:, mode: :delimit, mark: DEFAULT_MARK)
+      system_cell = coerce_slot(system, :system)
+      question_cell = coerce_slot(question, :user)
+      Array(passages).each { |passage| coerce_passage(passage) }
       bodies = Array(passages).map { |p| passage_text(p) }
       marked, rule = apply_all(bodies, mode: mode, mark: mark)
       numbered = Array(passages).each_with_index.map do |p, i|
@@ -128,12 +139,13 @@ module Vangrail
         ["[#{i + 1}]#{" #{head}" if head}", marked[i].to_s].join("\n")
       end.join("\n\n---\n\n")
 
-      [{ 'role' => 'system', 'content' => [HIERARCHY, system].join("\n\n") },
+      [{ 'role' => 'system', 'content' => [HIERARCHY, system_cell.value].join("\n\n") },
        { 'role' => 'user',
-         'content' => "Question: #{question}\n\n#{rule}\n\nPassages:\n#{numbered}" }]
+         'content' => "Question: #{question_cell.value}\n\n#{rule}\n\nPassages:\n#{numbered}" }]
     end
 
     def passage_text(passage)
+      return passage.value.to_s if passage.is_a?(Cell)
       return passage.to_s unless passage.is_a?(Hash)
 
       (passage['text'] || passage[:text]).to_s
@@ -152,6 +164,32 @@ module Vangrail
       tag = mode.to_sym == :delimit ? "data-#{SecureRandom.hex(4)}" : nil
       marked = Array(passages).map { |p| apply(p, mode: mode, tag: tag, mark: mark) }
       [marked, marked.first&.instruction]
+    end
+
+    def coerce_slot(value, slot)
+      cell = value.is_a?(Cell) ? value : Cell.new(value, origins: Origin.coerce(slot == :user ? :user : slot))
+      raise PrivilegeError, "#{slot} slot refuses origin #{cell.origins.map(&:to_s).join('+')}" unless slot_ok?(cell, slot)
+
+      cell
+    end
+
+    def slot_ok?(cell, slot)
+      return false if cell.tainted?
+
+      case slot
+      when :system then cell.origins.all? { |origin| origin.kind == :system }
+      when :user then cell.origins.all? { |origin| origin.kind == :user }
+      else false
+      end
+    end
+
+    def coerce_passage(value)
+      cell = value.is_a?(Cell) ? value : Cell.data(passage_text(value))
+      unless cell.origins.all?(&:untrusted?)
+        raise PrivilegeError, "passage slot refuses origin #{cell.origins.map(&:to_s).join('+')}"
+      end
+
+      cell
     end
   end
 end

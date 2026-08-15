@@ -45,4 +45,9 @@ module Vangrail
 
   # The configuration folder is missing something the rails it declares need.
   class ConfigError < Error; end
+
+  # A span was offered to a slot its origin cannot occupy: data in the
+  # instruction, or a privileged cell in a passage fence. The cut is
+  # the type system; this is what raising looks like when it is crossed.
+  class PrivilegeError < Error; end
 end

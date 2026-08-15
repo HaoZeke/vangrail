@@ -86,6 +86,10 @@ module Vangrail
         !rejected.empty?
       end
 
+      def cells
+        kept.map { |document| Cell.data(Engine.document_text(document)) }
+      end
+
       def to_h
         {
           'kept' => kept.size,
@@ -367,10 +371,15 @@ module Vangrail
         'an editable wiki is nearer 1e-4. The answer changes the verdict, and only you know it.'
     end
 
-    def text_of(document)
+    def self.document_text(document)
+      return document.value.to_s if document.is_a?(Cell)
       return document.to_s unless document.is_a?(Hash)
 
       (document['text'] || document[:text]).to_s
+    end
+
+    def text_of(document)
+      self.class.document_text(document)
     end
 
     # A context rail may rewrite a document rather than reject it, so the

@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 require_relative 'engine'
+require_relative 'errors'
 require_relative 'origin'
 require_relative 'result'
 require_relative 'session'
+require_relative 'spotlight'
 
 module Vangrail
   # A dialogue, so rails can see more than the turn in front of them.
@@ -56,16 +58,18 @@ module Vangrail
     # an unbounded window makes the cost of a check grow with the session.
     DEFAULT_WINDOW = 12
 
-    attr_reader :engine, :turns, :window, :session, :admission
+    attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities
 
     def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
-                   allow: {}, admission: nil, **context)
+                   allow: {}, admission: nil, capabilities: nil, **context)
       raise ArgumentError, 'pass session: or prior:, not both' if session && prior
 
       @engine = engine
       @window = window
       @base_context = context
       @turns = []
+      @retrieved = []
+      @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).freeze
       @session = session || (prior && Session.new(engine: engine, prior: prior))
       @admission = admission || Admission.new(allow: allow)
     end
@@ -94,15 +98,17 @@ module Vangrail
     def screen(documents, **context)
       seen = history
       result = engine.screen(documents, history: seen, **@base_context, **context)
-      Array(documents).each do |document|
-        @session&.observe(text_of(document), side: :context, origin: :data, history: seen)
+      @retrieved = result.cells
+      @retrieved.each do |cell|
+        @session&.observe(cell.value, side: :context, origin: :data, history: seen)
       end
       result
     end
 
     # Whether this dialogue may exercise a capability. The request is the
-    # last user turn; a bare argument string is data. Nothing is admitted
-    # before anyone has asked.
+    # last user turn, carrying the conversation's capability set. A bare
+    # argument string is data. Nothing is admitted before anyone has asked,
+    # and a name that is not in the allowlist is not admitted either.
     def admit?(capability, arguments: nil)
       turn = last_user_turn
       return false unless turn
@@ -112,7 +118,20 @@ module Vangrail
              when Cell then arguments
              else Cell.data(arguments)
              end
-      admission.permit?(capability, request: Cell.user(turn.text), arguments: args)
+      admission.permit?(capability, request: Cell.user(turn.text, capabilities: capabilities),
+                                    arguments: args)
+    end
+
+    # The only assembly this object will produce. The question is the last
+    # user turn; the passages are the cells `screen` kept. A caller who
+    # pastes retrieved text into `system:` or `question:` has to do it
+    # without this method, which is the point.
+    def messages(system:, mode: :delimit, mark: Spotlight::DEFAULT_MARK)
+      turn = last_user_turn
+      raise Error, 'ask before assembling a prompt' unless turn
+
+      Spotlight.messages(system: system, question: Cell.user(turn.text),
+                         passages: retrieved, mode: mode, mark: mark)
     end
 
     # The window the rails read: role and text, no Result objects, because a

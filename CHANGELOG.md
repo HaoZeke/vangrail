@@ -119,11 +119,13 @@ Nothing has been released yet. This section describes what exists.
 ### Added
 
 - `Origin`, `Cell`, and `Admission`: a span is privileged (`system`,
-  `user`) or untrusted (`data`, `tool`). Mixing unions origins; quoting
-  does not wash off taint. A capability is granted only if a privileged
-  cell requested it, and untrusted arguments need an allowlist. This is
-  the StruQ / CaMeL cut: data cannot become an instruction, and a
-  retrieved page cannot authorize a tool.
+  `user`) or untrusted (`data`, `tool`). Mixing unions origins and
+  zeros capability tokens. Quoting does not wash off taint. An empty
+  `Admission` grants nothing; a key in `allow` is the grant, and a
+  request cell may restrict further. `Spotlight.messages` types its
+  slots and raises `PrivilegeError` when data is offered as an
+  instruction. `Conversation#messages` is the only assembly that
+  object will produce: last user turn plus the cells `screen` kept.
 - `Engine#assess(origin:)` labels the span. The side supplies a default
   (`input` is user, `context` is data, `output` is tool). `Session`
   keeps two tracks: privileged origin updates attack, untrusted origin
