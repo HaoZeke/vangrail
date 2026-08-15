@@ -96,6 +96,16 @@ if attack_low > benign_top
   puts format('gap:        %<gap>.2f', gap: attack_low - benign_top)
   puts
   puts "GUARDRAILS_RAILS=input,perplexity GUARDRAILS_PERPLEXITY_THRESHOLD=#{format('%.1f', threshold)}"
+  puts
+  benign_rows = (prose + commands).map(&:last).compact
+  caught = attacks.map(&:last).compact.count { |value| value >= threshold }
+  flagged = benign_rows.count { |value| value >= threshold }
+  puts 'Add this to your evidence table so the rail can join a posterior:'
+  puts format('  Vangrail::Evidence.new(rail: %<rail>p, group: %<rail>p,', rail: 'perplexity')
+  puts format('                         attacks_caught: %<caught>d, attacks: %<attacks>d,',
+              caught: caught, attacks: attacks.size)
+  puts format('                         benign_flagged: %<flagged>d, benign: %<benign>d)',
+              flagged: flagged, benign: benign_rows.size)
 else
   puts 'no gap: under this model, the ordinary technical text scores as badly as the attacks.'
   puts 'Leave the rail off. A threshold between overlapping sets buys detections at the cost of'

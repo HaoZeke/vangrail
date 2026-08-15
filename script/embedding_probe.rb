@@ -72,6 +72,20 @@ if low > top
   puts format('threshold:   %<mid>.3f   (the middle of the gap)', mid: (low + top) / 2)
   puts
   puts "GUARDRAILS_RAILS=context,semantic GUARDRAILS_SEMANTIC_THRESHOLD=#{format('%.2f', (low + top) / 2)}"
+  puts
+  # The threshold is half of what a deployment needs. The other half is what a
+  # hit from this rail is worth as evidence, which nothing but a run against
+  # this endpoint can say, and which Engine#assess cannot use until it exists.
+  threshold = (low + top) / 2
+  caught = attacks.count { |row| row[:score] >= threshold }
+  flagged = benign.count { |row| row[:score] >= threshold }
+  puts 'Add this to your evidence table so the rail can join a posterior:'
+  puts format('  Vangrail::Evidence.new(rail: %<rail>p, group: %<rail>p,',
+              rail: 'semantic')
+  puts format('                         attacks_caught: %<caught>d, attacks: %<attacks>d,',
+              caught: caught, attacks: attacks.size)
+  puts format('                         benign_flagged: %<flagged>d, benign: %<benign>d)',
+              flagged: flagged, benign: benign.size)
 else
   puts 'no gap: this model does not separate these two corpora.'
   puts 'Leave the rail off rather than picking a threshold between overlapping sets.'

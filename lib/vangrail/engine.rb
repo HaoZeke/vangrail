@@ -126,15 +126,16 @@ module Vangrail
     # Costs more than a check, because nothing short-circuits: every rail with
     # an entry in the table runs, including the ones a block would have skipped.
     def assess(text, side: :input, prior: nil, policy: Policy::DEFAULT, evidence: EvidenceData::TABLE,
-               **context)
+               escalate: false, **context)
       raise ArgumentError, prior_message if prior.nil?
 
-      observations, certain = observe(text, side, context, evidence)
+      observations, certain, skipped = observe(text, side, context, evidence,
+                                               escalate ? { prior: prior, policy: policy } : nil)
       posterior, contributions = Posterior.combine(prior: prior, observations: observations,
                                                    evidence: evidence)
       Judgement.new(posterior: posterior, prior: prior, bits: contributions.sum { |c| c[:bits] },
                     contributions: contributions, certain: certain, side: side.to_sym,
-                    action: policy.action_for(posterior))
+                    skipped: skipped, action: policy.action_for(posterior))
     end
 
     def rails(side)
@@ -193,15 +194,23 @@ module Vangrail
     # cannot. An unreachable rail is not a rail that found nothing, and folding
     # the two together silently converts a broken endpoint into evidence of
     # innocence.
-    def observe(text, side, context, evidence)
+    def observe(text, side, context, evidence, escalation = nil)
       ctx = context.merge(side: side)
       body = text.to_s
       certain = true
       observations = {}
+      skipped = []
 
-      rails(side).each do |rail|
-        next unless rail.applies_to?(side)
-        next unless evidence[rail.name]&.measured?
+      queue = rails(side).select { |rail| rail.applies_to?(side) && evidence[rail.name]&.measured? }
+      # Cheap first when escalating, so the rails that cost a round trip are
+      # the ones an early stop can save.
+      queue = queue.partition(&:offline?).flatten if escalation
+
+      queue.each_with_index do |rail, index|
+        if escalation && settled?(observations, queue[index..], evidence, escalation)
+          skipped = queue[index..].map(&:name)
+          break
+        end
 
         result = invoke(rail, body, ctx)
         if result.certain?
@@ -211,7 +220,42 @@ module Vangrail
         end
       end
 
-      [observations, certain]
+      [observations, certain, skipped]
+    end
+
+    # Would running the rest change what happens?
+    #
+    # Not a guess and not a threshold on confidence: the evidence a rail can
+    # carry is bounded by its measured operating point, so the most the
+    # remaining rails could move the posterior in either direction is a number
+    # this can add up. When the action is the same at both ends of that
+    # interval, the remaining rails cannot change the outcome and running them
+    # buys nothing.
+    #
+    # This is why the framing pays for itself rather than only being tidier. A
+    # documentation desk running the deterministic rails and one model rail
+    # pays for the round trip on every check under the switch; here it pays only
+    # when the free evidence leaves the answer genuinely open, which on ordinary
+    # traffic is almost never.
+    #
+    # Skipping is not abstention. A rail that was proved irrelevant did not fail
+    # to run, so `certain?` stays true: the claim is about the action, and the
+    # action is unchanged by construction.
+    def settled?(observations, remaining, evidence, escalation)
+      return false if remaining.empty?
+
+      posterior, = Posterior.combine(prior: escalation[:prior], observations: observations,
+                                     evidence: evidence)
+      reachable = remaining.filter_map { |rail| evidence[rail.name] }
+      return false if reachable.empty?
+
+      best = reachable.sum { |entry| entry.bits(true) }
+      worst = reachable.sum { |entry| entry.bits(false) }
+      policy = escalation[:policy]
+      odds = Posterior.to_odds(posterior)
+
+      policy.action_for(Posterior.from_odds(odds * (2**best))) ==
+        policy.action_for(Posterior.from_odds(odds * (2**worst)))
     end
 
     def prior_message

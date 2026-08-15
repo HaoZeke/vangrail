@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative 'helper'
+require_relative 'test_paraphrase'
+require_relative 'test_multilingual'
 
 # Engine#assess: the same rails, read as evidence instead of as a switch.
 class TestJudgement < Minitest::Test
@@ -109,6 +111,74 @@ class TestJudgement < Minitest::Test
 
     assert_predicate judgement, :review?
     assert_in_delta assess(REWORDED).posterior, judgement.posterior, 1e-12
+  end
+
+  # --- paying only for the evidence that could change the answer ---
+
+  def test_a_settled_judgement_stops_running_rails
+    judgement = engine.assess(POISONED, side: :context, prior: 1e-2, escalate: true)
+
+    refute_empty judgement.skipped
+    assert_predicate judgement, :block?
+    # Skipping is not abstention: the rails were proved irrelevant rather than
+    # unavailable, so the claim is as strong as it was.
+    assert_predicate judgement, :certain?
+  end
+
+  # The guarantee, checked over every text in both corpora and three base rates:
+  # stopping early never changes what happens. It cannot, because a rail is
+  # stopped on only when the action is the same at both ends of the interval the
+  # remaining evidence could reach.
+  def test_stopping_early_never_changes_the_action
+    texts = [POISONED, REWORDED, CLEAN] +
+            TestParaphrase::BENIGN.first(8) +
+            TestMultilingual::BENIGN.first(8) +
+            TestParaphrase::PARAPHRASED.first(6)
+
+    [1e-4, 1e-2, 0.3].each do |prior|
+      texts.each do |text|
+        full = engine.assess(text, side: :context, prior: prior)
+        early = engine.assess(text, side: :context, prior: prior, escalate: true)
+
+        assert_equal full.action, early.action,
+                     "escalation changed the action at prior #{prior} for: #{text[0, 60]}"
+      end
+    end
+  end
+
+  def test_escalation_runs_the_free_rails_before_the_paid_ones
+    order = []
+    paid = ScriptedRail.new(->(_t, _c) { order << 'paid' or Vangrail::Result.passed(rail: 'paraphrase') },
+                            name: 'paraphrase', sides: [:context], offline: false)
+    free = ScriptedRail.new(lambda { |_t, _c|
+                              order << 'free' or Vangrail::Result.passed(rail: 'injected_instructions')
+                            },
+                            name: 'injected_instructions', sides: [:context], offline: true)
+    reduced = Vangrail::Engine.new(context: [paid, free], cache: false)
+    reduced.assess(CLEAN, side: :context, prior: 1e-2, escalate: true)
+
+    assert_equal %w[free paid], order, 'the paid rail ran before the free one'
+  end
+
+  # The payoff, and the reason this is more than a tidier way to report the same
+  # decision: on ordinary traffic the rail that costs a round trip is never
+  # called, because the free evidence already put the answer out of its reach.
+  def test_a_networked_rail_is_never_reached_on_an_ordinary_page
+    called = []
+    networked = ScriptedRail.new(->(_t, _c) { called << 'semantic' or Vangrail::Result.passed(rail: 'semantic') },
+                                 name: 'semantic', sides: [:context], offline: false)
+    table = Vangrail::EvidenceData::TABLE.merge(
+      'semantic' => Vangrail::Evidence.new(rail: 'semantic', group: 'semantic',
+                                           attacks_caught: 80, attacks: 100,
+                                           benign_flagged: 5, benign: 100)
+    )
+    reduced = Vangrail::Engine.new(context: engine.context_rails + [networked], cache: false)
+    judgement = reduced.assess(CLEAN, side: :context, prior: 1e-4, escalate: true, evidence: table)
+
+    assert_empty called, 'paid for a round trip on a page the free rails had already settled'
+    assert_includes judgement.skipped, 'semantic'
+    assert_predicate judgement, :allow?
+    assert_predicate judgement, :certain?
   end
 
   # The engine's own switch is unchanged: assess is an additional reading of the

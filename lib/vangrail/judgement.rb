@@ -8,7 +8,7 @@ module Vangrail
   # attack, and is that likely enough to act on. The two are not interchangeable
   # and the second is the one an operator can set a policy against.
   Judgement = Struct.new(:posterior, :prior, :bits, :contributions, :certain, :action, :side,
-                         keyword_init: true) do
+                         :skipped, keyword_init: true) do
     def block?
       action == :block
     end
@@ -37,6 +37,13 @@ module Vangrail
       2**bits
     end
 
+    # Rails not run because the action was already settled: no remaining
+    # evidence could have changed it. Different in kind from a rail that could
+    # not run, which is why this is a separate field from `certain?`.
+    def skipped
+      self[:skipped] || []
+    end
+
     def to_h
       {
         'side' => side.to_s,
@@ -45,8 +52,9 @@ module Vangrail
         'bits' => bits.round(2),
         'action' => action.to_s,
         'certain' => certain?,
-        'fired' => fired.map { |c| { 'rail' => c[:rail], 'bits' => c[:bits].round(2) } }
-      }
+        'fired' => fired.map { |c| { 'rail' => c[:rail], 'bits' => c[:bits].round(2) } },
+        'skipped' => (skipped unless skipped.empty?)
+      }.compact
     end
 
     def to_s
