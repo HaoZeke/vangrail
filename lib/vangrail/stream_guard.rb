@@ -39,7 +39,7 @@ module Vangrail
     # generating; one that runs per paragraph lets a whole paragraph through.
     DEFAULT_INTERVAL = 40
 
-    attr_reader :engine, :context, :buffer, :emitted, :checks
+    attr_reader :engine, :context, :buffer, :emitted, :checked, :checks
 
     def initialize(engine, interval: DEFAULT_INTERVAL, **context)
       @engine = engine
@@ -47,6 +47,7 @@ module Vangrail
       @interval = interval
       @buffer = +''
       @emitted = 0
+      @checked = 0
       @checks = 0
       @blocked = nil
       @modified = false
@@ -80,6 +81,7 @@ module Vangrail
       result = engine.check_output(buffer, **context)
       @blocked = result if result.blocked?
       @buffer = result.content_or(buffer) if result.modified?
+      @checked = buffer.length unless result.blocked?
       result
     end
 
@@ -88,13 +90,24 @@ module Vangrail
       buffer
     end
 
-    # Text the caller has not been given yet.
+    # Text the caller has not been given yet, and that a rail has read.
     #
-    # After a rewrite that keeps the already-shown prefix, this is only the
-    # new suffix. After a rewrite that changes what was already shown, this
-    # is the whole buffer, because the prefix on screen is no longer true.
+    # The second half of that sentence is the point. Only the inspected prefix
+    # is handed out: the tail that has arrived since the last check is held
+    # back until a check covers it, or until `finish`. Releasing it early would
+    # put text on screen that no rail has seen, which is the failure this class
+    # exists to prevent, and it is easy to write by accident because the buffer
+    # is right there.
+    #
+    # The cost is that up to `interval` characters lag behind the model. The
+    # alternative is a guard that streams the credential and redacts it
+    # afterwards.
+    #
+    # After a rewrite that keeps the already-shown prefix, this returns only
+    # the new suffix. After one that changes what was already shown, it returns
+    # the whole checked buffer, because the prefix on screen is no longer true.
     def take
-      current = content
+      current = content[0, @checked].to_s
       if @released.empty? || current.start_with?(@released)
         out = current[@released.length..] || ''
         @released = current.dup
@@ -120,7 +133,13 @@ module Vangrail
       @emitted = buffer.length
       @checks += 1
       offline = engine.output_rails.select { |r| r.offline? && r.applies_to?(:output) }
-      return nil if offline.empty?
+      # Nothing can object mid-stream, so the text is as checked as it is going
+      # to get before `finish`, and holding it back would stall the stream for
+      # no reason.
+      if offline.empty?
+        @checked = buffer.length
+        return nil
+      end
 
       partial = Engine.new(output: offline, on_error: engine.on_error, cache: false)
       result = partial.check_output(buffer, **context)
@@ -129,10 +148,15 @@ module Vangrail
         @blocked = result
         return result
       end
-      return nil unless result.modified?
+
+      unless result.modified?
+        @checked = buffer.length
+        return nil
+      end
 
       @buffer = result.content_or(buffer)
       @modified = true
+      @checked = buffer.length
       result
     end
   end

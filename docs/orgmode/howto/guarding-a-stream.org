@@ -33,7 +33,11 @@ ignores the return value entirely gets the old end-of-stream behaviour and
 nothing worse.
 
 =take= is what to print. It returns only the suffix that has not been handed
-out yet. After a redaction that keeps the already-shown prefix, that is the
+out yet *and that a rail has read*: the tail arriving since the last check
+waits until a check covers it, or until =finish=. So the visible text lags the
+model by up to one interval, which is the price of never showing a line no rail
+has seen. A guard that released the tail immediately would stream the
+credential and redact it a chunk later. After a redaction that keeps the already-shown prefix, that is the
 rewritten tail, not the whole buffer. Do not print =result.content= on every
 event: that reprints everything already on screen.
 

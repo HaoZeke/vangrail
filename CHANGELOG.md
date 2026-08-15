@@ -123,6 +123,11 @@ Nothing has been released yet. This section describes what exists.
 
 ### Fixed
 
+- `StreamGuard#take` handed out the tail of the buffer that no rail had read
+  yet, so with a long check interval a credential reached the screen and was
+  redacted a chunk later. It now releases only the inspected prefix, which
+  costs up to one interval of lag and is the whole point of the class.
+
 - The engine reported the first uncertain reason it met, so a placeholder for a
   rail that could not be built masked the rail that ran and had its connection
   refused. A rail that ran now reports over one that never did.

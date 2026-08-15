@@ -129,12 +129,41 @@ class TestStreamGuard < Minitest::Test
   # buffer after every rewrite. take hands out only the suffix that has not
   # been shown, so a redaction in the latest chunk does not replay the prefix.
   def test_take_hands_out_only_what_has_not_been_shown
-    guard = Vangrail::StreamGuard.new(engine, interval: 10_000)
+    guard = Vangrail::StreamGuard.new(engine, interval: 6)
     guard.push('hello ')
     assert_equal 'hello ', guard.take
-    guard.push('world')
-    assert_equal 'world', guard.take
+    guard.push('world!')
+    assert_equal 'world!', guard.take
     assert_equal '', guard.take
+  end
+
+  # The guarantee, and the reason take is not simply the buffer.
+  #
+  # Found by wiring this into an application: with a long interval the guard
+  # handed out the tail that no rail had read yet, so a credential reached the
+  # screen and was redacted a chunk later. Text waits until a check covers it.
+  def test_nothing_is_handed_out_before_a_rail_has_read_it
+    guard = Vangrail::StreamGuard.new(engine, interval: 10_000)
+    guard.push("Put api_key=#{SECRET} in the file.")
+
+    assert_equal '', guard.take, 'uninspected text was released'
+    assert_equal 0, guard.checked
+
+    guard.finish
+    released = guard.take
+    refute_empty released
+    refute_includes released, SECRET
+  end
+
+  # The cost of that guarantee, stated: the tail lags by up to one interval.
+  def test_the_unchecked_tail_lags_by_at_most_one_interval
+    guard = Vangrail::StreamGuard.new(engine, interval: 20)
+    guard.push('a' * 25)
+    guard.take
+    guard.push('b' * 5)
+
+    assert_equal '', guard.take
+    assert_operator guard.content.length - guard.checked, :<=, 20
   end
 
   def test_take_after_a_redaction_does_not_reprint_the_clean_prefix
