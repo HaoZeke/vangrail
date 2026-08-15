@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require_relative 'errors'
+require_relative 'evidence'
+require_relative 'evidence_data'
+require_relative 'judgement'
 require_relative 'rail'
 require_relative 'result'
 require_relative 'result_cache'
@@ -92,6 +95,48 @@ module Vangrail
       end
     end
 
+    # How likely is it that this text is an attack, given everything that ran.
+    #
+    # `check_input` and friends answer a different question. They run the rails
+    # in order, stop at the first block, and report a decision; that is the
+    # right shape for a request path and it is what every published defence
+    # does. It also throws away most of what was measured. A rail that fired
+    # tells you nothing about how much that hit is worth, three rails that
+    # nearly fired tell you nothing at all, and a block carries no number an
+    # operator can set a policy against.
+    #
+    # This runs every rail that has a measured operating point, treats each
+    # verdict as evidence, and combines it with the deployment's base rate.
+    # What comes back is a probability, the bits each rail contributed, and an
+    # action under a stated policy.
+    #
+    # The prior is not optional and has no sensible default. Detector papers
+    # report their numbers on balanced corpora, where an attack is half the
+    # traffic; a documentation desk over an editable wiki might see one poisoned
+    # page in ten thousand. Those two worlds disagree about what a hit means by
+    # four orders of magnitude, and only the deployment knows which one it is
+    # in. Guessing on its behalf would be the whole error this method exists to
+    # expose.
+    #
+    #   judgement = engine.assess(page, side: :context, prior: 1e-4)
+    #   judgement.posterior    # => 0.0073
+    #   judgement.action       # => :review
+    #   judgement.fired        # => [{rail: "paraphrase", bits: 6.2, ...}]
+    #
+    # Costs more than a check, because nothing short-circuits: every rail with
+    # an entry in the table runs, including the ones a block would have skipped.
+    def assess(text, side: :input, prior: nil, policy: Policy::DEFAULT, evidence: EvidenceData::TABLE,
+               **context)
+      raise ArgumentError, prior_message if prior.nil?
+
+      observations, certain = observe(text, side, context, evidence)
+      posterior, contributions = Posterior.combine(prior: prior, observations: observations,
+                                                   evidence: evidence)
+      Judgement.new(posterior: posterior, prior: prior, bits: contributions.sum { |c| c[:bits] },
+                    contributions: contributions, certain: certain, side: side.to_sym,
+                    action: policy.action_for(posterior))
+    end
+
     def rails(side)
       case side.to_sym
       when :input then input_rails
@@ -139,6 +184,41 @@ module Vangrail
     end
 
     private
+
+    # Runs every rail with a measured operating point and records what each one
+    # saw: true for a hit, false for a rail that ran and did not fire, and
+    # nothing at all for a rail that could not decide.
+    #
+    # That third case is the one this gem can express and a pure detector stack
+    # cannot. An unreachable rail is not a rail that found nothing, and folding
+    # the two together silently converts a broken endpoint into evidence of
+    # innocence.
+    def observe(text, side, context, evidence)
+      ctx = context.merge(side: side)
+      body = text.to_s
+      certain = true
+      observations = {}
+
+      rails(side).each do |rail|
+        next unless rail.applies_to?(side)
+        next unless evidence[rail.name]&.measured?
+
+        result = invoke(rail, body, ctx)
+        if result.certain?
+          observations[rail.name] = result.blocked?
+        else
+          certain = false
+        end
+      end
+
+      [observations, certain]
+    end
+
+    def prior_message
+      'assess needs a prior: the share of texts on this side that are actually attacks. ' \
+        'Published detector numbers assume a balanced corpus (0.5); a documentation desk over ' \
+        'an editable wiki is nearer 1e-4. The answer changes the verdict, and only you know it.'
+    end
 
     def text_of(document)
       return document.to_s unless document.is_a?(Hash)
