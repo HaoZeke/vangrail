@@ -69,6 +69,13 @@ Nothing has been released yet. This section describes what exists.
   the deployment does.
 - `Session#verdict`, Wald's sequential test beside the posterior, with
   thresholds fixed by the error rates rather than chosen.
+- `Rails::Bayes` and `script/train_bayes.rb`: a naive Bayes classifier over word
+  n-grams that reports a log-likelihood ratio rather than a verdict, with the
+  score-to-evidence map fitted on held-out folds and pooled to monotone. Off by
+  default and shipped with its cross-validated number, which is worse than the
+  lexicon rails: 15 of 48 against their three quarters, on 48 training clauses.
+- A rail that puts `bits` in its result's `raw` contributes that directly to a
+  posterior instead of being flattened to whether it blocked.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context

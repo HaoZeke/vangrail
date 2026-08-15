@@ -19,7 +19,7 @@ unchecked.
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
 =secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=,
-=semantic=, =perplexity=. The default set is =input,context,output=.
+=semantic=, =perplexity=, =bayes=. The default set is =input,context,output=.
 
 Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
 =Rails::Trajectory=, which read conversation history and would otherwise report

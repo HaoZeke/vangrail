@@ -11,6 +11,7 @@
 | =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
 | =Rails::Paraphrase=         | input, context | no     | passed, blocked            |
 | =Rails::Similarity=         | input, context | no     | passed, blocked            |
+| =Rails::Bayes=              | input, context | no     | passed, blocked            |
 | =Rails::Language=           | context       | no      | passed, never blocks       |
 | =Rails::PromptLeak=         | output        | no      | passed, modified           |
 | =Rails::Semantic=           | input, context | yes    | passed, blocked            |
@@ -152,6 +153,54 @@ Roughly 1.5 ms per kilobyte, after a prefilter that skips any clause sharing
 too few n-grams with every seed to reach the threshold.
 
 Memoizable on the text and the threshold together.
+
+** Rails::Bayes
+
+A naive Bayes classifier over word stems and adjacent stem pairs. Input and
+context sides, deterministic, offline, off unless asked for with
+=GUARDRAILS_RAILS=...,bayes=.
+
+The only rail here that says how sure it is. Every other one answers yes or no,
+which gives the evidence arithmetic a single bit however certain the rail was;
+this one computes a log-likelihood ratio, and =Engine#assess= reads a rail that
+puts =bits= in its result's =raw= at its word.
+
+Scored clause by clause, taking the worst, for the same reason the containment
+rail does: an attack document is ordinary documentation with one injected
+sentence in it, and a bag of features over the whole page is mostly evidence
+about the handbook.
+
+*** The calibration is not optional
+
+A raw naive Bayes score is not a likelihood ratio. The features are counted as
+independent and are not -- a word and the pair containing it both vote -- so the
+score overstates itself, in this corpus by a factor of nearly four. What ships
+is a map from score band to evidence, fitted on held-out folds rather than on
+the model's own opinion, pooled to monotone by the isotonic rule, and read
+through the same Beta bound as every other operating point:
+
+| Score band | Held out            | Worth      |
+|------------+---------------------+------------|
+| below 0    | 0 attacks, 231 benign | -14.6 bits |
+| 0 to 4     | 22 attacks, 8 benign  | +2.6 bits  |
+| above 4    | 26 attacks, 1 benign  | +4.7 bits  |
+
+The raw score still decides the block, because a threshold needs only an
+ordering. The calibrated bits are what reach a posterior.
+
+*** What it is worth here, and what it is for
+
+Cross-validated over five folds on 48 attack clauses and 56 benign ones, at a
+threshold no held-out benign document reached: 15 of 48 attacks caught. The
+lexicon rails catch three quarters.
+
+That is a fact about the corpus rather than about the method. Forty-eight
+training clauses written to be varied share almost no vocabulary with the
+held-out ones, and the junk-mail filters this borrows from were fitted on
+millions of examples. It ships anyway, off by default, because the value is the
+path rather than the weights: run =script/train_bayes.rb= against a corpus of
+your own traffic and the rail is fitted to the attacks you receive, with a
+cross-validated number and a fresh calibration attached.
 
 ** Rails::Language
 

@@ -279,6 +279,35 @@ Three things follow that a yes-or-no stack cannot express:
   threshold — the highest pair is 0.28 — which is worth knowing and was not
   obvious.
 
+### A rail that says how sure it is
+
+Binary rails hand the arithmetic one bit each however certain they were.
+`Rails::Bayes` is the junk-mail recipe — naive Bayes over word stems and stem
+pairs, features selected by mutual information, Dirichlet-smoothed — and it
+reports a log-likelihood ratio instead. A rail that puts `bits` in its result is
+read that way rather than by whether it blocked.
+
+Taken at its word it lies, and that is the well-documented failure of naive
+Bayes rather than a surprise: it counted dependent features as independent and
+valued a poisoned page at +17.6 bits while cross-validating to a 31% detection
+rate. The repair is the standard one — fit score to evidence on held-out folds,
+pool adjacent violators so the map is monotone, and read it through the same
+Beta bound as everything else:
+
+| Score band | Held out | Worth |
+|---|---|---|
+| below 0 | 0 attacks, 231 benign | −14.6 bits |
+| 0 to 4 | 22 attacks, 8 benign | +2.6 bits |
+| above 4 | 26 attacks, 1 benign | +4.7 bits |
+
+The same page is now worth +4.7 bits and no score buys more, because 48 attack
+clauses cannot demonstrate more. The honest headline: cross-validated it catches
+15 of 48 where the lexicon rails catch three quarters, which is a fact about 48
+training clauses rather than about the method — spam filters were fitted on
+millions. So it is off by default, and what it is for is `script/train_bayes.rb`
+run against your own traffic, which gives you a rail fitted to the attacks you
+actually receive with a cross-validated number attached rather than a promise.
+
 It also pays for itself. A rail's evidence is bounded by its operating point, so
 the interval the unrun rails could still reach is computable, and when the
 action is the same at both ends of it they cannot change the answer:
@@ -508,7 +537,7 @@ one when the local rails cover it.
 | `GUARDRAILS_API_BASE` / `_API_KEY` | an endpoint nobody registered |
 | `GUARDRAILS_MODEL` | classifier, where the provider hosts one |
 | `GUARDRAILS_JUDGE_MODEL` | instruct model for policy and grounding rails |
-| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn,privacy,markup,budget,semantic,perplexity`, `all`, `none` |
+| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn,privacy,markup,budget,semantic,perplexity,bayes`, `all`, `none` |
 | `GUARDRAILS_CANARY` | a marker in your prompt that must never come back out |
 | `GUARDRAILS_PROMPT_FILE` | the prompt text that must never come back out, paraphrased or not |
 | `GUARDRAILS_EMBED_MODEL` | an embedding model, which is what `semantic` needs |
@@ -532,6 +561,7 @@ one when the local rails cover it.
 | `Rails::Jailbreak` | input, context | no | passed, blocked |
 | `Rails::Paraphrase` | input, context | no | passed, blocked |
 | `Rails::Similarity` | input, context | no | passed, blocked |
+| `Rails::Bayes` | input, context | no | passed, blocked |
 | `Rails::Language` | context | no | passed, never blocks |
 | `Rails::PromptLeak` | output | no | passed, modified |
 | `Rails::Semantic` | input, context | yes | passed, blocked |
@@ -606,7 +636,7 @@ disable.
 rake test
 ```
 
-505 tests, stdlib minitest. Parsing and payload shape run against a recorded
+516 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.
