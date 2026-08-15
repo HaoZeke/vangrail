@@ -376,6 +376,11 @@ decoding pass buys:
 Ordinary documentation still passes 15 of 15 with the decoding pass on, which
 is the number that decides whether it can be left switched on.
 
+`Rails::Trajectory` needs a model, so it is measured by
+`script/trajectory_probe.rb` rather than by the offline suite: three staged
+dialogues stopped, seven ordinary ones answered, median 1.6 to 1.8 s a turn
+against an instruct model on a shared gateway.
+
 `Rails::Jailbreak` is scored the same way: fourteen circulating attack shapes
 caught, fourteen ordinary handbook sentences untouched, and an explicit test
 asserting that a rephrased attack walks past it, because it does.

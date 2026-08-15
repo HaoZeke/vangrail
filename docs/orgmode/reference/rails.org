@@ -332,6 +332,14 @@ Below =min_turns= (four) it passes and reports =certain?= true, which is a
 judgement rather than a dodge: a two-message conversation has no trajectory,
 and the single-turn rails have read both messages already.
 
+Measured live against an instruct model on a shared gateway: three staged
+dialogues stopped, seven ordinary ones answered, median 1.6 to 1.8 s a turn.
+=script/trajectory_probe.rb= is that measurement, and the seven are the half
+that matters. Two of them are readers who look pushy and are not: one
+frustrated, one asking for a job script "as an administrator would write it".
+A policy tuned only against attacks blocks both, and the corrections that
+stopped it doing so are in =Policies.trajectory_policy=.
+
 =every: 2= judges one turn in two, for a desk unwilling to pay a round trip per
 turn. A skipped turn passes with =certain?= false, because it was not judged.
 The schedule is counted over the dialogue rather than over calls, so a retry
