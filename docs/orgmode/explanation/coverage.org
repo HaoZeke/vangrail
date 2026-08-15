@@ -17,13 +17,13 @@ saying so is more useful than stretching a rail to cover them.
 
 | Category                        | Rails                                        | State |
 |---------------------------------+----------------------------------------------+-------|
-| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Spotlight= marking and its hierarchy | covered, with the limits below |
-| Sensitive information disclosure | =Secrets= on the answer, =PersonalData= on the question | covered for shapes, not for judgement |
+| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Semantic= and =Perplexity= where an endpoint allows them, and =Spotlight= marking with its hierarchy | covered, with the limits below |
+| Sensitive information disclosure | =Secrets= on the answer, =PersonalData= on the question, including a labelled Dutch BSN with its checksum | covered for shapes, not for judgement |
 | Supply chain                    | none                                         | out of scope; the gem's own answer is a runtime with no dependencies |
 | Data and model poisoning        | =Engine#screen= drops a poisoned document rather than failing the turn | partial: a poisoned page that reads as ordinary prose passes |
 | Improper output handling        | =Markup=, =Exfiltration=                     | covered for rendering and for outbound URLs |
 | Excessive agency                | none                                         | not applicable: no tools, no actions |
-| System prompt leakage           | =Canary= for the exact token, =Pattern= for the ask, =Paraphrase= for the reworded ask | covered for verbatim and for the wordings the lexicon holds |
+| System prompt leakage           | =Canary= for the exact token, =Pattern= and =Paraphrase= for the ask, =PromptLeak= for the answer that reproduces it | covered for verbatim and for reproduction; a summary carrying none of the prompt's words is still a gap |
 | Vector and embedding weaknesses | =Engine#screen= at the boundary              | partial: retrieval quality is the application's |
 | Misinformation                  | =Grounding=                                  | covered, at the cost of a round trip |
 | Unbounded consumption           | =Budget=                                     | covered for size; rate limiting belongs to the server |
@@ -55,6 +55,39 @@ and it is a list of words in a file:
 
 The model-backed rails are what remain against those, and a model's verdict is
 an opinion rather than a rule.
+
+*** A third language is reported rather than read
+
+=Rails::Language= exists because the honest answer to a page in German is
+"nothing here read this". It identifies the language by function words and
+returns =passed= with =certain?= false for anything outside the lexicons, and it
+never blocks: another language is not an attack.
+
+What it does not do is extend coverage. A German page is exactly as unguarded as
+it was; the difference is that the result now says so, which is what lets an
+application route it somewhere else. Under twelve tokens it stays quiet, so a
+short question in an unsupported language passes as certain and is a real hole
+rather than a rounding error.
+
+*** The model-backed rails move the limit rather than removing it
+
+=Semantic= and =Perplexity= go past the lexicon by asking an endpoint, and both
+bring their own limits, which are different in kind from a missing word.
+
+- Neither threshold ships measured. Cosine scores and log probabilities belong
+  to the model in use, so both default numbers are starting points and both
+  probe scripts refuse to recommend a threshold when the corpora overlap. A
+  deployment that switched these on without running the probe is running an
+  uncalibrated detector, which is worse than an absent one because it looks like
+  a check.
+- =Perplexity= needs an endpoint that will echo and score a prompt, and many
+  will not. It reports uncertain there rather than clean, which means the family
+  it targets is uncovered and named rather than uncovered and silent.
+- =Semantic= sends the text somewhere. On a loopback proxy that is nothing; on a
+  third-party endpoint every screened document is a document sent, and that is a
+  data-flow decision the application makes rather than a default it inherits.
+- Both cost a round trip per check, which is why neither is on by default and
+  why the deterministic rails are what run on every turn.
 
 *** The Dutch coverage is a lexicon, not an understanding
 

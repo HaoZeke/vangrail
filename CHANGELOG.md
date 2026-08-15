@@ -27,6 +27,23 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::Similarity` and `KnownAttacks`, catching near copies of published
   attack wordings by n-gram containment, clause by clause because containment
   saturates over a whole page.
+- `Rails::Language`, which reports a page in a language no lexicon here covers
+  as passed with `certain?` false. It never blocks: another language is not an
+  attack, and the gap this closes is a clean pass that meant nothing.
+- `Rails::PromptLeak`, redacting the sentences of an answer that reproduce the
+  system prompt, with two thresholds because restating a rule and handing over
+  a rule are different acts. `GUARDRAILS_PROMPT_FILE` names the protected text.
+- `Vangrail::Embeddings` and `Rails::Semantic`: meaning-level comparison against
+  the known attack wordings through any OpenAI-compatible embeddings endpoint,
+  including a local proxy, so nothing has to leave the machine.
+- `Vangrail::Completion` and `Rails::Perplexity`: the published perplexity
+  detector for optimised gibberish, windowed so a short span is not averaged
+  away, reporting uncertain on the many endpoints that will not score a prompt.
+- `script/embedding_probe.rb` and `script/perplexity_probe.rb`, which calibrate
+  those two thresholds against the endpoint in use and refuse to recommend a
+  number when the benign and attack distributions overlap.
+- A labelled Dutch BSN is redacted by `Rails::PersonalData`, checksum and all.
+  The label is what makes it safe: a bare nine-digit run is a job id.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context

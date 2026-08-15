@@ -18,8 +18,8 @@ unchecked.
 | =GUARDRAILS_CACHE=     | =0= turns off the in-process result memo                   |
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
-=secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=.
-The default set is =input,context,output=.
+=secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=,
+=semantic=, =perplexity=. The default set is =input,context,output=.
 
 Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
 =Rails::Trajectory=, which read conversation history and would otherwise report
@@ -30,14 +30,47 @@ naming its allowlist. =privacy= adds =Rails::PersonalData=, which rewrites the
 question before the model sees it and so is a deployment's call rather than a
 default.
 
-** Prompt canary
+** Prompt canary, and the prompt itself
 
-| Variable            | Effect                                              |
-|---------------------+-----------------------------------------------------|
-| =GUARDRAILS_CANARY= | one or more tokens that must not appear in text     |
+| Variable                 | Effect                                              |
+|--------------------------+-----------------------------------------------------|
+| =GUARDRAILS_CANARY=      | one or more tokens that must not appear in text     |
+| =GUARDRAILS_PROMPT_FILE= | a file whose text must not come back out            |
 
-Generate one with =Vangrail::Rails::Canary.generate=, put it in your system
+Generate a canary with =Vangrail::Rails::Canary.generate=, put it in your system
 prompt, and name it here. Without a token there is nothing to check.
+
+The canary catches the exact marker and nothing else, so a model that summarises
+its instructions walks past it. =GUARDRAILS_PROMPT_FILE= names the file holding
+the text that must not come back out and adds =Rails::PromptLeak=, which
+compares an answer's sentences against it and redacts the ones reproducing it. A
+file, not a variable, because a system prompt in an environment variable is a
+system prompt nobody can read; a path that cannot be read raises rather than
+building no rail.
+
+** Asking a model rather than a lexicon
+
+| Variable                          | Effect                                              |
+|-----------------------------------+-----------------------------------------------------|
+| =GUARDRAILS_EMBED_MODEL=          | embedding model, which is what =semantic= needs     |
+| =LLMLITE_EMBED_MODEL=             | the same, for the local proxy                       |
+| =GUARDRAILS_SEMANTIC_THRESHOLD=   | cosine floor, default 0.75 and uncalibrated         |
+| =GUARDRAILS_PERPLEXITY_THRESHOLD= | nats per token, default 7.0 and uncalibrated        |
+
+Both rails are opt-in through =GUARDRAILS_RAILS=, because each costs a round trip
+per check and because every document screened on a third-party endpoint is a
+document sent there. On a loopback proxy neither is true.
+
+Neither threshold means anything until it is measured against the model in use: a
+cosine score belongs to the embedding model and a log probability to the scoring
+model. Run =script/embedding_probe.rb= and =script/perplexity_probe.rb=, read the
+gap each prints, and set the variable from it. Where the two distributions
+overlap, the probes recommend leaving the rail off rather than splitting the
+difference.
+
+No embedding model named means no =semantic= rail can be built. Asked for and
+unbuildable leaves =Rails::Missing= in the list, so the pass stays uncertain
+instead of resting on the offline rails.
 
 ** What an answer may link to
 

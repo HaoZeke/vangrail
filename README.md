@@ -161,6 +161,54 @@ using a word for it.
 Both languages load by default. `languages: [:en]` restricts it, and a language
 nobody wrote a lexicon for raises rather than silently reading nothing.
 
+A page in a third language is the case worth being careful about. Every
+deterministic rail here is a rule about English or Dutch words, so a page in
+German is passed by all of them without being read, and a clean pass would say
+the wrong thing:
+
+```ruby
+result = engine.check_context(german_page)
+result.passed?    # => true, and it is not blocked: another language is not an attack
+result.certain?   # => false
+result.reason     # => "text is not in a language this engine reads (en, nl); ..."
+```
+
+`Rails::Language` identifies the language by function words and reports the
+unsupported ones. Below twelve tokens it says nothing, because a six-word
+question is not evidence of a language.
+
+## What the endpoint buys, if you have one
+
+The lexicon rails reach exactly as far as the words somebody wrote into them.
+Two rails go past that by asking a model, both opt-in, both reporting
+`certain? == false` rather than a clean pass when they cannot run:
+
+```bash
+# a loopback proxy that also serves embeddings: nothing leaves the machine
+LLMLITE_EMBED_MODEL=nomic-embed-text GUARDRAILS_RAILS=context,semantic
+```
+
+`Rails::Semantic` embeds the clauses of a document and scores them against the
+known attack wordings by cosine, which catches "countermand the guidance issued
+to you" — a sentence with no listed word in it, next to "ignore all previous
+instructions" in a vector space and past both lexicon rails.
+
+`Rails::Perplexity` asks the endpoint to echo a prompt and score it, and blocks
+the window that is not language. That is the family with no pattern to match:
+an optimised suffix is different every time it is searched for, and what it
+cannot hide is that a model finds it wildly improbable. Endpoints differ on
+whether they will score a prompt at all, so `Completion#supported?` answers that
+once rather than per check.
+
+Neither threshold ships measured, and neither pretends otherwise. A cosine score
+belongs to the embedding model and a log probability to the scoring model, so
+`script/embedding_probe.rb` and `script/perplexity_probe.rb` run both corpora
+against the endpoint you actually use, print the gap, and refuse to recommend a
+number when the two distributions overlap. The perplexity probe leads with shell
+commands, module loads, and job scripts rather than with attacks, because those
+score badly under a language model for innocent reasons and a guardrail that
+blocks job scripts stops being used.
+
 ## Streams and conversations
 
 An output rail that runs on the finished text runs after the reader has read
@@ -188,11 +236,11 @@ Every endpoint here is OpenAI-compatible, so the differences that matter are not
 protocol. They are how a credential resolves, whether the endpoint is up, and
 which model roles it can serve.
 
-| Provider | Endpoint | `model(:judge)` | `model(:guard)` |
-|----------|----------|-----------------|-----------------|
-| `llmlite` | local proxy on `127.0.0.1:8760/v1` | yes | no classifier |
-| gateway | registered, or `GUARDRAILS_GATEWAY_*` | whatever you name | whatever you name |
-| `env` | `GUARDRAILS_API_BASE` | whatever you name | whatever you name |
+| Provider | Endpoint | `model(:judge)` | `model(:guard)` | `model(:embed)` |
+|----------|----------|-----------------|-----------------|-----------------|
+| `llmlite` | local proxy on `127.0.0.1:8760/v1` | yes | no classifier | `LLMLITE_EMBED_MODEL`, if it serves one |
+| gateway | registered, or `GUARDRAILS_GATEWAY_*` | whatever you name | whatever you name | whatever you name |
+| `env` | `GUARDRAILS_API_BASE` | whatever you name | whatever you name | `GUARDRAILS_EMBED_MODEL` |
 
 No institution's endpoint ships in this gem. A hostname compiled into a
 library is an endpoint every installation inherits whether it can reach it or
@@ -321,8 +369,12 @@ one when the local rails cover it.
 | `GUARDRAILS_API_BASE` / `_API_KEY` | an endpoint nobody registered |
 | `GUARDRAILS_MODEL` | classifier, where the provider hosts one |
 | `GUARDRAILS_JUDGE_MODEL` | instruct model for policy and grounding rails |
-| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn,privacy,markup,budget`, `all`, `none` |
+| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn,privacy,markup,budget,semantic,perplexity`, `all`, `none` |
 | `GUARDRAILS_CANARY` | a marker in your prompt that must never come back out |
+| `GUARDRAILS_PROMPT_FILE` | the prompt text that must never come back out, paraphrased or not |
+| `GUARDRAILS_EMBED_MODEL` | an embedding model, which is what `semantic` needs |
+| `GUARDRAILS_SEMANTIC_THRESHOLD` | cosine floor; calibrate with `script/embedding_probe.rb` |
+| `GUARDRAILS_PERPLEXITY_THRESHOLD` | nats per token; calibrate with `script/perplexity_probe.rb` |
 | `GUARDRAILS_LINK_HOSTS` | hosts an answer may link to; naming them switches the rail on |
 | `GUARDRAILS_IMAGE_HOSTS` | hosts it may auto-load images from, defaults to the link list |
 | `GUARDRAILS_ON_ERROR` | `allow` (default) or `block` when a rail fails |
@@ -330,6 +382,7 @@ one when the local rails cover it.
 | `GUARDRAILS_CACHE` | `0` turns off the in-process memo |
 | `GUARDRAILS_SERVER` | call an existing server instead of local rails |
 | `LLMLITE_PORT` / `LLMLITE_MODEL` / `LLMLITE_API_KEY` | local proxy overrides |
+| `LLMLITE_EMBED_MODEL` | the embedding model the local proxy serves, if it serves one |
 
 ### Built-in rails
 
@@ -340,6 +393,10 @@ one when the local rails cover it.
 | `Rails::Jailbreak` | input, context | no | passed, blocked |
 | `Rails::Paraphrase` | input, context | no | passed, blocked |
 | `Rails::Similarity` | input, context | no | passed, blocked |
+| `Rails::Language` | context | no | passed, never blocks |
+| `Rails::PromptLeak` | output | no | passed, modified |
+| `Rails::Semantic` | input, context | yes | passed, blocked |
+| `Rails::Perplexity` | input, context | yes | passed, blocked |
 | `Rails::Obfuscation` | input, context | follows what it wraps | passed, modified, blocked |
 | `Rails::Hidden` | context | follows what it wraps | passed, blocked |
 | `Rails::Escalation` | input | no | passed, blocked |
@@ -410,7 +467,7 @@ disable.
 rake test
 ```
 
-389 tests, stdlib minitest. Parsing and payload shape run against a recorded
+440 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.
@@ -466,6 +523,14 @@ token, one that tells them to print a configuration, and the Dutch sentence
 whose negator lands after the verb. The corpus and the lexicon share an author,
 so the attack column measures an attacker who did not read this source; the
 benign column and the patterns-alone column are the ones that carry weight.
+
+`Rails::PromptLeak` is scored on the answer side, where the hard half is the
+benign column: an assistant applying its instructions says much of what the
+instructions say. Five answers that reproduce the prompt are caught, ten that
+apply it are left alone, and the two thresholds sit either side of the gap
+between 0.30 and 0.45. What separates the halves is not how much text they
+share but whether the sentence says whose words they are, which is why a frame
+is required below the high threshold.
 
 `Rails::Similarity` is scored on twelve edited copies of published attack
 wordings, the edits a paste picks up: a typo, inserted words, capitals, a
@@ -601,9 +666,9 @@ in [explanation](docs/orgmode/explanation/three-statuses.org).
   and Jain et al., *Baseline Defenses for Adversarial Attacks Against Aligned
   Language Models*.
   [10.48550/arXiv.2309.00614](https://doi.org/10.48550/arXiv.2309.00614)
-  — the detector this gem does not have. Perplexity needs a language model
-  loaded in the process, which is the dependency the whole design refuses; the
-  concept lexicon is what a standard-library rail can do instead.
+  — the detector behind `Rails::Perplexity`, and the reason it asks the
+  endpoint rather than carrying a model: perplexity needs one, and a language
+  model loaded in the process is the dependency this design refuses.
 - Chen et al., *StruQ: Defending Against Prompt Injection with Structured
   Queries*. [10.48550/arXiv.2402.06363](https://doi.org/10.48550/arXiv.2402.06363)
   and *SecAlign: Defending Against Prompt Injection with Preference

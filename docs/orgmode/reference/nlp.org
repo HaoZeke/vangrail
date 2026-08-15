@@ -8,9 +8,11 @@
 written about what a sentence asks for rather than about the words it uses. It
 is standard library only, loads nothing from disk, and reads English and Dutch.
 
-Two rails are built on it: =Rails::Paraphrase=, which matches pairs of concepts,
-and =Rails::Similarity=, which matches near copies of known attack wordings.
-Everything here is public, so an application can build its own.
+Four rails are built on it: =Rails::Paraphrase= matches pairs of concepts,
+=Rails::Similarity= matches near copies of known attack wordings,
+=Rails::PromptLeak= matches an answer against the prompt it must not reproduce,
+and =Rails::Language= reports a page nothing here can read. Everything here is
+public, so an application can build its own.
 
 ** Functions
 
@@ -21,6 +23,7 @@ Everything here is public, so an application can build its own.
 | =NLP.stem(word)=                         | the word with an English suffix stripped                    |
 | =NLP.clauses(text)=                      | the text split at =. ! ? ; := and newlines                  |
 | =NLP.concepts(text, languages:)=         | =[position, concept, surface word]= triples                 |
+| =NLP.language(text)=                     | =:en=, =:nl=, or =:unknown=, from function words            |
 | =NLP.shingles(text, size: 4)=            | the set of character n-grams                                |
 | =NLP.containment(needle, haystack)=      | how much of =needle= appears in =haystack=, 0.0 to 1.0      |
 | =NLP.jaccard(left, right)=               | overlap over union                                          |
@@ -93,6 +96,24 @@ touch and which stripping would maul in English ("token" to "tok"), so the
 Dutch lexicon lists singular and plural separately. Stemming is required to be
 consistent rather than correct: text and lexicon go through the same function,
 so "hiding" becoming "hid" costs nothing.
+
+** Identifying a language
+
+=NLP.language= counts function words: the closed, short, frequent words that a
+text in a language contains at a stable rate whatever it is about. It is the
+oldest working identifier there is and needs no table on disk.
+
+A language is called when at least three distinct function words from its list
+are present and they make up at least four percent of the tokens. Under twelve
+tokens the answer is =:unknown= regardless, because a short text is not evidence
+either way.
+
+The lists are chosen to be distinctive rather than merely frequent: Dutch /de/
+is also French and German /die/ is also Dutch, so the colliding pairs are left
+out and several distinct hits are required rather than one common one.
+
+=:unknown= is a real answer. =Rails::Language= turns it into =passed= with
+=certain?= false, which is what a page in German honestly is here.
 
 ** Adding a language
 
