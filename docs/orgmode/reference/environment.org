@@ -28,6 +28,15 @@ turn in two, since the judge costs a round trip and the deterministic rail does
 not. =links= adds =Rails::Exfiltration=, which is also switched on by
 naming its allowlist.
 
+** Prompt canary
+
+| Variable            | Effect                                              |
+|---------------------+-----------------------------------------------------|
+| =GUARDRAILS_CANARY= | one or more tokens that must not appear in text     |
+
+Generate one with =Vangrail::Rails::Canary.generate=, put it in your system
+prompt, and name it here. Without a token there is nothing to check.
+
 ** What an answer may link to
 
 | Variable                  | Effect                                             |

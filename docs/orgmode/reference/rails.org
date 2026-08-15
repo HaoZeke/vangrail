@@ -11,6 +11,8 @@
 | =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
 | =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
 | =Rails::Escalation=         | input         | no      | passed, blocked            |
+| =Rails::ManyShot=           | input, context | no     | passed, modified, blocked  |
+| =Rails::Canary=             | input, output | no      | passed, blocked            |
 | =Rails::Secrets=            | output        | no      | passed, modified           |
 | =Rails::Exfiltration=       | output        | no      | passed, modified           |
 | =Rails::GuardModel=         | either        | yes     | passed, blocked            |
@@ -110,6 +112,51 @@ contributes nothing.
 Measured on the injection corpus rewritten five ways: the pattern rail alone
 catches 0 of 60, with the decoding pass 59 of 60, and ordinary documentation is
 untouched.
+
+** Rails::ManyShot
+
+A fake conversation pasted into a real one, in two forms. On by default on both
+the input and context sides.
+
+| Category          | What happened                                          |
+|-------------------+--------------------------------------------------------|
+| =template_tokens= | chat template control tokens removed from the text     |
+| =many_shot=       | more than four conversation turns in one message       |
+
+Template tokens are stripped rather than blocked, because "what does
+=<|im_start|>= mean in the Llama chat template?" is a real question on a desk
+that documents machine-learning software. Removed from the text the token
+cannot restructure a prompt, and the question survives. The families covered
+are the ChatML, Llama, Mistral, and Gemma delimiters.
+
+The volume threshold counts turns rather than length, since a long question is
+not an attack. Move it with =max_turns:=.
+
+** Rails::Canary
+
+A marker the application puts in its own prompt, which must never appear
+anywhere else.
+
+#+BEGIN_SRC ruby
+token = Vangrail::Rails::Canary.generate
+prompt = "#{token}\n#{system_prompt}"
+Vangrail::Rails::Canary.new(tokens: token)
+#+END_SRC
+
+Set =GUARDRAILS_CANARY= to switch it on through the environment; without a
+token there is nothing to check, so its absence is the off switch.
+
+The only check here that cannot produce a false positive: no ordinary text
+contains a random sixteen-character token, so it blocks outright where a
+heuristic could only warn. Formatting is ignored in the comparison, since a
+model that writes the token with a line break in it has still leaked it.
+
+On the input side it means the reader already has the prompt from somewhere.
+That is too late to prevent and worth knowing.
+
+What it cannot see is a paraphrase. A model asked to summarise its instructions
+rather than repeat them leaks the content and not the token, and this rail
+passes. The suite asserts that.
 
 ** Rails::Escalation
 

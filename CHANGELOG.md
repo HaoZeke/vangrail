@@ -63,6 +63,12 @@ Nothing has been released yet. This section describes what exists.
   ways: 0 of 60 with patterns alone, 59 of 60 with the decoding pass.
 - `Rails::Escalation`, which reads conversation history and catches a refused
   question asked again, or repeated refusals in a short window.
+- `Rails::ManyShot`, which strips chat template control tokens and blocks a
+  pasted dialogue of more than four turns. The tokens are stripped rather than
+  refused, because a question about a chat template is a real question.
+- `Rails::Canary`, a marker the application puts in its own prompt. The one
+  check here that cannot produce a false positive, and the only one that can
+  prove a leak rather than guess at one.
 - `Rails::Trajectory`, a judge that reads the transcript and rules on where the
   conversation is going. It is what `Rails::Escalation` cannot be, since the
   published multi-turn methods are built so no single turn triggers a refusal.

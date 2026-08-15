@@ -26,6 +26,8 @@ require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
 require_relative 'vangrail/rails/obfuscation'
 require_relative 'vangrail/rails/escalation'
+require_relative 'vangrail/rails/many_shot'
+require_relative 'vangrail/rails/canary'
 require_relative 'vangrail/rails/secrets'
 require_relative 'vangrail/rails/exfiltration'
 require_relative 'vangrail/rails/guard_model'
@@ -62,6 +64,7 @@ module Vangrail
   #   GUARDRAILS_MODEL=<model>    classifier, where the provider hosts one
   #   GUARDRAILS_JUDGE_MODEL=<m>  instruct model for policy and grounding rails
   #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
+  #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
   #   GUARDRAILS_LINK_HOSTS=a.example,b.example  hosts an answer may link to
   #   GUARDRAILS_IMAGE_HOSTS=a.example           hosts it may auto-load from
   #   GUARDRAILS_ON_ERROR=allow|block
@@ -176,8 +179,12 @@ module Vangrail
 
       deterministic = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
                                           sides: [:input]),
-                       Rails::Jailbreak.new(sides: [:input])]
+                       Rails::Jailbreak.new(sides: [:input]),
+                       Rails::ManyShot.new(sides: [:input])]
       rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:input])]
+      # A question carrying the canary is too late to prevent and worth
+      # knowing: the prompt is already out.
+      rails << canary(:input) if canary_token
       # Off unless asked for: they read history, and a caller that threads none
       # would have every input check come back uncertain, which is true and
       # useless. Conversation is what makes them worth having.
@@ -198,13 +205,15 @@ module Vangrail
     def context_rails
       return [] unless on?(:context)
 
-      deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context])]
+      deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context]),
+                       Rails::ManyShot.new(sides: [:context])]
       deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context])]
     end
 
     def output_rails
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
+      rails << canary(:output) if canary_token
       rails << exfiltration if link_hosts || on?(:links)
       rails << judged(:output) if on?(:output)
       rails << grounding if on?(:grounding)
@@ -277,6 +286,17 @@ module Vangrail
     def guard_model(side)
       Rails::GuardModel.new(provider: provider, reasoning: truthy?(env['GUARDRAILS_REASONING']),
                             sides: [side])
+    end
+
+    # The application generates the token, puts it in its prompt, and names it
+    # here. Nothing can be checked without one, so its absence is the off
+    # switch.
+    def canary_token
+      present(env['GUARDRAILS_CANARY'])
+    end
+
+    def canary(side)
+      Rails::Canary.new(tokens: canary_token.split(/[,\s]+/), sides: [side])
     end
 
     def exfiltration

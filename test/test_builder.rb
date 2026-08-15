@@ -84,7 +84,7 @@ class TestBuilder < Minitest::Test
   # pattern list with a published bypass.
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
-    assert_equal %w[injection_patterns jailbreak obfuscation], e.rail_names(:input)
+    assert_equal %w[injection_patterns jailbreak many_shot obfuscation], e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
   end
@@ -136,6 +136,16 @@ class TestBuilder < Minitest::Test
 
   def test_the_decoding_pass_reads_documents_as_well_as_questions
     assert_includes engine(gateway_env).rail_names(:context), 'obfuscation'
+  end
+
+  # Nothing can be checked without a token, so naming one is the switch.
+  def test_the_canary_rail_appears_only_when_a_token_is_named
+    refute_includes engine(gateway_env).rail_names(:output), 'canary'
+
+    e = engine(gateway_env.merge('GUARDRAILS_CANARY' => 'canary-Ab12Cd34Ef56Gh78'))
+    assert_includes e.rail_names(:output), 'canary'
+    assert_includes e.rail_names(:input), 'canary'
+    assert e.check_output('the prompt began canary-Ab12Cd34Ef56Gh78').blocked?
   end
 
   def test_all_turns_on_grounding_too
