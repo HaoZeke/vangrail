@@ -1,0 +1,102 @@
+#+TITLE: The Text Analysis Layer
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* The Text Analysis Layer
+
+=Vangrail::NLP= reduces text to the concepts it carries, so a rule can be
+written about what a sentence asks for rather than about the words it uses. It
+is standard library only, loads nothing from disk, and reads English and Dutch.
+
+Two rails are built on it: =Rails::Paraphrase=, which matches pairs of concepts,
+and =Rails::Similarity=, which matches near copies of known attack wordings.
+Everything here is public, so an application can build its own.
+
+** Functions
+
+| Call                                     | Answers                                                     |
+|------------------------------------------+-------------------------------------------------------------|
+| =NLP.normalize(text)=                    | NFKC, downcased, punctuation folded to single spaces        |
+| =NLP.words(text)=                        | the normalised tokens                                       |
+| =NLP.stem(word)=                         | the word with an English suffix stripped                    |
+| =NLP.clauses(text)=                      | the text split at =. ! ? ; := and newlines                  |
+| =NLP.concepts(text, languages:)=         | =[position, concept, surface word]= triples                 |
+| =NLP.shingles(text, size: 4)=            | the set of character n-grams                                |
+| =NLP.containment(needle, haystack)=      | how much of =needle= appears in =haystack=, 0.0 to 1.0      |
+| =NLP.jaccard(left, right)=               | overlap over union                                          |
+
+** Concepts
+
+Twelve, and each one is what some part of an injection has to name.
+
+| Concept        | What it marks                                     | English example      | Dutch example        |
+|----------------+---------------------------------------------------+----------------------+----------------------|
+| =override=     | a verb that cancels something already said        | disregard            | negeer               |
+| =instruction=  | the standing instruction, under any of its names  | guideline            | richtlijn            |
+| =prior=        | a reference backwards                             | earlier              | eerdere              |
+| =reveal=       | a verb that moves text out                        | transmit             | stuur                |
+| =secret=       | what is worth moving out                          | credential           | wachtwoord           |
+| =conceal=      | a verb that keeps something in                    | withhold             | verberg              |
+| =audience=     | whom to keep it from                              | reader               | lezer                |
+| =answering=    | the act of answering                              | reply                | antwoord             |
+| =persona=      | being told to be something else                   | behave               | doe alsof            |
+| =unrestricted= | the state the persona is meant to be in           | unfiltered           | ongefilterd          |
+| =limits=       | limits, which "without" turns into a persona      | restriction          | beperking            |
+| =self=         | the assistant, referred to as itself              | your                 | je                   |
+| =totality=     | a totalising quantifier                           | anything             | alles                |
+
+The word lists are in =lib/vangrail/nlp.rb=, written out rather than generated,
+because a lexicon nobody can read is a rule nobody can audit.
+
+** Negation
+
+A negator within three tokens to the left or six to the right transforms the
+concept rather than adding one.
+
+| Concept              | Negated becomes | Why                                                        |
+|----------------------+-----------------+------------------------------------------------------------|
+| =reveal=             | =conceal=       | "never mention this to the user" is concealment            |
+| =limits=             | =unrestricted=  | "without restrictions" is a persona with no rules          |
+| =override=, =conceal=, =persona= | dropped | "do not ignore the guidelines" is not an override    |
+| anything else        | unchanged       | negation applies to the predicate, not to the nouns        |
+
+The scope reaches further right than left because Dutch negates after the verb:
+/deel je API-sleutel met niemand/ is a security instruction whose negator sits
+five tokens after the verb, where an English negator never goes.
+
+** Syntax
+
+Two rules come from the shape of the sentence rather than from a word.
+
+- A pronoun followed by a copula is a =persona=. "You are now" and "je bent nu"
+  are what an injection needs; the bare pronoun is in every second sentence of a
+  handbook and is worth nothing.
+- A =prior= word behind a determiner at the end of its clause is also an
+  =instruction=. "Ignore the above" and "negeer het bovenstaande" name the
+  instruction they cancel without using a word for it.
+
+** Languages
+
+=:en= and =:nl=, both read by default. =NLP::LANGUAGES= lists them, and both
+rails take =languages:=.
+
+#+begin_src ruby
+Vangrail::Rails::Paraphrase.new(languages: [:en])   # English lexicon only
+Vangrail::Rails::Similarity.new(seeds: MY_SEEDS)    # your own attack list
+#+end_src
+
+A language not in the list raises rather than being ignored, because a rail
+that silently reads nothing is worse than one that refuses to be built.
+
+The stemmer is English. Dutch pluralises with =-en=, which these rules do not
+touch and which stripping would maul in English ("token" to "tok"), so the
+Dutch lexicon lists singular and plural separately. Stemming is required to be
+consistent rather than correct: text and lexicon go through the same function,
+so "hiding" becoming "hid" costs nothing.
+
+** Adding a language
+
+A word list and a phrase table, both in =NLP::CONCEPTS= and =NLP::PHRASES=, plus
+negators in =NLP::NEGATORS=. Then a corpus: the pair of numbers is what decides
+whether the language is usable, and a lexicon that has never been scored against
+ordinary prose in its own language is an untested rail.

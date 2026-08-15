@@ -17,26 +17,60 @@ saying so is more useful than stretching a rail to cover them.
 
 | Category                        | Rails                                        | State |
 |---------------------------------+----------------------------------------------+-------|
-| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Spotlight= marking and its hierarchy | covered, with the limits below |
+| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Spotlight= marking and its hierarchy | covered, with the limits below |
 | Sensitive information disclosure | =Secrets= on the answer, =PersonalData= on the question | covered for shapes, not for judgement |
 | Supply chain                    | none                                         | out of scope; the gem's own answer is a runtime with no dependencies |
 | Data and model poisoning        | =Engine#screen= drops a poisoned document rather than failing the turn | partial: a poisoned page that reads as ordinary prose passes |
 | Improper output handling        | =Markup=, =Exfiltration=                     | covered for rendering and for outbound URLs |
 | Excessive agency                | none                                         | not applicable: no tools, no actions |
-| System prompt leakage           | =Canary= for the exact token, =Pattern= for the ask | covered for verbatim, not for paraphrase |
+| System prompt leakage           | =Canary= for the exact token, =Pattern= for the ask, =Paraphrase= for the reworded ask | covered for verbatim and for the wordings the lexicon holds |
 | Vector and embedding weaknesses | =Engine#screen= at the boundary              | partial: retrieval quality is the application's |
 | Misinformation                  | =Grounding=                                  | covered, at the cost of a round trip |
 | Unbounded consumption           | =Budget=                                     | covered for size; rate limiting belongs to the server |
 
 ** The limits worth repeating
 
-*** Paraphrase beats every pattern here
+*** Paraphrase beats every pattern, so the patterns are not what reads the text
 
 The jailbreak fingerprints, the injection patterns, and the canary all fall to
-a rewrite that means the same thing. What they buy is that the copied and
-pasted majority never reaches a model, and that they keep working when the
-endpoint does not. The model-backed rails are what remain against a rewrite,
-and a model's verdict is an opinion rather than a rule.
+a rewrite that means the same thing. =Rails::Paraphrase= is the answer to that
+which does not need a model: the text is reduced to concepts first, and what
+gets matched is a pair of concepts close together, so a rewording that keeps
+the meaning keeps the pair. Measured on twelve reworded asks at five positions,
+it catches 60 of 60 where the pattern rails catch 0, and keeps 24 of 24
+ordinary pages.
+
+What that does not mean is that rewording is solved. The lexicon is the limit,
+and it is a list of words in a file:
+
+- A synonym nobody listed is a miss. "Countermand the guidance issued to you"
+  walks past, and the suite asserts that it does.
+- A language nobody listed is a miss for every rail here. English and Dutch are
+  read; a page in German is prose to all of it.
+- The negation scope is a cheap evasion. A negator dropped into the clause has
+  a revealing verb read as concealment, and an attacker who reads this page
+  knows it.
+- Two concepts is a rule about form, not about meaning. A sentence that asks
+  for the same thing while naming only one of them is not caught.
+
+The model-backed rails are what remain against those, and a model's verdict is
+an opinion rather than a rule.
+
+*** The Dutch coverage is a lexicon, not an understanding
+
+Every pattern in this gem is English. The concept lexicon carries Dutch as
+well, and it is scored on a Dutch corpus rather than assumed to transfer: 60 of
+60 caught, 24 of 24 ordinary Dutch pages kept, and the English pattern rails
+catch 0 of the 12 Dutch attacks.
+
+Two pieces of Dutch grammar are handled and worth knowing about, because they
+are where a naive port would fail: negation lands after the verb, so the scope
+reaches further right than left, and a backward reference behind a determiner
+at the end of a clause is a noun, which is how /negeer het bovenstaande/ names
+the instruction it cancels. Anything past those two is not modelled. Dutch word
+order in a subordinate clause puts the verb last, and the ordered rules do not
+see it; injections are imperatives, which is why that costs less than it
+sounds, and it is still a hole.
 
 *** An attacker who reads the source wins more often
 

@@ -13,6 +13,20 @@ Nothing has been released yet. This section describes what exists.
 
 ### Added
 
+- `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
+  a suffix stripper, a concept lexicon with negation and multiword phrases,
+  clause segmentation, and set similarity over character n-grams.
+- `Rails::Paraphrase`, which matches pairs of concepts rather than strings, so
+  a reworded injection is caught by the same rule as the original. Measured at
+  60 of 60 reworded attacks caught where the pattern rails catch 0, with 24 of
+  24 ordinary pages kept.
+- English and Dutch lexicons, both read by default and selectable with
+  `languages:`, with the two pieces of Dutch grammar that a naive port gets
+  wrong: negation after the verb, and a backward reference used as a noun.
+  Scored on its own Dutch corpus rather than assumed to transfer.
+- `Rails::Similarity` and `KnownAttacks`, catching near copies of published
+  attack wordings by n-gram containment, clause by clause because containment
+  saturates over a whole page.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context

@@ -9,6 +9,8 @@
 | =Rails::Pattern=            | either        | no      | passed, blocked            |
 | =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
 | =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
+| =Rails::Paraphrase=         | input, context | no     | passed, blocked            |
+| =Rails::Similarity=         | input, context | no     | passed, blocked            |
 | =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
 | =Rails::Hidden=             | context       | depends | passed, blocked            |
 | =Rails::Escalation=         | input         | no      | passed, blocked            |
@@ -81,6 +83,71 @@ Measured at fourteen attack shapes caught against fourteen ordinary handbook
 sentences untouched. The second number is the one that decides whether it can
 be switched on at all, because a documentation desk discusses roles, modes, and
 restrictions daily.
+
+** Rails::Paraphrase
+
+Matches pairs of concepts rather than strings, so a reworded injection is
+caught by the same rule as the original. Input and context sides,
+deterministic, offline, on by default. Built on [[file:nlp.org][the text
+analysis layer]], and reads English and Dutch.
+
+| Category                | The pair, and how close                                     |
+|-------------------------+-------------------------------------------------------------|
+| =instruction_override=  | =override= then =instruction= within six tokens             |
+| =instruction_override=  | =override= then =prior= within four, with a =totality= word in the clause |
+| =prompt_disclosure=     | =reveal= then =secret= within eight, with =self= in the clause |
+| =answer_shaping=        | =conceal= near =audience= or near =answering= within ten     |
+| =unrestricted_persona=  | =persona= near =unrestricted= within eight                  |
+
+Always a pair, never one concept. A document that mentions instructions is a
+handbook; a document that mentions overriding them is an attack. Windows are
+short and clause-bounded, because two concepts in one clause are one statement
+and the same two nine lines apart are two sentences.
+
+Word order matters where an English verb governs its object: "ignore the
+guidelines" is an attack and "follow the guidance and ignore stale copies of
+it" holds the same two concepts in the other order and is a page.
+
+Measured on twelve asks reworded once each, spliced into handbook prose at five
+positions: 60 of 60 caught in English and 60 of 60 in Dutch, against 0 of 60
+for the pattern rails, with 24 of 24 ordinary English pages and 24 of 24 Dutch
+ones kept. The corpus and the lexicon share an author, so the attack column
+measures an attacker who did not read the source; the benign column is the one
+that carries weight.
+
+The limit is the lexicon. A synonym that is not in it is a miss, and the suite
+asserts that with a test. Roughly 1.2 ms per kilobyte.
+
+Memoizable on the text and the languages together.
+
+** Rails::Similarity
+
+Blocks near copies of known attack wordings. Input and context sides,
+deterministic, offline, on by default.
+
+A published jailbreak spreads by being pasted, and what arrives is a near copy:
+a typo, two words inserted, capitals, a different inflection. Each of those
+defeats a pattern for the same sentence and none change what it asks for. The
+measure is containment of the seed's character n-grams in the text, which is
+the standard question for "is this thing in there", rather than Jaccard, which
+answers how similar two texts are overall and is near zero for a sentence
+inside a page.
+
+Compared clause by clause. Containment saturates with length: measured against
+the benign corpora here, a whole page scores 0.94 against a seed it does not
+contain, and the same text by clause scores 0.67. The threshold is 0.75,
+sitting in the measured gap between 0.67 for ordinary documentation and 0.83
+for the worst edited copy.
+
+The seeds are =KnownAttacks::ALL=, in English and Dutch, and a deployment can
+pass its own with =seeds:=. A novel attack in nobody's corpus scores zero here
+by construction; that is what =Rails::Paraphrase= and the model-backed rails
+are for.
+
+Roughly 1.5 ms per kilobyte, after a prefilter that skips any clause sharing
+too few n-grams with every seed to reach the threshold.
+
+Memoizable on the text and the threshold together.
 
 ** Rails::Obfuscation
 
