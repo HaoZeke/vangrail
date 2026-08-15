@@ -28,6 +28,17 @@ class TestTrajectory < Minitest::Test
   # A two-message conversation has no trajectory, and the single-turn rails
   # have already read both messages. That is a judgement, so the pass is
   # certain.
+  # Same contract as Escalation: a missing key is not an empty dialogue.
+  def test_a_caller_that_threads_no_history_gets_an_uncertain_pass
+    stub = http
+    result = rail(stub).call('the newest question', side: :input)
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+    assert_includes result.reason, 'no history'
+    assert_empty stub.calls
+  end
+
   def test_a_short_conversation_is_a_certain_pass_and_costs_nothing
     stub = http
     result = rail(stub).call('the newest question', side: :input, history: turns(2))

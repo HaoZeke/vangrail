@@ -110,6 +110,18 @@ class TestHidden < Minitest::Test
     assert_equal 'text', r.cache_key('text', side: :context)
   end
 
+  # An inner rail that could not decide is not a hidden span that was clean.
+  def test_an_uncertain_inner_rail_is_not_a_certain_pass
+    quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',
+                                         sides: [:context])
+    wrapped = Vangrail::Rails::Hidden.new(rails: [quiet])
+    result = wrapped.call("<!-- #{PLAIN} -->", side: :context)
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+    assert_includes result.reason, 'endpoint refused'
+  end
+
   def test_its_posture_follows_what_it_wraps
     http = StubHTTP.new(responses: { '/chat/completions' => chat_body('{"violation": 0}') })
     chat = Vangrail::Chat.new(model: 'm', http: http)

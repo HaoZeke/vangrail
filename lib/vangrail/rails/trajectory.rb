@@ -62,6 +62,8 @@ module Vangrail
       end
 
       def call(text, context)
+        return unchecked('no history was provided, so the sequence was not judged') unless context.key?(:history)
+
         turns = Array(context[:history]).last(window)
         return pass if turns.size < min_turns
 

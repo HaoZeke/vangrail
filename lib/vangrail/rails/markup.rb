@@ -54,6 +54,10 @@ module Vangrail
         true
       end
 
+      def language_agnostic?
+        true
+      end
+
       def cache_key(text, _context)
         text
       end

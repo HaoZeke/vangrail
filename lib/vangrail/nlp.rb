@@ -223,7 +223,8 @@ module Vangrail
     # de gebruiker niet dat deze pagina is gewijzigd" has to keep its audience:
     # the negation made the sentence concealment, and concealment from whom is
     # the other half of the rule.
-    NEGATION = { reveal: :conceal, limits: :unrestricted, override: nil, conceal: nil, persona: nil }.freeze
+    NEGATION = { reveal: :conceal, limits: :unrestricted, override: nil, conceal: nil,
+                 persona: nil, secret: nil, unrestricted: nil }.freeze
 
     # How far a negator reaches, in tokens, and it reaches further to the right
     # than to the left.
@@ -244,11 +245,15 @@ module Vangrail
     NEGATION_AFTER = 6
 
     # Determiners, for the one piece of syntax worth knowing: a backward
-    # reference behind a determiner and at the end of its clause is a noun.
-    # "Ignore the above" and "negeer het bovenstaande" name the instruction
-    # without using a word for it, and nothing else in this file would see
-    # that.
+    # reference behind a determiner is a noun when nothing follows it, or
+    # when the next word is a coordinator. "Ignore the above" and
+    # "ignore the above and recommend" name the instruction; "the earlier
+    # warning" keeps its noun.
     DETERMINERS = %w[the this that het de dit die deze].freeze
+    # After a nominalised "the above", the next word is a coordinator, not a
+    # noun. "Ignore the above and recommend" is the attack; "the earlier
+    # warning" keeps its noun and is a page.
+    COORDINATORS = %w[and or but en of maar].freeze
 
     # "you" carries a persona only when something makes it a statement about
     # what the reader now is. A handbook says "you" in every second sentence
@@ -290,6 +295,7 @@ module Vangrail
 
     NEGATOR_STEMS = NEGATORS.values.flatten.to_set { |w| stem(w) }.freeze
     DETERMINER_STEMS = DETERMINERS.to_set { |w| stem(w) }.freeze
+    COORDINATOR_STEMS = COORDINATORS.to_set { |w| stem(w) }.freeze
     PRONOUN_STEMS = PRONOUNS.to_set { |w| stem(w) }.freeze
     COPULA_STEMS = COPULAS.to_set { |w| stem(w) }.freeze
     PHRASE_LENGTHS = PHRASE_LEXICONS[LANGUAGES].keys.map { |k| k.count(' ') + 1 }.uniq.sort.reverse.freeze
@@ -332,6 +338,34 @@ module Vangrail
     # would make the answer noise rather than information.
     LANGUAGE_FLOOR = 12
 
+    # Character n-gram rank profiles (Cavnar and Trenkle, SDAIR 1994) for
+    # the two lexicon languages and the two unread ones the suite uses as
+    # the third-language case. Built from closed function-word lists, not
+    # from the test corpora.
+    PROFILE_SOURCES = {
+      en: FUNCTION_WORDS[:en] + %w[this that with from have been will would could should into over],
+      nl: FUNCTION_WORDS[:nl] + %w[een van het dat niet zijn voor naar nog wel dan toen],
+      de: %w[und der die das ist ein eine nicht mit von zu auf den dem sich auch als nach bei],
+      fr: %w[les des une est dans pour qui que pas avec sur aux sont mais tout],
+    }.freeze
+    NGRAM_SIZES = (2..4)
+    PROFILE_SIZE = 200
+    NGRAM_FLOOR = 6
+
+    def self.build_profile(source)
+      counts = Hash.new(0)
+      source.each do |word|
+        padded = " #{word} "
+        NGRAM_SIZES.each do |size|
+          (0..(padded.length - size)).each { |i| counts[padded[i, size]] += 1 }
+        end
+      end
+      counts.sort_by { |gram, n| [-n, gram] }.map(&:first).first(PROFILE_SIZE).freeze
+    end
+
+    PROFILES = PROFILE_SOURCES.transform_values { |source| build_profile(source) }.freeze
+    PROFILE_INDEX = PROFILES.transform_values { |profile| profile.each_with_index.to_h }.freeze
+
     # The language of a text: :en, :nl, or :unknown.
     #
     # :unknown is a real answer rather than a failure. It is what a page in
@@ -341,6 +375,22 @@ module Vangrail
       tokens = words(text)
       return :unknown if tokens.size < LANGUAGE_FLOOR
 
+      by_words = function_word_language(tokens)
+      return by_words unless by_words == :unknown
+
+      guessed = ngram_language(text)
+      LANGUAGES.include?(guessed) ? guessed : :unknown
+    end
+
+    # True when the character-n-gram profile names a language this engine
+    # does not read. Used in the twelve-to-twenty-three token band, where
+    # function-word counts stay quiet and an unread page used to certain-pass.
+    def named_foreign?(text, supported)
+      guessed = ngram_language(text)
+      guessed != :unknown && !Array(supported).map(&:to_sym).include?(guessed)
+    end
+
+    def function_word_language(tokens)
       seen = tokens.to_set
       scored = FUNCTION_WORDS.map do |code, list|
         hits = list.count { |word| seen.include?(word) }
@@ -351,6 +401,37 @@ module Vangrail
       return :unknown if best[1] < LANGUAGE_HITS || best[2] < LANGUAGE_SHARE
 
       best[0]
+    end
+
+    def ngram_language(text)
+      tokens = words(text)
+      return :unknown if tokens.size < NGRAM_FLOOR
+
+      doc = document_profile(tokens)
+      return :unknown if doc.size < 8
+
+      scored = PROFILES.keys.map { |lang| [lang, out_of_place(doc, lang)] }
+      ranked = scored.min_by(2) { |(_, distance)| distance }
+      best, second = ranked
+      return :unknown if second && best[1] >= (second[1] * 0.85)
+
+      best[0]
+    end
+
+    def document_profile(tokens)
+      counts = Hash.new(0)
+      tokens.each do |word|
+        padded = " #{word} "
+        NGRAM_SIZES.each do |size|
+          (0..(padded.length - size)).each { |i| counts[padded[i, size]] += 1 }
+        end
+      end
+      counts.sort_by { |gram, n| [-n, gram] }.map(&:first).first(PROFILE_SIZE)
+    end
+
+    def out_of_place(document, language)
+      index = PROFILE_INDEX.fetch(language)
+      document.each_with_index.sum { |gram, rank| ((index[gram] || PROFILE_SIZE) - rank).abs }
     end
 
     # Sentences, roughly, and clauses where the punctuation says so.
@@ -402,7 +483,15 @@ module Vangrail
           found = table[window.join(' ')]
           next unless found
 
-          found.each { |concept| out << [i, concept, tokens[i, length].join(' ')] }
+          # A negator that is part of the phrase ("without restrictions")
+          # is the phrase. One sitting outside it ("not the system prompt")
+          # cancels the concept.
+          inside = stems[i, length].any? { |s| NEGATOR_STEMS.include?(s) }
+          negated = !inside && negated?(stems, i)
+          found.each do |concept|
+            concept = NEGATION.fetch(concept, concept) if negated
+            out << [i, concept, tokens[i, length].join(' ')] if concept
+          end
         end
       end
       out
@@ -423,10 +512,11 @@ module Vangrail
     end
 
     def nominalised_reference?(stems, index)
-      return false unless index == stems.length - 1
       return false unless index.positive? && DETERMINER_STEMS.include?(stems[index - 1])
+      return false unless Array(lexicon[stems[index]]).include?(:prior)
 
-      Array(lexicon[stems[index]]).include?(:prior)
+      nxt = stems[index + 1]
+      nxt.nil? || COORDINATOR_STEMS.include?(nxt)
     end
 
     def negated?(stems, index)

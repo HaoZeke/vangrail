@@ -77,8 +77,9 @@ module Vangrail
         body = text.to_s
         stripped = body.gsub(INVISIBLE, '')
 
-        hit = first_objection(body, stripped, context)
+        hit, uncertain = first_objection(body, stripped, context)
         return hit if hit
+        return unchecked(uncertain.reason) if uncertain
 
         return pass if stripped == body
 
@@ -111,16 +112,19 @@ module Vangrail
         candidates << [:invisible, stripped] unless stripped == body
         candidates.concat(variants(stripped))
 
+        uncertain = nil
         candidates.each do |name, decoded|
           rails.each do |rail|
             result = rail.call(decoded, context)
-            next unless result.blocked?
+            if result.blocked?
+              return [block(categories: (result.categories || []) + ["encoded:#{name}"],
+                            reason: "#{result.reason} (hidden with #{name})"), nil]
+            end
 
-            return block(categories: (result.categories || []) + ["encoded:#{name}"],
-                         reason: "#{result.reason} (hidden with #{name})")
+            uncertain ||= result unless result.certain?
           end
         end
-        nil
+        [nil, uncertain]
       end
 
       def apply(name, body)

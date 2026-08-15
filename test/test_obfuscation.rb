@@ -169,6 +169,17 @@ class TestObfuscation < Minitest::Test
 
   # A decoded blob that is bytes rather than a sentence contributes nothing,
   # rather than failing the page it was found on.
+  def test_an_uncertain_inner_rail_is_not_a_certain_pass
+    quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',
+                                         sides: [:context])
+    wrapped = Vangrail::Rails::Obfuscation.new(rails: [quiet], transforms: %i[rot13])
+    result = wrapped.call(PLAIN.tr('A-Za-z', 'N-ZA-Mn-za-m'), side: :context)
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+    assert_includes result.reason, 'endpoint refused'
+  end
+
   def test_a_binary_blob_decodes_to_nothing_and_is_ignored
     blob = [Array.new(64) { |i| i }.pack('C*')].pack('m0')
 

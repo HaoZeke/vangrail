@@ -115,6 +115,12 @@ out and several distinct hits are required rather than one common one.
 =:unknown= is a real answer. =Rails::Language= turns it into =passed= with
 =certain?= false, which is what a page in German honestly is here.
 
+When function-word counts stay quiet, a Cavnar-Trenkle rank profile over
+character 2--4 grams names =:en=, =:nl=, =:de=, or =:fr=. Only =:en= and
+=:nl= become a language the engine reads; the other two make
+=named_foreign?= true so a twelve-to-twenty-three token unread clause is
+not a certain pass.
+
 ** Adding a language
 
 A word list and a phrase table, both in =NLP::CONCEPTS= and =NLP::PHRASES=, plus

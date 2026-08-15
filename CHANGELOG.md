@@ -87,6 +87,23 @@ Nothing has been released yet. This section describes what exists.
 - Dutch verb-final subordinates match the ordered paraphrase templates:
   "dat je de richtlijnen negeert" is an override. The coordinated
   handbook sentence that made the rule ordered stays clean.
+- `Hidden` and `Obfuscation` no longer turn an inner `certain?` false
+  into a clean pass.
+- `Trajectory` with no `:history` key is abstention, the same contract
+  `Escalation` already had. A short dialogue that was handed in is still
+  a certain pass.
+- Phrase-table concepts go through negation. "this is not the system
+  prompt" no longer contributes `:secret`; "without restrictions" still
+  does, because the negator is the phrase.
+- "Ignore the above and …" names an instruction. The determiner-plus-prior
+  rule no longer requires the prior word to be clause-final.
+- `Rails::Language` reads clause by clause, so a German paragraph inside
+  an English page is unread. Character n-gram rank profiles (Cavnar and
+  Trenkle) name an unread language in the twelve-to-twenty-three token
+  band, where function-word counts stay quiet.
+- Markup, budget, secrets, canary, personal data, and exfiltration set
+  `language_agnostic?`, so their silence on an unread page is still
+  silence. Hidden and Obfuscation wrap lexicon rails and do not.
 
 ### Added
 

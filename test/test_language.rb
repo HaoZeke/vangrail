@@ -93,7 +93,25 @@ class TestLanguage < Minitest::Test
   def test_it_is_offline_and_memoizable
     assert_predicate rail, :offline?
     assert_predicate rail, :posture?
+    refute_predicate rail, :language_agnostic?
     assert_equal "en+nl\ntext", rail.cache_key('text', {})
+  end
+
+  # A German clause inside an English page is unread. Function-word
+  # counts over the whole string call it English and used to certain-pass.
+  def test_a_foreign_clause_in_an_english_page_is_unread
+    page = "#{TestCorpus::ENGLISH_BENIGN.first}\n\n#{GERMAN}\n\nSee the reference pages."
+    result = check(page)
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+  end
+
+  def test_markup_budget_and_canary_do_not_care_what_language_the_words_are_in
+    [Vangrail::Rails::Markup.new, Vangrail::Rails::Budget.new,
+     Vangrail::Rails::Canary.new(tokens: ['marker'])].each do |r|
+      assert_predicate r, :language_agnostic?, r.name
+    end
   end
 
   # The detector on its own, since every rule above rests on it.

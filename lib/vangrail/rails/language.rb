@@ -46,20 +46,45 @@ module Vangrail
       end
 
       def call(text, _context)
-        tokens = NLP.words(text)
-        return pass if tokens.size < floor
+        reason = unread_reason(text)
+        return unchecked(reason) if reason
 
-        found = NLP.language(text)
-        return pass if supported.include?(found)
+        pass
+      end
 
-        # A twelve-word handbook sentence often has too few function words
-        # for the detector to name it, and that is not evidence it is
-        # German. Only a page long enough to have been identified, and
-        # that still was not, is unread.
-        return pass if tokens.size < (floor * 2)
+      private
 
-        unchecked("text is not in a language this engine reads (#{supported.join(', ')}); " \
-                  'the deterministic rails do not apply to it')
+      # Clause by clause: a German paragraph inside an English page is
+      # unread even when the function words of the page as a whole are
+      # English. The twelve-token floor still applies per clause, so a
+      # short question stays quiet.
+      def unread_reason(text)
+        whole = classify(text)
+        return whole if whole
+
+        spans = NLP.clauses(text)
+        return nil if spans.size <= 1
+
+        spans.each do |span|
+          reason = classify(span)
+          return reason if reason
+        end
+        nil
+      end
+
+      def classify(span)
+        tokens = NLP.words(span)
+        return nil if tokens.size < floor
+
+        found = NLP.language(span)
+        return nil if supported.include?(found)
+        # Named unread (Cavnar-Trenkle) is evidence even in the
+        # twelve-to-twenty-three token band. An unidentified short
+        # handbook sentence is not.
+        return nil if tokens.size < (floor * 2) && !NLP.named_foreign?(span, supported)
+
+        "text is not in a language this engine reads (#{supported.join(', ')}); " \
+          'the deterministic rails do not apply to it'
       end
     end
   end

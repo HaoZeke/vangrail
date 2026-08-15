@@ -44,6 +44,10 @@ module Vangrail
         true
       end
 
+      def language_agnostic?
+        true
+      end
+
       def cache_key(text, context)
         "#{context[:side]}:#{text.to_s.length}"
       end

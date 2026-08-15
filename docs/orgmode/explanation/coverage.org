@@ -60,10 +60,11 @@ an opinion rather than a rule.
 
 =Rails::Language= exists because the honest answer to a page or a question in
 German is "nothing here read this". It identifies the language by function
-words and returns =passed= with =certain?= false for anything outside the
-lexicons, and it never blocks: another language is not an attack. It sits
-on the input side as well as on context, so =check_input= cannot certain-pass
-a long unread question.
+words and, when those stay quiet, by character n-gram rank profiles (Cavnar
+and Trenkle 1994). It returns =passed= with =certain?= false for anything
+outside the lexicons, and it never blocks: another language is not an
+attack. It sits on the input side as well as on context, and it reads
+clause by clause, so a German paragraph inside an English page is unread.
 
 What it does not do is extend coverage. A German page is exactly as unguarded as
 it was; the difference is that the result now says so, which is what lets an

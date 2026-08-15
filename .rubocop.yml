@@ -59,7 +59,10 @@ Metrics/PerceivedComplexity:
 Metrics/ClassLength:
   Max: 260
 Metrics/ModuleLength:
-  Max: 240
+  # NLP holds the lexicons, the stemmer, and the language profiles. Those
+  # are tables, not branches. 290 is the size of that file with Cavnar-
+  # Trenkle in it.
+  Max: 290
   Exclude:
     - 'test/**/*'
 Metrics/BlockLength:

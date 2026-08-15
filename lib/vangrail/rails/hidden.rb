@@ -77,15 +77,20 @@ module Vangrail
       end
 
       def call(text, context)
+        uncertain = nil
         spans(text).each do |carrier, span|
           rails.each do |rail|
             result = rail.call(span, context)
-            next unless result.blocked?
+            if result.blocked?
+              return block(categories: (result.categories || []) + ["hidden:#{carrier}"],
+                           reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
+            end
 
-            return block(categories: (result.categories || []) + ["hidden:#{carrier}"],
-                         reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
+            uncertain ||= result unless result.certain?
           end
         end
+        return unchecked(uncertain.reason) if uncertain
+
         pass
       end
 
