@@ -63,3 +63,4 @@ build-iPhoneSimulator/
 # Generated YARD output
 /doc/
 .yardoc/
+tmp/

@@ -130,21 +130,27 @@ module Vangrail
     #
     # Costs more than a check, because nothing short-circuits: every rail with
     # an entry in the table runs, including the ones a block would have skipped.
-    def assess(text, side: :input, prior: nil, policy: Policy::DEFAULT, evidence: EvidenceData::TABLE,
-               escalate: false, confidence: nil, origin: nil, **context)
+    def assess(text, side: :input, prior: nil, policy: Policy::DEFAULT, evidence: nil,
+               escalate: false, confidence: Posterior::DEFAULT_CONFIDENCE, origin: nil, **context)
       raise ArgumentError, prior_message if prior.nil?
 
       origin = Origin.coerce(origin || Origin.default_for(side))
+      # A rail is worth different evidence on different sides, by a lot: the
+      # same paraphrase rail catches a third of in-the-wild jailbreak prompts
+      # and none of the published injections in retrieved documents. One table
+      # for both would be an average of two unrelated things.
+      evidence ||= EvidenceData.for_side(side)
+
       observed = observe(text, side, context, evidence, escalate ? { prior: prior, policy: policy } : nil)
       observations, direct, certain, skipped = observed
       posterior, contributions = Posterior.combine(prior: prior, observations: observations,
                                                    evidence: evidence, direct: direct,
                                                    confidence: confidence)
       action = policy.action_for(posterior)
-      # A confidence bound is what this corpus can defend. If the point
-      # estimate and the bound disagree about the action, the action is
-      # not identified: reporting it as a certain decision would spend
-      # the unmeasured tail of 48 benign pages.
+      # A confidence bound is what the corpus can defend. If the point
+      # estimate and the bound disagree about the action, the action is not
+      # identified: reporting it as a certain decision would spend evidence
+      # nobody measured.
       if confidence
         point, = Posterior.combine(prior: prior, observations: observations,
                                    evidence: evidence, direct: direct)

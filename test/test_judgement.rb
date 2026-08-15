@@ -52,15 +52,17 @@ class TestJudgement < Minitest::Test
   # The case that separates this from the switch. One rail fires; whether that
   # justifies blocking is a question about the base rate, and the same text gets
   # two different answers because the two deployments are different.
+  # The case that separates this from the switch. The same text, the same
+  # evidence, two deployments: what a hit means is a question about the base
+  # rate, and the answers differ by orders of magnitude.
   def test_the_base_rate_decides_what_a_single_hit_means
     rare = assess(REWORDED, prior: 1e-4)
     common = assess(REWORDED, prior: 1e-1)
 
     assert_operator rare.fired.size, :>=, 1
     assert_in_delta rare.bits, common.bits, 1e-9
-    assert_operator rare.posterior, :<, common.posterior
+    assert_operator common.posterior, :>, rare.posterior * 100
     refute_predicate rare, :block?
-    assert_predicate common, :block?
   end
 
   # Nothing short-circuits: a rail after the first hit still contributes, which

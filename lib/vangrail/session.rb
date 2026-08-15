@@ -74,14 +74,14 @@ module Vangrail
     end
 
     attr_reader :engine, :prior, :decay, :policy, :alpha, :beta, :channel,
-                :attack, :contamination
+                :attack, :contamination, :evidence
 
     # `alpha` and `beta` are the error rates a sequential test is allowed: how
     # often it may call an ordinary reader an attacker, and how often it may
     # miss one. Given those two numbers the thresholds are not a choice, which
     # is the whole appeal of the sequential test.
     def initialize(engine:, prior:, decay: DEFAULT_DECAY, policy: Policy::DEFAULT,
-                   alpha: 0.01, beta: 0.05)
+                   alpha: 0.01, beta: 0.05, evidence: nil)
       raise ArgumentError, 'prior must be strictly between 0 and 1' unless prior.positive? && prior < 1
       raise ArgumentError, 'decay must be in (0, 1]' unless decay.positive? && decay <= 1
       raise ArgumentError, 'alpha and beta must be in (0, 1)' unless [alpha, beta].all? { |v| v.positive? && v < 1 }
@@ -96,6 +96,9 @@ module Vangrail
       @attack = Track.new(base)
       @contamination = Track.new(base)
       @channel = nil
+      # An operating point given outright, for a caller measuring the
+      # arithmetic rather than the shipped corpus.
+      @evidence = evidence
     end
 
     # Judges one turn and folds it into the session.
@@ -113,8 +116,9 @@ module Vangrail
     # document they did not write.
     def observe(text, side: :input, origin: nil, **context)
       origin = Origin.coerce(origin || Origin.default_for(side))
+      options = evidence ? { evidence: evidence } : {}
       judgement = engine.assess(text, side: side, prior: prior, policy: policy,
-                                      origin: origin, **context)
+                                origin: origin, **options, **context)
       fold(judgement)
       judgement
     end

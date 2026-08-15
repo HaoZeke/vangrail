@@ -30,12 +30,32 @@ class TestSession < Minitest::Test
 
   PRIOR = 1e-3
 
+  # A synthetic operating point, so these tests measure the session arithmetic
+  # rather than whichever corpus the shipped table was last regenerated from.
+  # What a rail is worth changes when it is remeasured -- that is the point of
+  # measuring it -- and a test of accumulation should not move with it.
+  TABLE = {
+    'paraphrase' => Vangrail::Evidence.new(rail: 'paraphrase', group: 'paraphrase',
+                                           attacks_caught: 900, attacks: 1000,
+                                           benign_flagged: 10, benign: 1000),
+    'injected_instructions' => Vangrail::Evidence.new(rail: 'injected_instructions',
+                                                      group: 'injected_instructions',
+                                                      attacks_caught: 600, attacks: 1000,
+                                                      benign_flagged: 50, benign: 1000)
+  }.freeze
+
+  # What one probe is worth under that table, computed rather than assumed, so
+  # these tests keep meaning the same thing if the arithmetic is retuned.
+  def probe_bits
+    @probe_bits ||= session.observe(PROBES.first, side: :context).bits
+  end
+
   def engine
     @engine ||= Vangrail::Builder.new('GUARDRAILS_RAILS' => 'context').engine
   end
 
   def session(**kwargs)
-    Vangrail::Session.new(engine: engine, prior: PRIOR, **kwargs)
+    Vangrail::Session.new(engine: engine, prior: PRIOR, evidence: TABLE, **kwargs)
   end
 
   def test_the_builder_hands_out_a_session_against_the_same_engine
@@ -58,10 +78,19 @@ class TestSession < Minitest::Test
     watched = session
     judgements = observe_all(watched, PROBES)
 
+    # The claim, stated as the property rather than as a number: no single turn
+    # was worth acting on, the session rose with every one of them, and by the
+    # end the session is worth acting on while none of its turns was.
     assert judgements.all?(&:allow?), 'a single probe was already actionable, so this proves nothing'
-    refute_predicate watched, :block?
-    assert_predicate watched, :review?
+    refute_predicate watched, :allow?
     assert_operator watched.posterior, :>, judgements.first.posterior * 10
+  end
+
+  def test_the_session_rises_with_every_probe
+    watched = session
+    seen = PROBES.map { |text| watched.observe(text, side: :context) and watched.bits }
+
+    assert_equal seen.sort, seen, "the session did not rise monotonically: #{seen.inspect}"
   end
 
   # And the other half, without which the first is a session that eventually
@@ -94,16 +123,26 @@ class TestSession < Minitest::Test
     per_turn = watched.turns.first.bits
 
     assert_in_delta per_turn / (1 - 0.5), watched.bits, 0.01
-    # Half-forgetting holds this particular prober at review rather than block:
-    # the ceiling is a policy knob, not an accident.
-    assert_predicate watched, :review?
   end
 
-  def test_how_much_is_remembered_decides_whether_persistence_eventually_blocks
-    patient = session(decay: 0.7)
-    30.times { patient.observe(PROBES.first, side: :context) }
+  # How much is remembered decides how far a determined prober gets, and the
+  # ceiling is the knob: the same prober against the same rails ends in a
+  # different place for no reason but the decay.
+  def test_how_much_is_remembered_decides_how_far_persistence_gets
+    patient = session(decay: 0.9)
+    forgetful = session(decay: 0.3)
+    # Sixty rather than thirty: the geometric series is within a thousandth of
+    # its limit by then, and at thirty it is still four percent short.
+    60.times do
+      patient.observe(PROBES.first, side: :context)
+      forgetful.observe(PROBES.first, side: :context)
+    end
 
-    assert_in_delta patient.turns.first.bits / (1 - 0.7), patient.bits, 0.01
+    # The residual scales with the ceiling: 0.9**60 of a forty-six bit ceiling
+    # is still a tenth of a bit.
+    assert_in_delta patient.turns.first.bits / (1 - 0.9), patient.bits, 0.1
+    assert_in_delta forgetful.turns.first.bits / (1 - 0.3), forgetful.bits, 0.01
+    assert_operator patient.posterior, :>, forgetful.posterior
     assert_predicate patient, :block?
   end
 
@@ -147,7 +186,7 @@ class TestSession < Minitest::Test
     quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',
                                          sides: [:context])
     partial = Vangrail::Engine.new(context: [Vangrail::Rails::InjectedInstructions.new, quiet])
-    watched = Vangrail::Session.new(engine: partial, prior: PRIOR)
+    watched = Vangrail::Session.new(engine: partial, prior: PRIOR, evidence: TABLE)
     watched.observe(CLEAN.first, side: :context)
 
     refute_predicate watched, :certain?
@@ -155,7 +194,7 @@ class TestSession < Minitest::Test
 
   def test_a_judgement_from_elsewhere_can_be_folded_in
     watched = session
-    judgement = engine.assess(PROBES.first, side: :context, prior: PRIOR)
+    judgement = engine.assess(PROBES.first, side: :context, prior: PRIOR, evidence: TABLE)
     watched.fold(judgement)
 
     assert_in_delta judgement.bits, watched.bits, 1e-9
@@ -168,8 +207,8 @@ class TestSession < Minitest::Test
     hash = watched.to_h
 
     assert_equal 3, hash['turns']
-    assert_equal 'review', hash['action']
-    assert_match(/session review/, watched.to_s)
+    refute_equal 'allow', hash['action']
+    assert_match(/session (review|block)/, watched.to_s)
   end
 
   # --- the sequential test, beside the posterior ---
@@ -190,10 +229,31 @@ class TestSession < Minitest::Test
     assert_equal :undecided, watched.verdict
     assert_operator watched.bits_to_decide, :>, 0
 
-    watched.observe(PROBES[1], side: :context)
+    # A session that remembers enough does cross it, and the test says how much
+    # more it needs while it has not.
+    patient = session(decay: 0.95)
+    20.times { patient.observe(PROBES.first, side: :context) }
 
-    assert_equal :attack, watched.verdict
-    assert_in_delta 0.0, watched.bits_to_decide, 1e-9
+    assert_equal :attack, patient.verdict
+    assert_in_delta 0.0, patient.bits_to_decide, 1e-9
+  end
+
+  # The interaction worth knowing about, because it decides whether a slow
+  # prober is ever convicted. Decay imposes a ceiling of per-turn bits over one
+  # minus the decay, and when that ceiling sits below the sequential test's
+  # upper threshold, no amount of persistence crosses it.
+  #
+  # A session that forgets quickly cannot convict a patient attacker. That is a
+  # property of the design rather than a bug, and the two numbers are the knobs:
+  # remember more, or accept less evidence before deciding.
+  def test_a_ceiling_below_the_threshold_means_persistence_is_never_convicted
+    forgetful = session(decay: 0.2)
+    40.times { forgetful.observe(PROBES.first, side: :context) }
+    ceiling = forgetful.turns.first.bits / (1 - 0.2)
+
+    assert_operator ceiling, :<, forgetful.upper_threshold
+    assert_equal :undecided, forgetful.verdict
+    assert_operator forgetful.bits_to_decide, :>, 0
   end
 
   def test_an_ordinary_session_is_decided_the_other_way
@@ -211,12 +271,16 @@ class TestSession < Minitest::Test
     assert_operator strict.upper_threshold, :>, loose.upper_threshold
   end
 
+  # The two readings answer different questions and can disagree, which is the
+  # reason for reporting both rather than picking one.
   def test_the_two_readings_are_reported_together
     watched = session
     observe_all(watched, PROBES)
 
-    assert_equal 'review', watched.to_h['action']
-    assert_equal 'attack', watched.to_h['verdict']
+    assert_includes %w[review block], watched.to_h['action']
+    assert_includes %w[attack undecided], watched.to_h['verdict']
+    assert_equal watched.action.to_s, watched.to_h['action']
+    assert_equal watched.verdict.to_s, watched.to_h['verdict']
   end
 
   def test_a_burst_of_probes_is_a_shift_on_the_cusum

@@ -34,9 +34,9 @@ privileged over a rail you write this afternoon.
 ## Three sides, not two
 
 ```ruby
-engine.check_input(question)        # what the reader typed
-engine.screen(documents)            # what retrieval fetched
-engine.check_output(answer, ...)    # what the model wrote
+engine.check_input(question)                  # what the reader typed
+engine.screen(documents)                      # what retrieval fetched
+engine.check_output(answer, passages: pages)  # what the model wrote
 ```
 
 The middle one is the one most stacks are missing, and it is the one an
@@ -968,6 +968,23 @@ Build it locally with `gem install yard && yard doc`.
   [10.1145/775047.775151](https://doi.org/10.1145/775047.775151)
   — what calibrating these posteriors properly would take, and why the coverage
   page calls them a ranking with a scale attached.
+- Sommer, Paxson, *Outside the Closed World: On Using Machine Learning for
+  Network Intrusion Detection*, IEEE S&P 2010.
+  [10.1109/SP.2010.25](https://doi.org/10.1109/SP.2010.25)
+  — why a detector that looks good on a balanced benchmark is not a detector
+  that works, and the cost asymmetry that decides it. The evaluation this gem
+  now runs is theirs, twenty years on.
+- Arp et al., *Lessons Learned on Machine Learning for Computer Security*, IEEE
+  Security & Privacy 2023.
+  [10.1109/msec.2023.3287207](https://doi.org/10.1109/msec.2023.3287207)
+  — the pitfall list this repository walked into: sampling bias, a corpus
+  written by the people it evaluates, and base rates nobody states.
+- Rossow et al., *Prudent Practices for Designing Malware Experiments*, IEEE
+  S&P 2012. [10.1109/SP.2012.14](https://doi.org/10.1109/SP.2012.14)
+  and Jacobs et al., *AI/ML for Network Security: The Emperor has no Clothes*,
+  CCS 2022. [10.1145/3548606.3560609](https://doi.org/10.1145/3548606.3560609)
+  — corpus construction and the gap between a reported number and a deployed
+  one, in the two security fields that learned it first.
 - Debenedetti et al., *AgentDojo: A Dynamic Environment to Evaluate Prompt
   Injection Attacks and Defenses for LLM Agents*.
   [10.48550/arXiv.2406.13352](https://doi.org/10.48550/arXiv.2406.13352)

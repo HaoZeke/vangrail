@@ -63,12 +63,22 @@ module Vangrail
     # posterior and false alarms at the high end. That single operating point is
     # conservative for a hit and for silence alike, because both ratios move the
     # same way under it.
+    # Memoised, because the bound is a function of counts that never change and
+    # the inverse of an incomplete beta is sixty bisections of a continued
+    # fraction. Computed once per entry per confidence level; the rails call it
+    # on every check.
     def detection_bound(confidence)
-      Beta.quantile(1 - confidence, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
+      bounds[[:detection, confidence]] ||=
+        Beta.quantile(1 - confidence, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
     end
 
     def false_alarm_bound(confidence)
-      Beta.quantile(confidence, benign_flagged + 0.5, benign - benign_flagged + 0.5)
+      bounds[[:false_alarm, confidence]] ||=
+        Beta.quantile(confidence, benign_flagged + 0.5, benign - benign_flagged + 0.5)
+    end
+
+    def bounds
+      @bounds ||= {}
     end
 
     # Evidence in bits, positive towards attack. Bits rather than nats because
@@ -194,7 +204,16 @@ module Vangrail
     # than answering yes or no. A rail that can say how sure it is should not be
     # flattened to one bit on the way in, and nothing about the arithmetic
     # changes: bits are bits, whoever produced them.
-    def combine(prior:, observations:, evidence: EvidenceData::TABLE, confidence: nil, direct: {})
+    # Defensible by default. The point estimate is what a corpus happened to
+    # produce and it is unreadable at the edges: a rail that caught none of the
+    # published attacks and fired on none of eighteen thousand documents scores
+    # +7 bits on the point estimate, from two smoothing constants dividing each
+    # other, and -2.7 on the bound. The bound is the number that survives being
+    # measured against somebody else's corpus, so it is the one that runs.
+    DEFAULT_CONFIDENCE = 0.95
+
+    def combine(prior:, observations:, evidence: EvidenceData::TABLE, confidence: DEFAULT_CONFIDENCE,
+                direct: {})
       raise ArgumentError, 'prior must be strictly between 0 and 1' unless prior.positive? && prior < 1
 
       contributions = weigh(observations, evidence, confidence) + quantified(direct)
