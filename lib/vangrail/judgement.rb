@@ -89,6 +89,54 @@ module Vangrail
     end
   end
 
+  class Policy
+    # The two lines, derived from what the three outcomes cost instead of
+    # chosen.
+    #
+    # A posterior is only half an answer: acting on it needs to know what being
+    # wrong is worth in each direction, and that is a fact about the deployment
+    # rather than about the text. Written out, the decision rule is the ordinary
+    # one from decision theory. Allowing a page costs the chance it was an
+    # attack times what a missed attack costs. Blocking costs the chance it was
+    # fine times what a wrong block costs a reader. Sending it to a person costs
+    # what a minute of their time costs, whatever the page turns out to be.
+    #
+    # Choosing the cheapest of the three gives both thresholds directly:
+    # reviewing beats allowing above `review / missed_attack`, and blocking
+    # beats reviewing above `1 - review / false_block`.
+    #
+    #   Policy.from_costs(missed_attack: 1000, false_block: 10, review: 1)
+    #   # => block above 0.9, review above 0.001
+    #
+    # The units cancel, so they can be euros, minutes, or anything else applied
+    # consistently. What they cannot be is unstated: a threshold with no cost
+    # behind it is a preference, and this is the arithmetic that turns the
+    # preference into a claim somebody can argue with.
+    def self.from_costs(missed_attack:, false_block:, review: nil)
+      raise ArgumentError, 'costs must be positive' unless [missed_attack, false_block].all?(&:positive?)
+
+      # With no human in the loop there is one line, and it is the classic
+      # threshold: block when the expected cost of allowing exceeds the
+      # expected cost of blocking.
+      return two_way(missed_attack, false_block) if review.nil?
+
+      raise ArgumentError, 'review cost must be positive' unless review.positive?
+
+      review_at = review.fdiv(missed_attack)
+      block_at = 1 - review.fdiv(false_block)
+      # Reviewing everything costs more than being wrong: there is no band, and
+      # saying so beats silently inverting the thresholds.
+      return two_way(missed_attack, false_block) if review_at >= block_at
+
+      new(block_at: block_at, review_at: review_at)
+    end
+
+    def self.two_way(missed_attack, false_block)
+      threshold = false_block.fdiv(false_block + missed_attack)
+      new(block_at: threshold, review_at: threshold)
+    end
+  end
+
   # Assigned outside the struct body, because a constant written inside a
   # Struct.new block lands in the enclosing module rather than in the struct.
   Policy::DEFAULT = Policy.new(block_at: 0.5, review_at: 0.05)

@@ -138,6 +138,60 @@ module Vangrail
                     skipped: skipped, action: policy.action_for(posterior))
     end
 
+    # Screening, with the documents ranked by how suspicious they are rather
+    # than partitioned by whether one rail objected.
+    #
+    # `screen` drops a document the moment a rail blocks it, which is the right
+    # shape when a rail is a switch. Given a posterior there is a better answer
+    # available: rank the set, drop what the policy says to drop, hand what it
+    # says to review to whoever reviews, and keep the rest. A page that trips
+    # one pattern at a base rate of one in ten thousand is not a page worth
+    # taking away from a reader, and it is worth putting at the bottom of the
+    # passage list.
+    #
+    #   triage = engine.triage(documents, prior: 1e-4)
+    #   triage.keep       # documents, least suspicious first
+    #   triage.review     # [{document:, judgement:}]
+    #   triage.dropped    # [{document:, judgement:}]
+    def triage(documents, prior:, policy: Policy::DEFAULT, escalate: false, **context)
+      judged = Array(documents).each_with_index.map do |document, index|
+        judgement = assess(text_of(document), side: :context, prior: prior, policy: policy,
+                           escalate: escalate, **context, document: document, index: index)
+        { document: document, judgement: judgement }
+      end
+      Triage.new(judged: judged.sort_by { |row| -row[:judgement].posterior })
+    end
+
+    # What triage returns. The ranking is the product: a caller that wants the
+    # old behaviour reads `kept`, and one that wants to put the doubtful pages
+    # last reads them in order.
+    Triage = Struct.new(:judged, keyword_init: true) do
+      def dropped
+        judged.select { |row| row[:judgement].block? }
+      end
+
+      def review
+        judged.select { |row| row[:judgement].review? }
+      end
+
+      def kept
+        judged.reject { |row| row[:judgement].block? }.reverse.map { |row| row[:document] }
+      end
+
+      def certain?
+        judged.all? { |row| row[:judgement].certain? }
+      end
+
+      def to_h
+        {
+          'kept' => kept.size,
+          'review' => review.size,
+          'dropped' => dropped.map { |row| row[:judgement].to_h },
+          'certain' => certain?
+        }
+      end
+    end
+
     def rails(side)
       case side.to_sym
       when :input then input_rails

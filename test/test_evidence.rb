@@ -168,4 +168,53 @@ class TestEvidence < Minitest::Test
     assert_equal :review, policy.action_for(0.2)
     assert_equal :allow, policy.action_for(0.001)
   end
+
+  # A threshold with no cost behind it is a preference. These come from what
+  # being wrong is worth in each direction, which is a fact about the deployment
+  # and an argument somebody can have.
+  def test_thresholds_can_be_derived_from_what_being_wrong_costs
+    policy = Vangrail::Policy.from_costs(missed_attack: 1000, false_block: 10, review: 1)
+
+    assert_in_delta 0.9, policy.block_at, 1e-9
+    assert_in_delta 0.001, policy.review_at, 1e-9
+  end
+
+  # The derivation, checked rather than asserted: at every posterior the action
+  # the policy picks is the one with the lowest expected cost.
+  def test_the_derived_policy_picks_the_cheapest_action_at_every_posterior
+    missed = 1000.0
+    wrong_block = 10.0
+    review = 1.0
+    policy = Vangrail::Policy.from_costs(missed_attack: missed, false_block: wrong_block, review: review)
+
+    (0..100).each do |step|
+      p = step / 100.0
+      costs = { allow: p * missed, block: (1 - p) * wrong_block, review: review }
+      cheapest = costs.min_by { |_, cost| cost }.first
+
+      assert_in_delta costs[cheapest], costs[policy.action_for(p)], 1e-9,
+                      "at p=#{p} the policy chose #{policy.action_for(p)} over #{cheapest}"
+    end
+  end
+
+  def test_without_a_reviewer_there_is_one_line_and_it_is_the_classic_one
+    policy = Vangrail::Policy.from_costs(missed_attack: 1000, false_block: 10)
+
+    assert_in_delta 10.0 / 1010, policy.block_at, 1e-9
+    assert_in_delta policy.block_at, policy.review_at, 1e-9
+  end
+
+  # A reviewer who costs more than being wrong is a reviewer nobody should call,
+  # and saying so beats inverting the two thresholds silently.
+  def test_a_review_dearer_than_the_mistakes_collapses_the_band
+    policy = Vangrail::Policy.from_costs(missed_attack: 5, false_block: 100, review: 60)
+
+    assert_in_delta policy.block_at, policy.review_at, 1e-9
+  end
+
+  def test_costs_have_to_be_positive
+    assert_raises(ArgumentError) { Vangrail::Policy.from_costs(missed_attack: 0, false_block: 1) }
+    assert_raises(ArgumentError) { Vangrail::Policy.from_costs(missed_attack: 1, false_block: -1) }
+    assert_raises(ArgumentError) { Vangrail::Policy.from_costs(missed_attack: 1, false_block: 1, review: 0) }
+  end
 end

@@ -287,6 +287,31 @@ decays between turns, so persistence converges on a ceiling of per-turn bits
 over one minus the decay rather than running away — a number an operator can
 set in advance.
 
+### Where the thresholds come from
+
+A threshold with no cost behind it is a preference. Give it the three costs and
+the decision rule produces both lines:
+
+```ruby
+Vangrail::Policy.from_costs(missed_attack: 1000, false_block: 10, review: 1)
+# => block above 0.9, review above 0.001
+```
+
+Reviewing beats allowing above `review / missed_attack`; blocking beats
+reviewing above `1 - review / false_block`. With no reviewer it collapses to the
+classic `false_block / (false_block + missed_attack)`. The suite checks the
+derivation at a hundred posteriors: the action the policy picks is the one with
+the lowest expected cost, every time.
+
+And screening becomes ranking rather than partitioning:
+
+```ruby
+triage = engine.triage(documents, prior: 1e-4)
+triage.kept      # least suspicious first; the doubtful page goes last, not away
+triage.review    # [{document:, judgement:}]
+triage.dropped   # [{document:, judgement:}]
+```
+
 [`docs/orgmode/explanation/evidence.org`](docs/orgmode/explanation/evidence.org)
 carries the whole argument, including the four things it does not fix.
 
@@ -548,7 +573,7 @@ disable.
 rake test
 ```
 
-481 tests, stdlib minitest. Parsing and payload shape run against a recorded
+488 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.

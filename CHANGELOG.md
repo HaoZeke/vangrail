@@ -55,6 +55,11 @@ Nothing has been released yet. This section describes what exists.
   change the action, so a networked rail is never reached on an ordinary page.
 - `Vangrail::Session`, carrying the posterior across turns with a decay, so
   staged probing that no single message reveals shows up in the sequence.
+- `Policy.from_costs`, deriving both thresholds from what a missed attack, a
+  wrong block, and a human review each cost, instead of picking numbers.
+- `Engine#triage`, which ranks a document set by posterior rather than
+  partitioning it on the first objection: the doubtful page goes last in the
+  passage list rather than away from the reader.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context

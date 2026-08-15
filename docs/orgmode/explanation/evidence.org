@@ -103,6 +103,46 @@ a minute.
 what a false block costs against what a missed injection costs. The library
 ships a starting policy and says that is what it is.
 
+** Where the two lines come from
+
+A threshold with no cost behind it is a preference. The decision rule is the
+ordinary one: allowing a page costs the chance it is an attack times what a
+missed attack costs, blocking costs the chance it is fine times what a wrong
+block costs a reader, and sending it to a person costs a minute of their time
+whatever it turns out to be. Choosing the cheapest of the three gives both
+lines directly.
+
+#+begin_src ruby
+Vangrail::Policy.from_costs(missed_attack: 1000, false_block: 10, review: 1)
+# => block above 0.9, review above 0.001
+#+end_src
+
+Reviewing beats allowing above =review / missed_attack=; blocking beats
+reviewing above =1 - review / false_block=. With no reviewer there is one line
+and it is the classic =false_block / (false_block + missed_attack)=. A reviewer
+who costs more than the mistakes collapses the band, and the library says so
+rather than inverting the thresholds quietly.
+
+The units cancel, so they can be euros or minutes. What they cannot be is
+unstated: this is the arithmetic that turns a preference into a claim somebody
+can argue with.
+
+** Screening as ranking
+
+=screen= drops a document the moment a rail objects. With a posterior there is
+a better answer: rank the set, drop what the policy says to drop, queue what it
+says to queue, and keep the rest with the doubtful pages last.
+
+#+begin_src ruby
+triage = engine.triage(documents, prior: 1e-4)
+triage.kept      # documents, least suspicious last in the passage list
+triage.review    # [{document:, judgement:}]
+triage.dropped   # [{document:, judgement:}]
+#+end_src
+
+A page that trips one pattern at one attack in ten thousand is not a page worth
+taking away from a reader. It is a page worth putting at the bottom.
+
 ** What only shows up in evidence
 
 *** Silence counts
