@@ -71,6 +71,10 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::ManyShot`, which strips chat template control tokens and blocks a
   pasted dialogue of more than four turns. The tokens are stripped rather than
   refused, because a question about a chat template is a real question.
+- `Rails::PersonalData`, which redacts a reader's own email, phone, IBAN, or
+  card number before the question is sent anywhere. Opt-in, and careful about
+  the trap that matters on a cluster desk: `ssh you@login.example.org` is an
+  email address by every syntactic measure.
 - `Rails::Canary`, a marker the application puts in its own prompt. The one
   check here that cannot produce a false positive, and the only one that can
   prove a leak rather than guess at one.

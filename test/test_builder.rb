@@ -134,6 +134,15 @@ class TestBuilder < Minitest::Test
     refute result.certain?
   end
 
+  # It rewrites the question before the model sees it, which is a deployment's
+  # call and not a default.
+  def test_the_privacy_rail_is_opt_in
+    refute_includes engine(gateway_env).rail_names(:input), 'personal_data'
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,privacy'))
+    assert_includes e.rail_names(:input), 'personal_data'
+    assert e.check_input('mail me at someone@example.org').modified?
+  end
+
   def test_the_decoding_pass_reads_documents_as_well_as_questions
     assert_includes engine(gateway_env).rail_names(:context), 'obfuscation'
   end

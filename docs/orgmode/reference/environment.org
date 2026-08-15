@@ -18,7 +18,7 @@ unchecked.
 | =GUARDRAILS_CACHE=     | =0= turns off the in-process result memo                   |
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
-=secrets=, =patterns=, =links=, =multiturn=. The default set is
+=secrets=, =patterns=, =links=, =multiturn=, =privacy=. The default set is
 =input,context,output=.
 
 Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
@@ -26,7 +26,9 @@ Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
 every single-turn check as uncertain. =GUARDRAILS_TRAJECTORY_EVERY=2= judges one
 turn in two, since the judge costs a round trip and the deterministic rail does
 not. =links= adds =Rails::Exfiltration=, which is also switched on by
-naming its allowlist.
+naming its allowlist. =privacy= adds =Rails::PersonalData=, which rewrites the
+question before the model sees it and so is a deployment's call rather than a
+default.
 
 ** Prompt canary
 

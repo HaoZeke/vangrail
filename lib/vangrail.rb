@@ -29,6 +29,7 @@ require_relative 'vangrail/rails/hidden'
 require_relative 'vangrail/rails/escalation'
 require_relative 'vangrail/rails/many_shot'
 require_relative 'vangrail/rails/canary'
+require_relative 'vangrail/rails/personal_data'
 require_relative 'vangrail/rails/secrets'
 require_relative 'vangrail/rails/exfiltration'
 require_relative 'vangrail/rails/guard_model'
@@ -66,6 +67,7 @@ module Vangrail
   #   GUARDRAILS_JUDGE_MODEL=<m>  instruct model for policy and grounding rails
   #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
   #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
+  #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
   #   GUARDRAILS_LINK_HOSTS=a.example,b.example  hosts an answer may link to
   #   GUARDRAILS_IMAGE_HOSTS=a.example           hosts it may auto-load from
   #   GUARDRAILS_ON_ERROR=allow|block
@@ -99,7 +101,7 @@ module Vangrail
   # decision is separable and testable on its own.
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
-    ALL_RAILS = %i[input context output grounding secrets patterns links multiturn].freeze
+    ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -186,6 +188,11 @@ module Vangrail
       # A question carrying the canary is too late to prevent and worth
       # knowing: the prompt is already out.
       rails << canary(:input) if canary_token
+      # Opt-in: it rewrites the question before the model sees it, which is a
+      # deployment's call rather than a default. Where the endpoint is a third
+      # party it is close to obligatory, and where it is a local proxy it buys
+      # little.
+      rails << Rails::PersonalData.new if on?(:privacy)
       # Off unless asked for: they read history, and a caller that threads none
       # would have every input check come back uncertain, which is true and
       # useless. Conversation is what makes them worth having.

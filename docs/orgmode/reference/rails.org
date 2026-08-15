@@ -14,6 +14,7 @@
 | =Rails::Escalation=         | input         | no      | passed, blocked            |
 | =Rails::ManyShot=           | input, context | no     | passed, modified, blocked  |
 | =Rails::Canary=             | input, output | no      | passed, blocked            |
+| =Rails::PersonalData=       | input         | no      | passed, modified           |
 | =Rails::Secrets=            | output        | no      | passed, modified           |
 | =Rails::Exfiltration=       | output        | no      | passed, modified           |
 | =Rails::GuardModel=         | either        | yes     | passed, blocked            |
@@ -213,6 +214,36 @@ history and was handed none has not checked anything. Pair it with
 The limit, stated because it matters: a genuine crescendo never triggers a
 refusal until the last turn, and this sees nothing until one happens. It raises
 the cost of the cheap version, where an attacker probes until something lands.
+
+** Rails::PersonalData
+
+Redacts a reader's own details before the question leaves the building. Input
+side, deterministic, opt-in with =GUARDRAILS_RAILS=...,privacy=.
+
+| Category | What is removed                                     |
+|----------+-----------------------------------------------------|
+| =email=  | a mailbox, but not a login target                   |
+| =phone=  | an international or grouped national number         |
+| =iban=   | an account number                                   |
+| =card=   | thirteen to nineteen digits that pass the Luhn check |
+
+A privacy rail rather than a security one. A question is about to be sent to a
+model endpoint, which may be a third party, may log, and may sit in another
+jurisdiction, and nothing in the answer needs the reader's phone number. Opt-in
+because it rewrites the question before the model sees it: close to obligatory
+against a third party, and worth little against a local proxy.
+
+The hard part on a cluster desk is not detection. =ssh you@login.example.org=
+is an email address by every syntactic measure, and eating it destroys the
+answer to the most commonly asked question there is. An address survives when
+it sits inside backticks or a fence, when its line carries a command that takes
+a user@host argument or an ssh config keyword, when a remote path follows it,
+or when its local part is a documentation placeholder.
+
+National identity numbers are deliberately absent. A Dutch BSN is nine digits
+with a checksum, a Slurm job id is six to eight digits, and one job id in
+eleven passes that checksum by accident. A rail that redacts job ids from a
+support question is unusable.
 
 ** Rails::Secrets
 
