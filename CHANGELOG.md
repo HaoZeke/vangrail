@@ -7,6 +7,8 @@ All notable changes to this project are recorded here, in the format of
 `cog bump` writes the released sections from the commit history. Everything
 below `Unreleased` is written by hand until it is released.
 
+- - -
+
 ## [Unreleased]
 
 Nothing has been released yet. This section describes what exists.
