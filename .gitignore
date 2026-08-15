@@ -57,3 +57,9 @@ build-iPhoneSimulator/
 
 # Used by RuboCop. Remote config files pulled in from inherit_from directive.
 # .rubocop-https?--*
+
+# Agent seat state (not part of the gem)
+.grok/
+# Generated YARD output
+/doc/
+.yardoc/
