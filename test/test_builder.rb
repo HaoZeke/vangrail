@@ -77,9 +77,12 @@ class TestBuilder < Minitest::Test
     assert_includes engine(gateway_env).rail_names(:output), 'secrets'
   end
 
+  # The deterministic input rails travel together: both cost microseconds, both
+  # keep working when the endpoint is down, and asking for one alone buys
+  # nothing worth a separate name.
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
-    assert_equal ['injection_patterns'], e.rail_names(:input)
+    assert_equal %w[injection_patterns jailbreak], e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
   end

@@ -11,6 +11,7 @@ require_relative 'vangrail/result'
 require_relative 'vangrail/result_cache'
 require_relative 'vangrail/rail'
 require_relative 'vangrail/engine'
+require_relative 'vangrail/stream_guard'
 require_relative 'vangrail/actions'
 require_relative 'vangrail/provider'
 require_relative 'vangrail/providers'
@@ -20,6 +21,7 @@ require_relative 'vangrail/colang/library'
 require_relative 'vangrail/spotlight'
 require_relative 'vangrail/rails/injected_instructions'
 require_relative 'vangrail/rails/missing'
+require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
 require_relative 'vangrail/rails/secrets'
 require_relative 'vangrail/rails/guard_model'
@@ -165,7 +167,8 @@ module Vangrail
     def input_rails
       return [] unless on?(:input) || on?(:patterns)
 
-      rails = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns', sides: [:input])]
+      rails = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns', sides: [:input]),
+               Rails::Jailbreak.new(sides: [:input])]
       rails << judged(:input) if on?(:input)
       rails.compact
     end
@@ -176,7 +179,7 @@ module Vangrail
     def context_rails
       return [] unless on?(:context)
 
-      [Rails::InjectedInstructions.new]
+      [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context])]
     end
 
     def output_rails
