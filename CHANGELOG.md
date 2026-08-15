@@ -99,6 +99,16 @@ Nothing has been released yet. This section describes what exists.
 
 ### Fixed
 
+- The engine reported the first uncertain reason it met, so a placeholder for a
+  rail that could not be built masked the rail that ran and had its connection
+  refused. A rail that ran now reports over one that never did.
+- The escalation rail returned an uncertain pass whenever it found no history,
+  which made it the first uncertain result in every single-turn engine. A
+  caller that never passes the key still gets that; one that passes an empty
+  array gets a certain pass, because an empty dialogue is an answer.
+- A base64 run ending in `+` lost its last character to a word-boundary match,
+  and decoded to a sentence with its tail missing.
+
 - The grounding rail was routed through a safety classifier, which answers with
   its own label tokens whatever it is asked, so every grounding check returned
   an unparsable answer. It now uses an instruct-model judge.

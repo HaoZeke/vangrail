@@ -162,6 +162,7 @@ module Vangrail
       current = text.to_s
       modified_by = nil
       uncertain = nil
+      unbuilt = nil
 
       rails.each do |rail|
         next unless rail.applies_to?(side)
@@ -173,10 +174,20 @@ module Vangrail
           current = result.content_or(current)
           modified_by = rail.name
         end
-        uncertain ||= result unless result.certain?
+        next if result.certain?
+
+        # A rail that ran and could not decide says more than one that was
+        # never built, so its reason is the one the caller sees. Without this,
+        # a placeholder earlier in the list reports "no endpoint was resolved"
+        # over the rail that actually tried and had the connection refused.
+        if rail.placeholder?
+          unbuilt ||= result
+        else
+          uncertain ||= result
+        end
       end
 
-      finish(side, current, modified_by, uncertain)
+      finish(side, current, modified_by, uncertain || unbuilt)
     end
 
     def finish(side, current, modified_by, uncertain)
