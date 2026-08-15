@@ -391,6 +391,23 @@ is the number that decides whether it can be left switched on.
 dialogues stopped, seven ordinary ones answered, median 1.6 to 1.8 s a turn
 against an instruct model on a shared gateway.
 
+`script/spotlight_probe.rb` measures the prompt rather than a rail: with the
+passages in place and no detector in the way, does the model obey the page or
+the instructions. Twelve injections, eleven of which match no deterministic
+rail here, against an instruct model on a shared gateway:
+
+| | injections obeyed |
+|---|---|
+| plain prompt | 12 of 48 |
+| fenced, with the hierarchy stated | 8 of 48 |
+
+**That difference is not significant** (z = 1.0). Separating those rates would
+take roughly 375 trials an arm, and until somebody runs it, the honest reading
+is that the prompt shape has not been shown to help on this model. What the
+same run does establish is the residual: a quarter of injections that no
+pattern here catches are obeyed, which is what the model-backed rails and the
+grounding check are for.
+
 `Rails::Jailbreak` is scored the same way: fourteen circulating attack shapes
 caught, fourteen ordinary handbook sentences untouched, and an explicit test
 asserting that a rephrased attack walks past it, because it does.

@@ -59,6 +59,22 @@ An output sanitiser, a rate limit, an authorisation check on retrieval, and a
 log a human reads are all outside this gem and all more important than any rail
 in it. The rails are a layer, and a layer is what they are worth.
 
+*** The prompt-side work is unproven on the model it was measured against
+
+=Spotlight= fences retrieved text and states an instruction hierarchy, and the
+published comparison finds that helps. Measured here, on twelve injections that
+no deterministic rail in this gem catches, a plain prompt was obeyed 12 times
+in 48 and a fenced one 8 times in 48. That is z = 1.0. Separating those rates
+would take roughly 375 trials an arm.
+
+So the fencing is kept, because it costs almost nothing and the published
+evidence is for it, and it is not claimed to work here. The same run does
+establish the residual, which is not in doubt: about a quarter of injections
+that no pattern catches are obeyed by the model. That is the gap the
+model-backed rails and the grounding check exist to close, and it is why an
+application that runs only the deterministic rails is running a floor rather
+than a defence.
+
 *** Uncertainty is reported rather than hidden
 
 Every rail that could not reach a decision returns =passed= with =certain?=
