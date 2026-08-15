@@ -44,6 +44,17 @@ Nothing has been released yet. This section describes what exists.
   number when the benign and attack distributions overlap.
 - A labelled Dutch BSN is redacted by `Rails::PersonalData`, checksum and all.
   The label is what makes it safe: a bare nine-digit run is a job id.
+- `Vangrail::Evidence`, `Posterior`, `Judgement`, and `Engine#assess`: the rails
+  read as evidence rather than as a switch, combined with the deployment's base
+  rate into a probability, with each rail's contribution in bits. Silence counts,
+  abstention contributes nothing, and rails measured to agree speak once.
+- `script/measure_evidence.rb` and the generated `evidence_data.rb`: every rail's
+  operating point measured on the same 270 attack and 48 benign texts, plus the
+  correlation matrix that decides the grouping.
+- `assess(escalate: true)`, which stops when the remaining rails provably cannot
+  change the action, so a networked rail is never reached on an ordinary page.
+- `Vangrail::Session`, carrying the posterior across turns with a decay, so
+  staged probing that no single message reveals shows up in the sequence.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context

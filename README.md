@@ -209,6 +209,87 @@ commands, module loads, and job scripts rather than with attacks, because those
 score badly under a language model for innocent reasons and a guardrail that
 blocks job scripts stops being used.
 
+## Evidence, not votes
+
+Every rail here answers yes or no, and `check_input` takes the first yes. So
+does every published defence. That rule cannot say how much a hit is worth,
+cannot add up three near misses, cannot use a sensitive rail's silence, and
+hands you a word where a number was needed.
+
+`Engine#assess` reads the same rails as evidence. Each one's likelihood ratio
+is measured on the shipped corpora, all rails against the same texts, and the
+verdict is a probability:
+
+```ruby
+judgement = engine.assess(page, side: :context, prior: 1e-4)
+judgement.posterior   # => 0.7389
+judgement.action      # => :block
+judgement.fired       # => paraphrase +6.2 bits, injected_instructions +5.0, similarity +4.1
+```
+
+The prior is required and has no default, because it is the whole argument.
+Detector papers report their numbers on balanced corpora; a documentation desk
+over an editable wiki sees maybe one poisoned page in ten thousand. Reaching
+even money from there takes 13.3 bits, and no single rail in this gem is worth
+half of that:
+
+| Base rate | Bits to even money | What one rail firing gets you |
+|---|---|---|
+| 0.5 | 0.0 | certainty, which is why balanced benchmarks flatter detectors |
+| 1e-2 | 6.6 | close, for the strongest rail |
+| 1e-4 | 13.3 | about 1 in 140, from 1 in 10,000 |
+
+So a block resting on one rail rests on a false-alarm rate nobody has measured:
+demonstrating the rate a lone rail would need at that base rate takes about six
+thousand clean documents, and this corpus has forty-eight. Several rails
+agreeing is the honest route to a verdict, and an OR gate cannot tell that apart
+from one rail firing.
+
+Three things follow that a yes-or-no stack cannot express:
+
+- **Silence is evidence.** A clean page ends *below* its prior, because rails
+  that could have fired did not.
+- **Abstention is not innocence.** A rail that was off or unreachable
+  contributes no term at all. `certain?` has always carried that fact; here it
+  finally has arithmetic to feed.
+- **Correlated rails vote once.** The generator measures the correlation between
+  every pair and groups the ones that agree. On this corpus none reach the
+  threshold — the highest pair is 0.28 — which is worth knowing and was not
+  obvious.
+
+It also pays for itself. A rail's evidence is bounded by its operating point, so
+the interval the unrun rails could still reach is computable, and when the
+action is the same at both ends of it they cannot change the answer:
+
+```ruby
+engine.assess(page, side: :context, prior: 1e-4, escalate: true)
+# runs the free rails, skips the ones that cost a round trip when they cannot matter
+```
+
+The suite asserts over both corpora at three base rates that stopping early
+never changes the action. On ordinary traffic the embedding call is never made.
+
+### The sequence nobody checks
+
+Staged probing gets past per-message detection because no message in it is an
+attack. Read as evidence it needs no new detector: three turns that each move
+the odds by two bits have moved them by six.
+
+```ruby
+session = Vangrail::Session.new(engine: engine, prior: 1e-3)
+session.observe(question)   # => the turn's judgement
+session.posterior           # => the session's
+```
+
+Measured: three probes that are each individually allowed take a session to
+`review`; three ordinary turns take it back below where it started. Evidence
+decays between turns, so persistence converges on a ceiling of per-turn bits
+over one minus the decay rather than running away — a number an operator can
+set in advance.
+
+[`docs/orgmode/explanation/evidence.org`](docs/orgmode/explanation/evidence.org)
+carries the whole argument, including the four things it does not fix.
+
 ## Streams and conversations
 
 An output rail that runs on the finished text runs after the reader has read
@@ -467,7 +548,7 @@ disable.
 rake test
 ```
 
-440 tests, stdlib minitest. Parsing and payload shape run against a recorded
+481 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.

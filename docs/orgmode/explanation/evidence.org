@@ -1,0 +1,226 @@
+#+TITLE: Blocked Is Not a Probability
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Blocked Is Not a Probability
+
+Every rail in this gem answers a yes-or-no question, and =check_input= combines
+those answers by taking the first yes. Every published defence does the same:
+detectors are compared against each other, thresholds are tuned per detector,
+and a stack of them is an OR gate.
+
+That rule throws away almost everything the rails know. It cannot say how much a
+hit is worth, cannot add up three near misses, cannot use the fact that a
+sensitive rail stayed quiet, and hands an operator a word where a number was
+needed. This page is about reading the same rails as evidence instead, which is
+what =Engine#assess= does, and about the several things that only become sayable
+once you do.
+
+** What a hit is worth
+
+The question a verdict should answer is not "did something match" but "how much
+likelier is this text to be an attack now than it was before". That is a ratio,
+and it is measurable: run the rail over attacks, run it over ordinary
+documentation, and divide.
+
+Measured over 270 attack texts and 48 benign ones, every rail against the same
+set (=script/measure_evidence.rb=):
+
+| Rail                    | Caught  | Flagged | If it fires | If it is silent |
+|-------------------------+---------+---------+-------------+-----------------|
+| =paraphrase=            | 204/270 | 0/48    | +6.2 bits   | -2.0 bits       |
+| =injected_instructions= | 90/270  | 0/48    | +5.0 bits   | -0.6 bits       |
+| =obfuscation=           | 60/270  | 0/48    | +4.5 bits   | -0.3 bits       |
+| =similarity=            | 48/270  | 0/48    | +4.1 bits   | -0.3 bits       |
+| =hidden=                | 27/270  | 0/48    | +3.3 bits   | -0.1 bits       |
+| =jailbreak=             | 16/270  | 0/48    | +2.6 bits   | -0.1 bits       |
+| =many_shot=             | 6/270   | 0/48    | +1.2 bits   | -0.0 bits       |
+
+A bit is a doubling of the odds. The right-hand column is the half an OR gate
+cannot express at all: a rail that catches three quarters of everything and says
+nothing about this page has told you something, and what it has told you is
+worth two bits in the other direction.
+
+Rates are smoothed with the Jeffreys prior, =(hits + 1/2) / (n + 1)=, which is
+not decoration. Unsmoothed, a rail that flagged 0 of 48 benign texts has a
+false-alarm rate of zero, a likelihood ratio of infinity, and would decide every
+judgement it appears in on the strength of 48 documents.
+
+** The base rate is the whole argument
+
+Detector papers report their numbers on balanced corpora: half the traffic is an
+attack. A documentation desk over an editable wiki might see one poisoned page in
+ten thousand. Those two worlds disagree about what a hit means, and they
+disagree by orders of magnitude.
+
+| Base rate | Bits needed to reach even money |
+|-----------+---------------------------------|
+| 0.5       | 0.0                             |
+| 1e-2      | 6.6                             |
+| 1e-3      | 10.0                            |
+| 1e-4      | 13.3                            |
+
+No rail in the table above is worth half of 13.3 bits. At one attack in ten
+thousand, the strongest rail here firing on a page takes it from one in ten
+thousand to about one in a hundred and forty: a hundredfold increase, and still
+almost certainly a false alarm.
+
+That is not a criticism of these rails. It is what the arithmetic says about any
+single detector, and it has a sharp consequence:
+
+*** No one rail can justify a block, and no corpus can show otherwise
+
+For a lone rail to carry a text from a base rate of 1e-4 to even money, its
+false-alarm rate would have to be about 9e-5. Demonstrating a rate that low
+needs roughly six thousand clean documents on which the rail stayed silent, and
+that is with the most generous smoothing; a corpus of forty-eight bounds nothing
+below about one in a hundred.
+
+So a block that rests on one rail rests on a number nobody has measured, and the
+honest way to reach a verdict at a realistic base rate is several rails agreeing.
+Which is what =assess= reports, and what an OR gate cannot distinguish from one
+rail firing.
+
+#+begin_src ruby
+judgement = engine.assess(page, side: :context, prior: 1e-4)
+judgement.posterior   # => 0.74 for a page three rails object to
+judgement.action      # => :block
+judgement.fired       # => the rails, most telling first, in bits
+#+end_src
+
+The prior has no default and asking for one raises. Guessing on a deployment's
+behalf would be the exact error this exists to expose.
+
+** Three lines, not two
+
+A posterior makes a middle action possible, and most of the interesting traffic
+lands in it: one rail fired, the base rate is low, and the page is a hundred
+times more suspicious than average and still probably fine. Blocking costs a
+reader their answer. Ignoring it wastes the detection. Queueing it costs somebody
+a minute.
+
+=Policy= draws the two lines, and where they go is a deployment's judgement about
+what a false block costs against what a missed injection costs. The library
+ships a starting policy and says that is what it is.
+
+** What only shows up in evidence
+
+*** Silence counts
+
+A clean page ends below its prior, because every rail that could have fired and
+did not said something. Under an OR gate a clean page is indistinguishable from
+a page nothing was run against.
+
+*** Abstention is not innocence
+
+A rail that was off, unreachable, or undecided contributes no term at all: a
+likelihood ratio of one. This gem is unusual in knowing exactly which rails those
+were, because =certain?= has always carried that fact, and here it finally has
+arithmetic to feed. An endpoint that refused a connection must not read as
+evidence of a clean page, and under a naive vote count it does.
+
+*** Correlated rails vote once
+
+Three rails firing on the same sentence for the same reason are one observation
+reported three times, and summing them is how naive Bayes talks itself into
+certainty. =script/measure_evidence.rb= measures the correlation between every
+pair of rails and groups the ones that agree; a group contributes its single most
+informative member.
+
+On the shipped corpus no pair reaches the grouping threshold: the highest is
+=injected_instructions= with =jailbreak= at 0.28. The rails here really are
+looking at different things, which is worth knowing and was not obvious. The
+machinery stays because the next rail somebody adds may well duplicate one.
+
+** Paying only for evidence that can change the answer
+
+A rail's evidence is bounded by its measured operating point, so the interval the
+unrun rails could still move the posterior into is a number. When the action is
+the same at both ends of that interval, running them cannot change what happens.
+
+#+begin_src ruby
+engine.assess(page, side: :context, prior: 1e-4, escalate: true)
+#+end_src
+
+runs the free rails first and stops there when the answer is settled. On ordinary
+traffic the deterministic rails put the result out of reach of anything the model
+rails could say, so the round trip is never paid. The suite asserts over both
+corpora at three base rates that the early stop never changes the action.
+
+This is the part that pays for the framing rather than only tidying it. A desk
+running a semantic rail pays for an embedding call on every document under the
+switch; here it pays on the documents where the free evidence left the answer
+open.
+
+Skipping is not abstention, and they are kept apart. A rail proved irrelevant
+leaves =certain?= true, because the claim is about the action and the action is
+unchanged by construction. A rail that could not run makes the judgement
+uncertain, because something that might have mattered did not happen.
+
+** The sequence nobody checks
+
+Staged probing is the attack family that gets past per-message detection: ask
+something harmless, ask for more detail about the part of the answer that helped,
+keep going. No message is an attack, so no per-message detector fires, and
+=Rails::Escalation= only catches the crude version where a refusal is followed by
+a retry.
+
+Read as evidence it needs no new detector. Three turns that each move the odds by
+two bits have moved them by six.
+
+#+begin_src ruby
+session = Vangrail::Session.new(engine: engine, prior: 1e-3)
+session.observe(question)   # the turn's judgement
+session.posterior           # the session's
+#+end_src
+
+Two properties keep it from becoming a session that eventually flags everyone.
+Evidence decays between turns, so a session reflects recent behaviour rather than
+everything since login, and ordinary turns contribute the silence of every rail
+that ran, so a session recovers instead of only ratcheting.
+
+Measured on the corpora: three probes that are each individually allowed take a
+session to review; three ordinary turns take it back below where it started. And
+because the decay is geometric, repeated probing converges on a ceiling of
+per-turn bits divided by one minus the decay, rather than running away. An
+operator can therefore say in advance how far a determined prober can push a
+session, which is not a question a detector stack can be asked at all.
+
+** What this does not fix
+
+*** The numbers are this corpus
+
+The attack half was written by the same hand as the rails, and it will be
+optimistic about attacks that hand did not think of. What the table is for is the
+ratio between rails, measured on the same texts; read as absolute detection rates
+they claim far more than they know.
+
+*** The false-alarm rates are floors, not measurements
+
+No rail fired on any of the 48 benign texts, so every false-alarm rate in the
+table is the smoothing floor rather than a measured rate. The true rates are
+somewhere below about one in a hundred and this corpus cannot say where. That
+makes the evidence understated rather than overstated, which is the safe
+direction, and it is the single biggest thing a larger benign corpus would fix.
+
+*** The threat mix is a modelling choice
+
+Every number moves if the corpus does. A rail measured against a corpus
+containing none of the attacks it was built for scores zero catches and the
+arithmetic concludes a hit from it is evidence of innocence, which is exactly
+what happened here before the encoded and pasted families were added. A
+deployment whose traffic looks different should regenerate the table rather than
+inherit these numbers.
+
+*** Independence is handled, not solved
+
+Grouping stops the measured duplicates from double counting. It does nothing
+about the subtler dependence between rails that share a corpus, a language, or an
+author's blind spot, and there is no correlation matrix that would.
+
+*** The prior is unknown to the library and knowable by the deployment
+
+An application can estimate it: sample retrieved pages, have somebody read them,
+count. That is tedious and it is the single number with the most influence over
+every verdict here, which is a reasonable trade for a day's work and an unusual
+thing for a guardrail to ask for.
