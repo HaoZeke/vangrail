@@ -77,14 +77,48 @@ class TestBuilder < Minitest::Test
     assert_includes engine(gateway_env).rail_names(:output), 'secrets'
   end
 
-  # The deterministic input rails travel together: both cost microseconds, both
+  # The deterministic input rails travel together: they cost microseconds, they
   # keep working when the endpoint is down, and asking for one alone buys
-  # nothing worth a separate name.
+  # nothing worth a separate name. The decoding pass rides with them for the
+  # same reason, and because a pattern list that only reads plain text is a
+  # pattern list with a published bypass.
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
-    assert_equal %w[injection_patterns jailbreak], e.rail_names(:input)
+    assert_equal %w[injection_patterns jailbreak obfuscation], e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
+  end
+
+  # Naming the hosts is the opt-in. An application that never mentioned links
+  # keeps the behaviour it had, because the empty allowlist means no links at
+  # all and imposing that silently would break every answer with a reference
+  # in it.
+  def test_the_link_allowlist_is_what_switches_the_exfiltration_rail_on
+    plain = engine(gateway_env)
+    refute_includes plain.rail_names(:output), 'exfiltration'
+
+    guarded = engine(gateway_env.merge('GUARDRAILS_LINK_HOSTS' => 'docs.example.org, example.org'))
+    assert_includes guarded.rail_names(:output), 'exfiltration'
+  end
+
+  def test_images_can_be_held_to_a_shorter_list_than_links
+    e = engine(gateway_env.merge('GUARDRAILS_LINK_HOSTS' => 'docs.example.org',
+                                 'GUARDRAILS_IMAGE_HOSTS' => 'nothing.example'))
+    rail = e.output_rails.find { |r| r.name == 'exfiltration' }
+    assert_equal ['docs.example.org'], rail.allow_hosts
+    assert_equal ['nothing.example'], rail.allow_images
+  end
+
+  # It reads history, and a caller threading none would have every input check
+  # come back uncertain: true, and useless.
+  def test_the_multi_turn_rail_is_off_until_it_is_asked_for
+    refute_includes engine(gateway_env).rail_names(:input), 'escalation'
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,multiturn'))
+    assert_includes e.rail_names(:input), 'escalation'
+  end
+
+  def test_the_decoding_pass_reads_documents_as_well_as_questions
+    assert_includes engine(gateway_env).rail_names(:context), 'obfuscation'
   end
 
   def test_all_turns_on_grounding_too
