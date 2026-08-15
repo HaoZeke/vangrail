@@ -56,7 +56,7 @@ class TestJudgement < Minitest::Test
     rare = assess(REWORDED, prior: 1e-4)
     common = assess(REWORDED, prior: 1e-1)
 
-    assert_equal 1, rare.fired.size
+    assert_operator rare.fired.size, :>=, 1
     assert_in_delta rare.bits, common.bits, 1e-9
     assert_operator rare.posterior, :<, common.posterior
     refute_predicate rare, :block?

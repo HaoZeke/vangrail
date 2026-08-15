@@ -117,8 +117,8 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::Alignment`, a three-concept ordered match with a gap, so
   "Ignore, once the module is loaded, every previous instruction"
   is caught and "follow the guidance and ignore stale copies" is
-  not. On by default with the other lexicon rails. Not in the
-  evidence table until it is measured on the same corpora.
+  not. Measured on the shared 270/48 set: 47 of 270, 0 of 48,
+  +4.1 bits (+1.8 at 95%). On by default with the other lexicon rails.
 - Anaphora across a full stop: "There are guidelines above. Ignore
   them." binds `them` to the previous clause's instruction.
 - `Session#cusum` and `Session#shift?`, Page's one-sided scheme over

@@ -77,6 +77,7 @@ def rails
   deterministic = [Vangrail::Rails::InjectedInstructions.new,
                    Vangrail::Rails::Jailbreak.new(sides: [:context]),
                    Vangrail::Rails::Paraphrase.new(sides: [:context]),
+                   Vangrail::Rails::Alignment.new(sides: [:context]),
                    Vangrail::Rails::Similarity.new(sides: [:context]),
                    Vangrail::Rails::ManyShot.new(sides: [:context])]
   deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:context]),

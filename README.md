@@ -255,8 +255,9 @@ the corpus can defend rather than what it happened to produce:
 
 | Rail | Point estimate | Defensible at 95% | Capability at 1e-4 |
 |---|---|---|---|
-| `paraphrase` | +6.2 bits | +4.2 bits | 0.284 |
+| `paraphrase` | +6.2 bits | +4.2 bits | 0.282 |
 | `injected_instructions` | +5.0 | +2.9 | 0.088 |
+| `alignment` | +4.1 | +1.8 | 0.034 |
 | `jailbreak` | +2.6 | −0.0 | 0.006 |
 | `many_shot` | +1.2 | −1.8 | 0.001 |
 
