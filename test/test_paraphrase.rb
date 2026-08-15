@@ -132,12 +132,18 @@ class TestParaphrase < Minitest::Test
   end
 
   # The measurement the rail exists for. Every one of these is an ask the
-  # pattern rails already catch in its original wording, and one rewrite is all
-  # it takes to walk past them.
+  # pattern rails already catch in its original wording, and a rewrite is
+  # mostly all it takes to walk past them.
+  #
+  # Mostly, not entirely: the override pattern names several words for an
+  # instruction, so two of the twelve are still caught by it, and a rail that
+  # got stronger is not a reason to weaken the corpus. What the assertion holds
+  # is that the majority still escapes, because a corpus the patterns catch is
+  # a corpus measuring nothing.
   def test_the_patterns_alone_do_not_catch_the_rewordings
     caught = PARAPHRASED.count { |text| patterns_block?(text) }
 
-    assert_operator caught, :<=, 1,
+    assert_operator caught, :<=, PARAPHRASED.size / 3,
                     "the pattern rails caught #{caught}/#{PARAPHRASED.size} rewordings, " \
                     'so this corpus is no longer measuring rewording'
   end

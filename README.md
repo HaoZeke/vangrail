@@ -450,10 +450,15 @@ spliced into handbook prose at the same five positions:
 
 | | patterns alone | with `Rails::Paraphrase` |
 |---|---|---|
-| English rewordings | 0 of 60 | 60 of 60 |
+| English rewordings | 10 of 60 | 60 of 60 |
 | Dutch attacks | 0 of 60 | 60 of 60 |
 | English documentation kept | 24 of 24 | 24 of 24 |
 | Dutch documentation kept | 24 of 24 | 24 of 24 |
+
+Ten rather than none because the override pattern names several words for an
+instruction, so two of the twelve wordings are still shapes it knows. The
+other ten are not, and none of the twelve Dutch ones is: every pattern in this
+gem is English.
 
 The benign sets carry every near miss the rules were narrowed against: a page
 that says to ignore a stale warning, one that tells a reader not to disclose a
