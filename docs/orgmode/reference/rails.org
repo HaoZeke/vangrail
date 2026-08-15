@@ -9,6 +9,13 @@
 | =Rails::Pattern=            | either        | no      | passed, blocked            |
 | =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
 | =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
+| =Rails::Paraphrase=         | input, context | no     | passed, blocked            |
+| =Rails::Similarity=         | input, context | no     | passed, blocked            |
+| =Rails::Bayes=              | input, context | no     | passed, blocked            |
+| =Rails::Language=           | context       | no      | passed, never blocks       |
+| =Rails::PromptLeak=         | output        | no      | passed, modified           |
+| =Rails::Semantic=           | input, context | yes    | passed, blocked            |
+| =Rails::Perplexity=         | input, context | yes    | passed, blocked            |
 | =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
 | =Rails::Hidden=             | context       | depends | passed, blocked            |
 | =Rails::Escalation=         | input         | no      | passed, blocked            |
@@ -81,6 +88,216 @@ Measured at fourteen attack shapes caught against fourteen ordinary handbook
 sentences untouched. The second number is the one that decides whether it can
 be switched on at all, because a documentation desk discusses roles, modes, and
 restrictions daily.
+
+** Rails::Paraphrase
+
+Matches pairs of concepts rather than strings, so a reworded injection is
+caught by the same rule as the original. Input and context sides,
+deterministic, offline, on by default. Built on [[file:nlp.org][the text
+analysis layer]], and reads English and Dutch.
+
+| Category                | The pair, and how close                                     |
+|-------------------------+-------------------------------------------------------------|
+| =instruction_override=  | =override= then =instruction= within six tokens             |
+| =instruction_override=  | =override= then =prior= within four, with a =totality= word in the clause |
+| =prompt_disclosure=     | =reveal= then =secret= within eight, with =self= in the clause |
+| =answer_shaping=        | =conceal= near =audience= or near =answering= within ten     |
+| =unrestricted_persona=  | =persona= near =unrestricted= within eight                  |
+
+Always a pair, never one concept. A document that mentions instructions is a
+handbook; a document that mentions overriding them is an attack. Windows are
+short and clause-bounded, because two concepts in one clause are one statement
+and the same two nine lines apart are two sentences.
+
+Word order matters where an English verb governs its object: "ignore the
+guidelines" is an attack and "follow the guidance and ignore stale copies of
+it" holds the same two concepts in the other order and is a page.
+
+Measured on twelve asks reworded once each, spliced into handbook prose at five
+positions: 60 of 60 caught in English and 60 of 60 in Dutch, against 0 of 60
+for the pattern rails, with 24 of 24 ordinary English pages and 24 of 24 Dutch
+ones kept. The corpus and the lexicon share an author, so the attack column
+measures an attacker who did not read the source; the benign column is the one
+that carries weight.
+
+The limit is the lexicon. A synonym that is not in it is a miss, and the suite
+asserts that with a test. Roughly 1.2 ms per kilobyte.
+
+Memoizable on the text and the languages together.
+
+** Rails::Similarity
+
+Blocks near copies of known attack wordings. Input and context sides,
+deterministic, offline, on by default.
+
+A published jailbreak spreads by being pasted, and what arrives is a near copy:
+a typo, two words inserted, capitals, a different inflection. Each of those
+defeats a pattern for the same sentence and none change what it asks for. The
+measure is containment of the seed's character n-grams in the text, which is
+the standard question for "is this thing in there", rather than Jaccard, which
+answers how similar two texts are overall and is near zero for a sentence
+inside a page.
+
+Compared clause by clause. Containment saturates with length: measured against
+the benign corpora here, a whole page scores 0.94 against a seed it does not
+contain, and the same text by clause scores 0.67. The threshold is 0.75,
+sitting in the measured gap between 0.67 for ordinary documentation and 0.83
+for the worst edited copy.
+
+The seeds are =KnownAttacks::ALL=, in English and Dutch, and a deployment can
+pass its own with =seeds:=. A novel attack in nobody's corpus scores zero here
+by construction; that is what =Rails::Paraphrase= and the model-backed rails
+are for.
+
+Roughly 1.5 ms per kilobyte, after a prefilter that skips any clause sharing
+too few n-grams with every seed to reach the threshold.
+
+Memoizable on the text and the threshold together.
+
+** Rails::Bayes
+
+A naive Bayes classifier over word stems and adjacent stem pairs. Input and
+context sides, deterministic, offline, off unless asked for with
+=GUARDRAILS_RAILS=...,bayes=.
+
+The only rail here that says how sure it is. Every other one answers yes or no,
+which gives the evidence arithmetic a single bit however certain the rail was;
+this one computes a log-likelihood ratio, and =Engine#assess= reads a rail that
+puts =bits= in its result's =raw= at its word.
+
+Scored clause by clause, taking the worst, for the same reason the containment
+rail does: an attack document is ordinary documentation with one injected
+sentence in it, and a bag of features over the whole page is mostly evidence
+about the handbook.
+
+*** The calibration is not optional
+
+A raw naive Bayes score is not a likelihood ratio. The features are counted as
+independent and are not -- a word and the pair containing it both vote -- so the
+score overstates itself, in this corpus by a factor of nearly four. What ships
+is a map from score band to evidence, fitted on held-out folds rather than on
+the model's own opinion, pooled to monotone by the isotonic rule, and read
+through the same Beta bound as every other operating point:
+
+| Score band | Held out            | Worth      |
+|------------+---------------------+------------|
+| below 0    | 0 attacks, 231 benign | -14.6 bits |
+| 0 to 4     | 22 attacks, 8 benign  | +2.6 bits  |
+| above 4    | 26 attacks, 1 benign  | +4.7 bits  |
+
+The raw score still decides the block, because a threshold needs only an
+ordering. The calibrated bits are what reach a posterior.
+
+*** What it is worth here, and what it is for
+
+Cross-validated over five folds on 48 attack clauses and 56 benign ones, at a
+threshold no held-out benign document reached: 15 of 48 attacks caught. The
+lexicon rails catch three quarters.
+
+That is a fact about the corpus rather than about the method. Forty-eight
+training clauses written to be varied share almost no vocabulary with the
+held-out ones, and the junk-mail filters this borrows from were fitted on
+millions of examples. It ships anyway, off by default, because the value is the
+path rather than the weights: run =script/train_bayes.rb= against a corpus of
+your own traffic and the rail is fitted to the attacks you receive, with a
+cross-validated number and a fresh calibration attached.
+
+** Rails::Language
+
+Reports that a page is in a language nothing here reads. Context side,
+deterministic, offline, on by default, and it never blocks.
+
+Every other deterministic rail is a rule about English or Dutch words, so a page
+in German is passed by all of them without being read. This rail identifies the
+language by function words and returns =passed= with =certain?= false for
+anything outside =NLP::LANGUAGES=, which is what makes the gem's one guarantee
+hold across languages as well as across endpoints.
+
+Below twelve tokens it says nothing. A six-word question is not evidence of a
+language, and marking every short turn uncertain is its own way of making the
+posture useless.
+
+Not a blocker on purpose: an unsupported language is not an attack, and a site
+with a French page should not lose it. Route those pages to a model rail, to a
+human, or to nothing, knowing which you are doing.
+
+** Rails::PromptLeak
+
+Redacts the sentences of an answer that reproduce the system prompt. Output
+side, deterministic, offline, and switched on by naming
+=GUARDRAILS_PROMPT_FILE=.
+
+=Rails::Canary= catches the exact marker and says so in its own comment: a model
+asked to summarise its instructions leaks the content and not the token. Here
+the application supplies the text that must not come back out, so nothing has to
+guess what a prompt looks like, and the comparison is sentence against sentence
+by n-gram containment.
+
+Two thresholds, because restating a rule and handing over a rule are different
+acts:
+
+| Case                                                        | Verdict |
+|-------------------------------------------------------------+---------|
+| reproduces a protected sentence closely (>= 0.7)            | redacted |
+| reproduces it loosely (>= 0.4) and names whose words they are | redacted |
+| applies the rule without quoting it                         | passed  |
+
+"I cannot speculate about quotas; ask the desk" is the prompt working. "My
+instructions say I cannot speculate about quotas" is the prompt leaving. The
+frame is what tells them apart.
+
+Measured at five reproductions caught and ten ordinary answers untouched, with
+the benign column topping out at 0.30 and quotes starting at 0.45.
+
+** Rails::Semantic
+
+Compares meaning rather than words, through an OpenAI-compatible embeddings
+endpoint. Input and context sides, needs the network, opt-in with
+=GUARDRAILS_RAILS=...,semantic=.
+
+The lexicon rails reach as far as the words in =NLP::CONCEPTS= and
+=KnownAttacks=; this one reaches past them. It embeds the clauses of the text in
+one batched call and scores them against the seed wordings by cosine.
+
+- A provider with no =model(:embed)= leaves =Rails::Missing= in the list, so the
+  pass stays uncertain rather than resting on the offline rails.
+- A page past the clause bound returns =passed= with =certain?= false, naming
+  how many clauses were not embedded. A partial check is not a check.
+- An endpoint that refuses or answers malformed JSON returns uncertain, never
+  clean.
+
+The threshold does not ship measured, and cannot: cosine scores are a property
+of the embedding model. Run =script/embedding_probe.rb= against the endpoint in
+use, read the gap, set =GUARDRAILS_SEMANTIC_THRESHOLD= from it. Where the
+distributions overlap the probe recommends leaving the rail off rather than
+splitting the difference.
+
+On a loopback proxy this costs one local call per document and nothing leaves
+the machine. On a third-party endpoint, every document screened is a document
+sent, which is a data-flow decision rather than a default.
+
+** Rails::Perplexity
+
+Blocks the span that is not language. Input and context sides, needs the
+network, opt-in with =GUARDRAILS_RAILS=...,perplexity=.
+
+The optimised attacks in the literature produce no sentence to match: a
+gradient-search suffix is different every time it is searched for. What it
+cannot shed is that a language model finds it wildly improbable, which is the
+published detector this implements. =Vangrail::Completion= asks =/completions=
+to echo the prompt and return each token's log probability, dropping the null
+first token rather than reading it as certainty.
+
+Windowed rather than averaged. Twenty improbable tokens after a hundred readable
+ones do not move a mean, and the window is what keeps the signal from being
+diluted by the sentence the attacker wrapped it in.
+
+Endpoint support is uneven, so =Completion#supported?= is a question a
+deployment answers once rather than per check, and an endpoint that cannot score
+produces uncertain rather than clean. Calibrate with
+=script/perplexity_probe.rb=, which leads with commands, module loads, and job
+scripts: they score badly for innocent reasons, and a threshold that cannot
+separate them from attacks is a threshold that blocks the handbook.
 
 ** Rails::Obfuscation
 

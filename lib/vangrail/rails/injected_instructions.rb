@@ -25,10 +25,33 @@ module Vangrail
     class InjectedInstructions < Rail
       PATTERNS = {
         # A chat role header inside a document: nothing in prose needs one.
-        'role_header' => /^\s{0,3}(?:###\s*)?(?:system|assistant|user)\s*:\s*\S/i,
+        # The Dutch role names sit beside the English ones because a role
+        # header is a shape rather than a sentence, and a page that writes
+        # "assistent:" mid-paragraph is doing what "assistant:" does.
+        'role_header' => /^\s{0,3}(?:###\s*)?(?:system|systeem|assistant|assistent|user|gebruiker)\s*:\s*\S/i,
         # An override aimed at whatever came before it in the prompt.
-        'override_above' => /\b(?:ignore|disregard|forget|override)\b[^.\n]{0,40}\b
-                             (?:above|previous|prior|earlier|preceding|system\s+prompt|instructions?)\b/xi,
+        #
+        # Three branches rather than one alternation, because a backward
+        # reference on its own is not an attack. "You can ignore the earlier
+        # warning about the toolchain" is a page, and it fell to the single
+        # alternation: the override has to name what it cancels, cancel the lot,
+        # or use the reference as a noun.
+        'override_above' => /
+          \b(?:ignore|disregard|forget|override)\b
+          (?:
+            # Names the standing instruction, in any of its usual words.
+            [^.\n]{0,40}\b(?:instructions?|guidelines?|rules?|directions?|directives?|
+                             system\s+prompt|everything\s+above)\b
+            |
+            # Cancels all of it, which is what an attacker does when they do
+            # not know what they are cancelling.
+            \s+(?:all|any|every|everything|anything)\b[^.\n]{0,20}
+              \b(?:above|previous|prior|earlier|preceding)\b
+            |
+            # The reference used as a noun and nothing after it.
+            \s+(?:the\s+)?(?:above|preceding|foregoing)\s*[.,;:]?\s*$
+          )
+        /xi,
         # A document telling the assistant what it is now.
         'role_assignment' => /\byou\s+(?:are|must\s+now\s+act|will\s+now\s+act)\s+(?:now\s+)?
                               (?:a|an|the)?\s*(?:assistant|ai|model|chatbot|dan)\b/xi,
@@ -56,7 +79,8 @@ module Vangrail
                            (?:system\s+prompt|api[_\s-]?key|token|credentials?|conversation)\b/xi,
         # Hidden text: a marker for content meant for the model and not the
         # reader. HTML comments in a rendered page are the common carrier.
-        'hidden_directive' => /<!--[^>]*\b(?:ignore|instruction|assistant|system|prompt)\b[^>]*-->/im
+        'hidden_directive' => /<!--[^>]*\b(?:ignore|instruction|assistant|system|prompt|
+                                             negeer|instructie|assistent|systeem)\b[^>]*-->/imx
       }.freeze
 
       attr_reader :patterns

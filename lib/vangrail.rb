@@ -4,15 +4,22 @@ require_relative 'vangrail/version'
 require_relative 'vangrail/errors'
 require_relative 'vangrail/http'
 require_relative 'vangrail/chat'
+require_relative 'vangrail/completion'
+require_relative 'vangrail/embeddings'
 require_relative 'vangrail/parsers'
 require_relative 'vangrail/prompt'
 require_relative 'vangrail/policies'
 require_relative 'vangrail/result'
 require_relative 'vangrail/result_cache'
+require_relative 'vangrail/beta'
+require_relative 'vangrail/evidence'
+require_relative 'vangrail/evidence_data'
+require_relative 'vangrail/judgement'
 require_relative 'vangrail/rail'
 require_relative 'vangrail/engine'
 require_relative 'vangrail/stream_guard'
 require_relative 'vangrail/conversation'
+require_relative 'vangrail/session'
 require_relative 'vangrail/actions'
 require_relative 'vangrail/provider'
 require_relative 'vangrail/providers'
@@ -20,8 +27,17 @@ require_relative 'vangrail/colang/parser'
 require_relative 'vangrail/colang/interpreter'
 require_relative 'vangrail/colang/library'
 require_relative 'vangrail/confusables'
+require_relative 'vangrail/nlp'
+require_relative 'vangrail/known_attacks'
+require_relative 'vangrail/bayes_data'
 require_relative 'vangrail/spotlight'
 require_relative 'vangrail/rails/injected_instructions'
+require_relative 'vangrail/rails/paraphrase'
+require_relative 'vangrail/rails/language'
+require_relative 'vangrail/rails/similarity'
+require_relative 'vangrail/rails/bayes'
+require_relative 'vangrail/rails/semantic'
+require_relative 'vangrail/rails/perplexity'
 require_relative 'vangrail/rails/missing'
 require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
@@ -30,6 +46,7 @@ require_relative 'vangrail/rails/hidden'
 require_relative 'vangrail/rails/escalation'
 require_relative 'vangrail/rails/many_shot'
 require_relative 'vangrail/rails/canary'
+require_relative 'vangrail/rails/prompt_leak'
 require_relative 'vangrail/rails/personal_data'
 require_relative 'vangrail/rails/markup'
 require_relative 'vangrail/rails/budget'
@@ -71,6 +88,12 @@ module Vangrail
   #   GUARDRAILS_JUDGE_MODEL=<m>  instruct model for policy and grounding rails
   #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
   #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
+  #   GUARDRAILS_PROMPT_FILE=<path>  the prompt text that must not come back out
+  #   GUARDRAILS_EMBED_MODEL=<model> an embedding model, for GUARDRAILS_RAILS=...,semantic
+  #   GUARDRAILS_SEMANTIC_THRESHOLD=<0..1>  calibrate it with script/embedding_probe.rb
+  #   GUARDRAILS_RAILS=...,perplexity  block optimised gibberish, where the
+  #                               endpoint will score a prompt it echoes
+  #   GUARDRAILS_PERPLEXITY_THRESHOLD=<nats>  calibrate it with script/perplexity_probe.rb
   #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
   #   GUARDRAILS_RAILS=...,markup   strip active markup from the answer
   #   GUARDRAILS_RAILS=...,budget   refuse text too large to be a question
@@ -108,7 +131,7 @@ module Vangrail
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
     ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
-                   markup budget].freeze
+                   markup budget semantic perplexity bayes].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -190,6 +213,8 @@ module Vangrail
       deterministic = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
                                           sides: [:input]),
                        Rails::Jailbreak.new(sides: [:input]),
+                       Rails::Paraphrase.new(sides: [:input]),
+                       Rails::Similarity.new(sides: [:input]),
                        Rails::ManyShot.new(sides: [:input])]
       rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:input])]
       # A question carrying the canary is too late to prevent and worth
@@ -199,6 +224,9 @@ module Vangrail
       # deployment's call rather than a default. Where the endpoint is a third
       # party it is close to obligatory, and where it is a local proxy it buys
       # little.
+      rails << Rails::Bayes.new(sides: [:input]) if on?(:bayes)
+      rails << semantic(:input) if on?(:semantic)
+      rails << perplexity(:input) if on?(:perplexity)
       rails << Rails::PersonalData.new if on?(:privacy)
       rails << Rails::Budget.new(sides: [:input]) if on?(:budget)
       # Off unless asked for: they read history, and a caller that threads none
@@ -222,12 +250,21 @@ module Vangrail
       return [] unless on?(:context)
 
       deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context]),
+                       Rails::Paraphrase.new(sides: [:context]), Rails::Similarity.new(sides: [:context]),
                        Rails::ManyShot.new(sides: [:context])]
       # Two passes over the same definitions, for the two ways a page hides
       # one: encoded so the patterns cannot read it, or in markup a reader
       # never sees.
       rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
                                Rails::Hidden.new(rails: deterministic)]
+      # Outside the decoding pass, and last. It reads the page rather than
+      # judging it: every rail above is a rule about English or Dutch words, and
+      # a page in neither has been passed by all of them without being read.
+      # Reporting that costs a token count and keeps `certain?` honest.
+      rails << Rails::Language.new
+      rails << Rails::Bayes.new(sides: [:context]) if on?(:bayes)
+      rails << semantic(:context) if on?(:semantic)
+      rails << perplexity(:context) if on?(:perplexity)
       rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
       rails
     end
@@ -236,6 +273,10 @@ module Vangrail
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
       rails << canary(:output) if canary_token
+      # Naming the file is the opt-in, the same way the canary token is. Only
+      # the application knows what its prompt says, and a rail that guessed
+      # would be guarding a text nobody wrote.
+      rails << prompt_leak if protected_prompt
       # Off by default: a desk whose client renders answers as plain text does
       # not need it, and stripping markup nobody would have executed is noise
       # in the result.
@@ -323,6 +364,62 @@ module Vangrail
 
     def canary(side)
       Rails::Canary.new(tokens: canary_token.split(/[,\s]+/), sides: [side])
+    end
+
+    # The text that must not come back out, read from a file because a system
+    # prompt in an environment variable is a system prompt nobody can read.
+    # An unreadable path raises rather than silently building no rail: a
+    # guardrail that was asked for and quietly absent is the failure this gem
+    # exists to prevent.
+    def protected_prompt
+      return @protected_prompt if defined?(@protected_prompt)
+
+      path = present(env['GUARDRAILS_PROMPT_FILE'])
+      @protected_prompt =
+        if path.nil?
+          nil
+        else
+          begin
+            File.read(path)
+          rescue SystemCallError => e
+            raise ConfigError, "GUARDRAILS_PROMPT_FILE #{path.inspect} could not be read: #{e.message}"
+          end
+        end
+    end
+
+    # Asked for by name, because it costs a round trip per check and because
+    # every document embedded on a third-party endpoint is a document sent
+    # there. A provider serving no embedding model leaves the placeholder, so
+    # the pass stays uncertain rather than resting on the offline rails.
+    def semantic(side)
+      return missing('semantic', side) unless provider&.available? && provider.embed?
+
+      Rails::Semantic.new(embeddings: provider.embeddings, sides: [side],
+                          threshold: semantic_threshold)
+    end
+
+    # Off unless asked for, and not only for the round trip: the threshold is a
+    # property of the endpoint's model, and an uncalibrated detector switched on
+    # by default is a detector that blocks somebody's shell transcript.
+    def perplexity(side)
+      return missing('perplexity', side) unless provider&.available?
+
+      Rails::Perplexity.new(completion: provider.completion, sides: [side],
+                            threshold: perplexity_threshold)
+    end
+
+    def perplexity_threshold
+      value = env['GUARDRAILS_PERPLEXITY_THRESHOLD'].to_f
+      value.positive? ? value : Rails::Perplexity::THRESHOLD
+    end
+
+    def semantic_threshold
+      value = env['GUARDRAILS_SEMANTIC_THRESHOLD'].to_f
+      value.positive? ? value : Rails::Semantic::THRESHOLD
+    end
+
+    def prompt_leak
+      Rails::PromptLeak.new(protected_text: protected_prompt)
     end
 
     def exfiltration

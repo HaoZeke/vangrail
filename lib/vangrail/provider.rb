@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative 'chat'
+require_relative 'completion'
+require_relative 'embeddings'
 require_relative 'errors'
 
 module Vangrail
@@ -20,7 +22,7 @@ module Vangrail
   #   provider = Vangrail::Provider.resolve          # from the environment
   #   provider.chat(:judge)                                # => Chat, ready to ask
   class Provider
-    ROLES = %i[guard judge].freeze
+    ROLES = %i[guard judge embed].freeze
 
     class << self
       # Presets by name, in the order `resolve` tries them.
@@ -90,7 +92,8 @@ module Vangrail
           name: 'env',
           base_url: base,
           key_resolver: -> { present(env['GUARDRAILS_API_KEY']) },
-          models: { judge: present(env['GUARDRAILS_JUDGE_MODEL']), guard: present(env['GUARDRAILS_MODEL']) }
+          models: { judge: present(env['GUARDRAILS_JUDGE_MODEL']), guard: present(env['GUARDRAILS_MODEL']),
+                    embed: present(env['GUARDRAILS_EMBED_MODEL']) }
         )
       end
 
@@ -118,7 +121,8 @@ module Vangrail
     def with_env(env)
       overrides = {
         judge: self.class.present(env['GUARDRAILS_JUDGE_MODEL']),
-        guard: self.class.present(env['GUARDRAILS_MODEL'])
+        guard: self.class.present(env['GUARDRAILS_MODEL']),
+        embed: self.class.present(env['GUARDRAILS_EMBED_MODEL'])
       }.compact
       base = self.class.present(env["#{env_prefix}_API_BASE"]) || base_url
       key = self.class.present(env["#{env_prefix}_API_KEY"])
@@ -147,6 +151,16 @@ module Vangrail
       !model(:guard).nil? && !guard_preset.nil?
     end
 
+    # Can it embed. Named rather than assumed for the same reason `guard?` is:
+    # an endpoint serving chat need not serve embeddings, and a rail built on
+    # the assumption that it does is a rail that reports an error instead of a
+    # verdict. No default model is guessed either, because the name of an
+    # embedding model is deployment knowledge and a wrong guess is a 404 per
+    # check.
+    def embed?
+      !model(:embed).nil?
+    end
+
     # Up, and holding a credential. A local endpoint is probed, because a proxy
     # that is not running is the ordinary case rather than a failure.
     def available?
@@ -165,6 +179,23 @@ module Vangrail
       raise ConfigError, "provider #{self.name} has no #{role} model" unless name
 
       Chat.new(model: name, base_url: base_url, api_key: api_key, **kwargs)
+    end
+
+    def embeddings(role = :embed, **kwargs)
+      name = model(role)
+      raise ConfigError, "provider #{self.name} has no #{role} model" unless name
+
+      Embeddings.new(model: name, base_url: base_url, api_key: api_key, **kwargs)
+    end
+
+    # Scoring rather than generation, from whichever model answers questions.
+    # No separate role: any causal model can score text, and asking a
+    # deployment to name a second one for it would be ceremony.
+    def completion(role = :judge, **kwargs)
+      name = model(role)
+      raise ConfigError, "provider #{self.name} has no #{role} model" unless name
+
+      Completion.new(model: name, base_url: base_url, api_key: api_key, **kwargs)
     end
 
     def to_h

@@ -32,11 +32,13 @@ Task-shaped, for when you know what you want.
 - [[file:howto/choosing-an-endpoint.org][Point the model-backed rails somewhere]]
 - [[file:howto/guarding-a-stream.org][Guard an answer while it streams]]
 - [[file:howto/guarding-a-conversation.org][Guard a conversation rather than a message]]
+- [[file:howto/calibrating-a-model-rail.org][Calibrate a model-backed threshold]]
 
 ** Reference
 
 - [[file:reference/environment.org][Environment variables]]
 - [[file:reference/rails.org][The built-in rails]]
+- [[file:reference/nlp.org][The text analysis layer]]
 - [[https://haozeke.github.io/vangrail/][YARD class reference]]
 
 ** Explanation
@@ -47,6 +49,7 @@ Why the design is shaped the way it is.
   separate]]
 - [[file:explanation/measuring-rails.org][Why the injection corpus is scored as
   a pair]]
+- [[file:explanation/evidence.org][Why blocked is not a probability]]
 - [[file:explanation/coverage.org][What this covers, and what it does not]]
 
 ** Elsewhere

@@ -86,6 +86,47 @@ class TestPersonalData < Minitest::Test
     assert_empty flagged, "flagged:\n  #{flagged.join("\n  ")}"
   end
 
+  # --- the Dutch identifier, which is the label and the checksum together ---
+
+  # The number nobody should paste into a support question, in the words a
+  # Dutch reader writes it with.
+  def test_a_labelled_bsn_is_redacted
+    %w[BSN burgerservicenummer sofinummer].each do |label|
+      result = check("Mijn #{label} is 123456782, kunt u mijn account koppelen?")
+
+      assert_predicate result, :modified?, "missed a labelled #{label}"
+      refute_includes result.content, '123456782'
+      # The label survives, so the desk still knows what it was told about.
+      assert_includes result.content.downcase, label.downcase
+    end
+  end
+
+  def test_a_bsn_printed_with_separators_is_still_redacted
+    result = check('Sofinummer: 123.456.782 hoort bij deze aanvraag.')
+
+    assert_predicate result, :modified?
+    refute_includes result.content, '123.456.782'
+  end
+
+  # The reason bare nine-digit runs are not matched at all. This one passes the
+  # elfproef, and it is a job id.
+  def test_a_bare_number_that_passes_the_checksum_is_left_alone
+    ['Job 123456782 failed with an OOM after four hours.',
+     'The allocation number is 123456782 for this project.',
+     'Taak 123456782 is gestopt vanwege de tijdslimiet.'].each do |text|
+      assert_predicate check(text), :passed?, "redacted a number that was not identified as a BSN: #{text}"
+    end
+  end
+
+  def test_a_labelled_number_that_fails_the_checksum_is_left_alone
+    assert_predicate check('My BSN is 123456789, he wrote, which does not check out.'), :passed?
+  end
+
+  # Nine identical digits satisfy the arithmetic and are a form's placeholder.
+  def test_a_placeholder_run_is_not_a_person
+    assert_predicate check('bsn 000000000 is what the form prints when it is empty'), :passed?
+  end
+
   # --- bookkeeping ---
 
   def test_it_reads_questions_by_default

@@ -77,6 +77,69 @@ Nothing has been released yet. This section describes what exists.
 
 ### Added
 
+- `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
+  a suffix stripper, a concept lexicon with negation and multiword phrases,
+  clause segmentation, and set similarity over character n-grams.
+- `Rails::Paraphrase`, which matches pairs of concepts rather than strings, so
+  a reworded injection is caught by the same rule as the original. Measured at
+  60 of 60 reworded attacks caught where the pattern rails catch 0, with 24 of
+  24 ordinary pages kept.
+- English and Dutch lexicons, both read by default and selectable with
+  `languages:`, with the two pieces of Dutch grammar that a naive port gets
+  wrong: negation after the verb, and a backward reference used as a noun.
+  Scored on its own Dutch corpus rather than assumed to transfer.
+- `Rails::Similarity` and `KnownAttacks`, catching near copies of published
+  attack wordings by n-gram containment, clause by clause because containment
+  saturates over a whole page.
+- `Rails::Language`, which reports a page in a language no lexicon here covers
+  as passed with `certain?` false. It never blocks: another language is not an
+  attack, and the gap this closes is a clean pass that meant nothing.
+- `Rails::PromptLeak`, redacting the sentences of an answer that reproduce the
+  system prompt, with two thresholds because restating a rule and handing over
+  a rule are different acts. `GUARDRAILS_PROMPT_FILE` names the protected text.
+- `Vangrail::Embeddings` and `Rails::Semantic`: meaning-level comparison against
+  the known attack wordings through any OpenAI-compatible embeddings endpoint,
+  including a local proxy, so nothing has to leave the machine.
+- `Vangrail::Completion` and `Rails::Perplexity`: the published perplexity
+  detector for optimised gibberish, windowed so a short span is not averaged
+  away, reporting uncertain on the many endpoints that will not score a prompt.
+- `script/embedding_probe.rb` and `script/perplexity_probe.rb`, which calibrate
+  those two thresholds against the endpoint in use and refuse to recommend a
+  number when the benign and attack distributions overlap.
+- A labelled Dutch BSN is redacted by `Rails::PersonalData`, checksum and all.
+  The label is what makes it safe: a bare nine-digit run is a job id.
+- `Vangrail::Evidence`, `Posterior`, `Judgement`, and `Engine#assess`: the rails
+  read as evidence rather than as a switch, combined with the deployment's base
+  rate into a probability, with each rail's contribution in bits. Silence counts,
+  abstention contributes nothing, and rails measured to agree speak once.
+- `script/measure_evidence.rb` and the generated `evidence_data.rb`: every rail's
+  operating point measured on the same 270 attack and 48 benign texts, plus the
+  correlation matrix that decides the grouping.
+- `assess(escalate: true)`, which stops when the remaining rails provably cannot
+  change the action, so a networked rail is never reached on an ordinary page.
+- `Vangrail::Session`, carrying the posterior across turns with a decay, so
+  staged probing that no single message reveals shows up in the sequence.
+- `Policy.from_costs`, deriving both thresholds from what a missed attack, a
+  wrong block, and a human review each cost, instead of picking numbers.
+- `Engine#triage`, which ranks a document set by posterior rather than
+  partitioning it on the first objection: the doubtful page goes last in the
+  passage list rather than away from the reader.
+- `Vangrail::Beta` and `Evidence#bits(confidence:)`: the regularised incomplete
+  beta in the standard library, so a rail's evidence is what the corpus can
+  defend rather than what it happened to produce. At 95% two shipped rails fall
+  to zero evidence, which is a fact about 48 benign documents.
+- `Evidence#capability`, the information-theoretic reading of an operating point
+  at a given base rate, which is the only number in the table that changes when
+  the deployment does.
+- `Session#verdict`, Wald's sequential test beside the posterior, with
+  thresholds fixed by the error rates rather than chosen.
+- `Rails::Bayes` and `script/train_bayes.rb`: a naive Bayes classifier over word
+  n-grams that reports a log-likelihood ratio rather than a verdict, with the
+  score-to-evidence map fitted on held-out folds and pooled to monotone. Off by
+  default and shipped with its cross-validated number, which is worse than the
+  lexicon rails: 15 of 48 against their three quarters, on 48 training clauses.
+- A rail that puts `bits` in its result's `raw` contributes that directly to a
+  posterior instead of being flattened to whether it blocked.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context

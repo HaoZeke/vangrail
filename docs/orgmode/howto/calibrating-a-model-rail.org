@@ -1,0 +1,123 @@
+#+TITLE: Calibrate a Model-Backed Threshold
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Calibrate a Model-Backed Threshold
+
+=Rails::Semantic= and =Rails::Perplexity= both compare a number against a
+threshold, and both thresholds are properties of the model you point them at
+rather than of this gem. A cosine of 0.75 means one thing under one embedding
+model and something else under another. This is how to turn the shipped default
+into a number you measured.
+
+Do this before switching either rail on. An uncalibrated detector is worse than
+an absent one, because an absent one does not look like a check.
+
+** Point the rails at an endpoint
+
+Anything OpenAI-compatible. A loopback proxy is the cheapest and keeps the text
+on the machine:
+
+#+begin_src bash
+export LLMLITE_EMBED_MODEL=nomic-embed-text   # whatever your proxy serves
+#+end_src
+
+Or an endpoint given outright:
+
+#+begin_src bash
+export GUARDRAILS_API_BASE=https://gateway.example/api/v0
+export GUARDRAILS_API_KEY=...
+export GUARDRAILS_EMBED_MODEL=some/embedding-model
+export GUARDRAILS_JUDGE_MODEL=some/instruct-model
+#+end_src
+
+Check what resolved before measuring anything:
+
+#+begin_src ruby
+Vangrail.provider.name        # => "llmlite"
+Vangrail.provider.available?  # => true
+Vangrail.provider.embed?      # => true, once a model is named
+#+end_src
+
+** Measure the embedding rail
+
+#+begin_src bash
+ruby script/embedding_probe.rb
+#+end_src
+
+It embeds both corpora the offline suite uses, in English and Dutch, and prints
+the ordinary documentation sorted by score, the attacks sorted by score, and the
+two numbers that matter:
+
+#+begin_example
+benign top:  0.61
+attack low:  0.79
+gap:         0.18
+threshold:   0.700   (the middle of the gap)
+
+GUARDRAILS_RAILS=context,semantic GUARDRAILS_SEMANTIC_THRESHOLD=0.70
+#+end_example
+
+Take the line it prints. Then read the two lists above it: if the top benign
+entries are pages you would mind losing, the margin is thinner than the gap
+suggests, and a threshold nearer the attack floor costs you fewer of them.
+
+When there is no gap, the probe says so and recommends leaving the rail off. That
+is a real result rather than a failure to configure: it means this embedding
+model does not separate these two kinds of text, and a threshold between
+overlapping sets buys detections at the price of blocking documentation.
+
+** Measure the perplexity rail
+
+#+begin_src bash
+ruby script/perplexity_probe.rb
+#+end_src
+
+It first asks whether the endpoint will echo a prompt and score it at all. Many
+will not: several hosted APIs removed =/completions=, and a proxy in front of a
+chat-only model cannot synthesise token log probabilities. If the answer is no,
+the probe stops and the rail is not available to you.
+
+If it can score, the output leads with the half of the corpus that decides the
+answer:
+
+#+begin_example
+ordinary prose (worst window, nats)
+    4.31  Never mention a password in a ticket; the desk will ask you...
+commands, paths, and job scripts (worst window, nats)
+    9.87  /gpfs/scratch1/shared/project-1234/runs/2026-03-11/checkpoint...
+questions with an optimised suffix (worst window, nats)
+   14.02  How do I request a GPU node ... describing.\ + similarlyNow...
+#+end_example
+
+Commands, module loads, and paths score badly under a language model for
+innocent reasons: they are not prose. A threshold that separates attacks from
+English sentences but not from =sbatch --time=1-00:00:00= blocks the handbook,
+and a guardrail that blocks the handbook stops being used. That is why they sit
+in the benign corpus rather than beside it.
+
+** Switch the rail on
+
+#+begin_src bash
+export GUARDRAILS_RAILS=input,context,output,semantic
+export GUARDRAILS_SEMANTIC_THRESHOLD=0.70
+#+end_src
+
+Then check the posture rather than assuming it:
+
+#+begin_src ruby
+engine = Vangrail.from_env
+engine.rail_names(:context)   # semantic present?
+engine.check_context(page).certain?
+#+end_src
+
+An uncertain result here is informative rather than broken. It means the rail was
+asked for and could not run: no embedding model, an endpoint that refused, or a
+page longer than the clause bound, and the reason says which.
+
+** Re-measure when the model changes
+
+The threshold belongs to the model. A proxy upgraded to a new embedding model, a
+quantisation swapped, or a gateway that silently repoints a model name are all
+reasons the number you measured stopped describing anything. Both probes are
+cheap; run them again rather than trusting a number whose model is gone.
