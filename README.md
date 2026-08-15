@@ -265,7 +265,7 @@ one when the local rails cover it.
 | `GUARDRAILS_API_BASE` / `_API_KEY` | an endpoint nobody registered |
 | `GUARDRAILS_MODEL` | classifier, where the provider hosts one |
 | `GUARDRAILS_JUDGE_MODEL` | instruct model for policy and grounding rails |
-| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn,privacy`, `all`, `none` |
+| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn,privacy,markup,budget`, `all`, `none` |
 | `GUARDRAILS_CANARY` | a marker in your prompt that must never come back out |
 | `GUARDRAILS_LINK_HOSTS` | hosts an answer may link to; naming them switches the rail on |
 | `GUARDRAILS_IMAGE_HOSTS` | hosts it may auto-load images from, defaults to the link list |
@@ -289,6 +289,8 @@ one when the local rails cover it.
 | `Rails::Canary` | input, output | no | passed, blocked |
 | `Rails::PersonalData` | input | no | passed, modified |
 | `Rails::Secrets` | output | no | passed, modified |
+| `Rails::Markup` | output | no | passed, modified |
+| `Rails::Budget` | input, context | no | passed, blocked |
 | `Rails::Exfiltration` | output | no | passed, modified |
 | `Rails::GuardModel` | either | yes | passed, blocked |
 | `Rails::SelfCheck` | either | yes | passed, blocked |
@@ -342,7 +344,7 @@ disable.
 rake test
 ```
 
-309 tests, stdlib minitest. Parsing and payload shape run against a recorded
+324 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.

@@ -30,6 +30,8 @@ require_relative 'vangrail/rails/escalation'
 require_relative 'vangrail/rails/many_shot'
 require_relative 'vangrail/rails/canary'
 require_relative 'vangrail/rails/personal_data'
+require_relative 'vangrail/rails/markup'
+require_relative 'vangrail/rails/budget'
 require_relative 'vangrail/rails/secrets'
 require_relative 'vangrail/rails/exfiltration'
 require_relative 'vangrail/rails/guard_model'
@@ -68,6 +70,8 @@ module Vangrail
   #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
   #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
   #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
+  #   GUARDRAILS_RAILS=...,markup   strip active markup from the answer
+  #   GUARDRAILS_RAILS=...,budget   refuse text too large to be a question
   #   GUARDRAILS_LINK_HOSTS=a.example,b.example  hosts an answer may link to
   #   GUARDRAILS_IMAGE_HOSTS=a.example           hosts it may auto-load from
   #   GUARDRAILS_ON_ERROR=allow|block
@@ -101,7 +105,8 @@ module Vangrail
   # decision is separable and testable on its own.
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
-    ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy].freeze
+    ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
+                   markup budget].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -193,6 +198,7 @@ module Vangrail
       # party it is close to obligatory, and where it is a local proxy it buys
       # little.
       rails << Rails::PersonalData.new if on?(:privacy)
+      rails << Rails::Budget.new(sides: [:input]) if on?(:budget)
       # Off unless asked for: they read history, and a caller that threads none
       # would have every input check come back uncertain, which is true and
       # useless. Conversation is what makes them worth having.
@@ -218,14 +224,20 @@ module Vangrail
       # Two passes over the same definitions, for the two ways a page hides
       # one: encoded so the patterns cannot read it, or in markup a reader
       # never sees.
-      deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                       Rails::Hidden.new(rails: deterministic)]
+      rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
+                               Rails::Hidden.new(rails: deterministic)]
+      rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
+      rails
     end
 
     def output_rails
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
       rails << canary(:output) if canary_token
+      # Off by default: a desk whose client renders answers as plain text does
+      # not need it, and stripping markup nobody would have executed is noise
+      # in the result.
+      rails << Rails::Markup.new if on?(:markup)
       rails << exfiltration if link_hosts || on?(:links)
       rails << judged(:output) if on?(:output)
       rails << grounding if on?(:grounding)

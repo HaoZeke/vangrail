@@ -71,6 +71,12 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::ManyShot`, which strips chat template control tokens and blocks a
   pasted dialogue of more than four turns. The tokens are stripped rather than
   refused, because a question about a chat template is a real question.
+- `Rails::Markup`, which strips script tags, frames, event handlers, active
+  schemes, forms, and style blocks from an answer, for the common case where a
+  client renders markdown by passing raw HTML through.
+- `Rails::Budget`, a character limit on questions and on retrieved documents.
+  The cost of answering is paid by whoever runs the endpoint, and a public desk
+  gives anybody a way to spend it.
 - `Rails::PersonalData`, which redacts a reader's own email, phone, IBAN, or
   card number before the question is sent anywhere. Opt-in, and careful about
   the trap that matters on a cluster desk: `ssh you@login.example.org` is an

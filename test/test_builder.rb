@@ -143,6 +143,19 @@ class TestBuilder < Minitest::Test
     assert e.check_input('mail me at someone@example.org').modified?
   end
 
+  def test_markup_stripping_is_opt_in
+    refute_includes engine(gateway_env).rail_names(:output), 'markup'
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'output,markup'))
+    assert_includes e.rail_names(:output), 'markup'
+  end
+
+  def test_a_size_limit_can_be_switched_on_for_both_sides
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,context,budget'))
+    assert_includes e.rail_names(:input), 'budget'
+    assert_includes e.rail_names(:context), 'budget'
+    assert e.check_input('x' * 20_000).blocked?
+  end
+
   def test_the_decoding_pass_reads_documents_as_well_as_questions
     assert_includes engine(gateway_env).rail_names(:context), 'obfuscation'
   end

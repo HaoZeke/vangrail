@@ -18,8 +18,8 @@ unchecked.
 | =GUARDRAILS_CACHE=     | =0= turns off the in-process result memo                   |
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
-=secrets=, =patterns=, =links=, =multiturn=, =privacy=. The default set is
-=input,context,output=.
+=secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=.
+The default set is =input,context,output=.
 
 Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
 =Rails::Trajectory=, which read conversation history and would otherwise report

@@ -17,6 +17,8 @@
 | =Rails::PersonalData=       | input         | no      | passed, modified           |
 | =Rails::Secrets=            | output        | no      | passed, modified           |
 | =Rails::Exfiltration=       | output        | no      | passed, modified           |
+| =Rails::Markup=             | output        | no      | passed, modified           |
+| =Rails::Budget=             | input, context | no     | passed, blocked            |
 | =Rails::GuardModel=         | either        | yes     | passed, blocked            |
 | =Rails::SelfCheck=          | either        | yes     | passed, blocked            |
 | =Rails::Grounding=          | output        | yes     | passed, blocked            |
@@ -280,6 +282,54 @@ host, which covers =data:=, =file:=, =javascript:=, and =//collector=.
 
 Redacts rather than blocks, and the link text survives so the reader still
 learns what was being pointed at.
+
+** Rails::Markup
+
+Removes markup that does something when the answer is rendered. Output side,
+opt-in with =markup=.
+
+| Category         | What is removed                                    |
+|------------------+----------------------------------------------------|
+| =script=         | a script tag                                       |
+| =frame=          | iframe, frame, embed, object, applet               |
+| =event_handler=  | an on* attribute, which is how a lone img tag becomes an exploit |
+| =active_scheme=  | javascript:, vbscript:, data:                      |
+| =meta_refresh=   | a refresh redirect                                 |
+| =base_tag=       | a rewritten base URL                               |
+| =form=           | a form pointing anywhere                           |
+| =style_block=    | a style block, which can position an invisible overlay |
+
+An answer is text until a client renders it, and most markdown renderers pass
+raw HTML straight through. At that point a script tag in the answer is a script
+tag in the page, and the model wrote it because a retrieved document said to.
+The application's own sanitiser is the real defence; this covers the case where
+there is not one, which is most of them.
+
+Off by default: a desk whose client renders answers as plain text does not need
+it, and stripping markup nobody would have executed is noise in the result.
+
+** Rails::Budget
+
+Refuses text too large to be a question. Input and context, opt-in with
+=budget=.
+
+| Side      | Default    |
+|-----------+------------|
+| =input=   | 8000 characters |
+| =context= | 60000 characters |
+
+Characters rather than tokens, because counting tokens means shipping a
+tokeniser, and a tokeniser is a model-specific dependency. The ratio is close
+enough for a limit.
+
+Blocks rather than truncating. A truncated question is a different question,
+and answering that one well is worse than saying the box has a limit. Either
+side can be set to nil to turn it off.
+
+The cost of answering is paid by whoever runs the endpoint, and a public desk
+gives anybody a way to spend it. The same size also dilutes the instructions,
+which is the mechanism the many-shot work measured, so the limit is worth
+having twice over.
 
 ** Rails::GuardModel
 
