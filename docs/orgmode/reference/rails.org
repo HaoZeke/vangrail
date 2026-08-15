@@ -23,6 +23,7 @@
 | =Rails::SelfCheck=          | either        | yes     | passed, blocked            |
 | =Rails::Grounding=          | output        | yes     | passed, blocked            |
 | =Rails::Trajectory=         | input         | yes     | passed, blocked            |
+| =Rails::KnownAnswer=        | context       | yes     | passed, blocked            |
 | =Rails::ColangFlow=         | either        | depends | passed, modified, blocked  |
 | =Rails::Remote=             | either        | yes     | passed, modified, blocked  |
 | =Rails::Missing=            | either        | no      | passed, never certain      |
@@ -398,6 +399,31 @@ stopped it doing so are in =Policies.trajectory_policy=.
 turn. A skipped turn passes with =certain?= false, because it was not judged.
 The schedule is counted over the dialogue rather than over calls, so a retry
 does not shift it.
+
+** Rails::KnownAnswer
+
+Detects an injection by whether it worked rather than by what it said. Give a
+model a task whose answer is known, put the untrusted document beside it, and
+see whether the known answer comes back. Nothing reads the document, so a novel
+phrasing and an attack invented tomorrow are detected on the same evidence.
+
+That is the theory, and the measurement does not support it here. Against an
+instruct model of the size a shared gateway serves, the rail detected 0 of 10
+injections while passing 10 of 10 ordinary pages
+(=script/known_answer_probe.rb=). A model asked to repeat a token is not
+derailed by a page telling it to answer differently, and a probe task written
+to resemble the real one fares no better: appending a token and obeying an
+injection are not mutually exclusive, so the model does both.
+
+The technique detects total derailment. These models are not totally derailed.
+They are selectively persuaded on the task that matters while complying with
+everything else they were asked.
+
+Kept, not enabled, and documented this way on purpose. The failure is a
+property of the model rather than of the code, a weaker or more heavily loaded
+model behaves differently, and the probe turns "does this help me" into one
+command instead of an assumption. Run it before switching this on, and expect
+the answer to be no.
 
 ** Rails::ColangFlow
 

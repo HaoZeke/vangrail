@@ -71,6 +71,10 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::ManyShot`, which strips chat template control tokens and blocks a
   pasted dialogue of more than four turns. The tokens are stripped rather than
   refused, because a question about a chat template is a real question.
+- `Rails::KnownAnswer`, which detects an injection by whether it worked rather
+  than by what it said. Measured at 0 of 10 against an instruct model on a
+  shared gateway, and shipped saying so: the technique detects total
+  derailment, and these models are selectively persuaded instead.
 - `Rails::Markup`, which strips script tags, frames, event handlers, active
   schemes, forms, and style blocks from an answer, for the common case where a
   client renders markdown by passing raw HTML through.
