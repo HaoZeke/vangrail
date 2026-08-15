@@ -1,0 +1,223 @@
+#+TITLE: Scored Against Somebody Else's Corpus
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Scored Against Somebody Else's Corpus
+
+Every number this project reported before this page was measured on text it
+wrote itself: 270 attacks and 48 benign sentences, composed by the same person
+who wrote the rails they score. That is the first item on every list of
+evaluation mistakes in security machine learning, it has been on those lists for
+fifteen years, and it produced exactly the failure the lists predict.
+
+This page is the remeasurement. The corpora are other people's, the false-alarm
+rates come from eighteen thousand real documents, and several of the headline
+results did not survive.
+
+** What changed, in one table
+
+| Claim, measured on the shipped corpus | Measured against other people's |
+|---------------------------------------+---------------------------------|
+| Context rails catch 60 of 60 attacks | 0 of 125 published injections |
+| No rail fires on ordinary documentation (0 of 48) | The stack drops 2.3% of real documentation |
+| paraphrase is worth +6.2 bits | +3.8 on the context side, +1.4 on the input side |
+| injection_patterns is a floor worth having | Anti-informative on real prompts: -1.6 bits |
+| No two rails correlate above 0.28 | paraphrase and obfuscation correlate at 0.55 |
+
+** The benign corpus: 18,258 real documents
+
+Installed documentation, read off the machine: man pages and package readmes,
+written by people who never heard of this gem, full of the text that makes a
+guardrail look silly. =script/local_corpus.rb= reads them, and nothing is
+checked in, because the text belongs to its authors and a corpus that size does
+not belong in a gem.
+
+| Rail | Fired on | Rate | 95% bound |
+|------+----------+------+-----------|
+| =similarity= | 0 | 0.00% | 0.01% |
+| =hidden= | 0 | 0.00% | 0.01% |
+| =many_shot= | 2 | 0.01% | 0.03% |
+| =jailbreak= | 20 | 0.11% | 0.16% |
+| =injected_instructions= | 48 | 0.26% | 0.33% |
+| =obfuscation= | 59 | 0.32% | 0.40% |
+| =paraphrase= | 235 | 1.29% | 1.43% |
+| =bayes= | 1617 | 8.86% | 9.21% |
+
+The stack as a whole drops *2.32%* of real documentation (95% bound 2.66%,
+measured over 5,953 documents in a separate pass). One page in forty-three, on a
+corpus with nothing wrong with it. An application screening a wiki with these
+rails is deleting a page in forty-three from its own search results, and until
+this measurement existed nobody could have known.
+
+*** What the flags actually are
+
+The flag count is not the false-alarm count until somebody reads them, so
+=script/adjudicate.rb= prints the span that tripped each rail. Read across
+several rails, every one inspected was a false alarm, and they fall into a
+pattern nobody would have predicted from the hand-written corpus:
+
+- /Print the authentication token gh uses for a hostname/ -- a documented
+  feature, read as exfiltration.
+- /If set, ignore Conflicts rules in modules/ -- an option description, read as
+  an instruction override.
+- /Override the existing icon policy with a custom one/ -- likewise.
+- /suppresses display of the response/ -- read as concealment from a reader.
+- /Enable debug mode./ -- read as a jailbreak, because the pattern looks for
+  "enable debug mode" and every tool with a debug flag documents one.
+
+The concept lexicon cannot tell an instruction addressed to software from an
+instruction addressed to an assistant, and manual pages are nothing but
+instructions addressed to software. The hand-written benign corpus hid this
+completely, because it contained handbook sentences rather than option
+descriptions.
+
+** The base rate, measured rather than assumed
+
+Every argument on the evidence page rests on a base rate, and the number used
+throughout was a guess: one attack in ten thousand.
+
+In 18,258 real documents, zero contained an instruction addressed to an
+assistant. Every flag inspected was a false alarm. With no observations in a
+sample that size, the 95% upper bound on the base rate is *0.000105, one in
+9,506* -- which is within six percent of the figure that had been assumed, and
+is now a measurement rather than a guess.
+
+Two caveats, both real. The bound covers the family these rails can see; the
+corpus was not searched for attacks they are blind to, and the next section
+shows that family is large. And installed documentation is not a wiki anybody
+can edit, which is the population the number is wanted for; it is a lower-risk
+population, so the true base rate for an editable corpus is higher by an unknown
+factor.
+
+At a base rate of one in 9,506, reaching even money takes 13.2 bits. The best
+context rail is worth 8.2 at the bound. One rail firing still does not justify a
+block, which is where this started.
+
+** The attacks: 0 of 125, and why
+
+BIPIA's published injections, spliced into real documentation: every
+deterministic rail caught *none* of them, across all 25 attack families.
+
+That is not the failure it looks like, and it is worse than it looks in a
+different way. BIPIA's attacks are off-task instructions -- /write a script to
+rename all files in a directory/, /analyse the trend of electric car sales/ --
+carrying no override, no disclosure, and no concealment. Every rail in this gem
+looks for one of those three. A rail that fired on "analyse the trend of
+electric car sales" appearing in a document would be unusable on any corpus of
+documentation ever written.
+
+So the finding is a coverage gap rather than a detection failure, and the
+coverage page never named it: *an injected instruction does not have to override
+anything to work.* It only has to be an instruction the model would rather
+follow. Nothing here addresses that family, and nothing here can without
+flagging ordinary imperative prose.
+
+The learned classifier catches 71 of 125, at a false-alarm rate of 8.9% on real
+documentation, which is not a defence either. It is picking up that the injected
+sentence is stylistically unlike a man page.
+
+** The input side, where the rails do something
+
+In-the-wild jailbreak prompts against the ordinary prompts collected beside
+them, 1,405 against 13,735:
+
+| Rail | Caught | False alarms | Defensible bits |
+|------+--------+--------------+-----------------|
+| =jailbreak= | 190 (13.5%) | 134 (0.98%) | +3.4 |
+| =obfuscation= | 253 (18.0%) | 439 (3.2%) | +2.2 |
+| =paraphrase= | 492 (35.0%) | 1666 (12.1%) | +1.4 |
+| =bayes= | 340 (24.2%) | 1715 (12.5%) | +0.8 |
+| =many_shot= | 10 (0.7%) | 34 (0.2%) | +0.3 |
+| =similarity= | 127 (9.0%) | 857 (6.2%) | +0.3 |
+| =injection_patterns= | 35 (2.5%) | 730 (5.3%) | *-1.6* |
+
+The last row is the one to sit with. =injection_patterns= is the rail that runs
+by default whenever any input rail runs, described in the source as the floor
+that keeps working when the endpoint is down. On real prompts it fires more
+often on ordinary ones than on jailbreaks. As evidence it points the wrong way,
+and an engine that treats a hit from it as a reason to block is worse than one
+without it.
+
+=paraphrase= catches a third of real jailbreaks, which is more than anything
+else here, and pays 12% false alarms for it. Whether that trade is worth taking
+is a policy question with an answer that depends on costs -- which is what
+=Policy.from_costs= is for, and why the posterior matters more than the verdict.
+
+** The baseline the rails never had
+
+"Our rails catch 40%" means nothing without something to compare against, and
+comparing detection rates measured at different false-alarm rates means nothing
+either. So: train the simplest respectable classifier on the external corpus,
+cross-validate it over five folds, and set its threshold to spend exactly the
+false-alarm budget the rails already spend.
+
+| Detector | Caught | Detection | False alarm |
+|----------+--------+-----------+-------------|
+| the rails, hand-written | 558 | 39.7% | 12.61% |
+| naive Bayes, matched false-alarm rate | 941 | *67.0%* | 12.61% |
+
+At identical cost to the reader, ten lines of counting catch sixty-nine percent
+more attacks than every hand-written lexicon in this gem put together. The rails
+are the accumulated output of a lot of careful thought about what an injection
+looks like; the classifier is word counts with a Dirichlet prior, fitted in
+about a second.
+
+The comparison is fair in the way that matters and unfair in a way worth saying.
+Both numbers are on held-out data at the same operating point, which is the
+comparison a deployment cares about. But the classifier was fitted to this
+corpus's own distribution and the rails were fitted to a different one -- an
+idea of attacks held in one person's head. That is not a handicap to correct
+for. It is the finding: fitting to the traffic you actually receive beats
+hand-writing rules for the traffic you imagine, and it beats it by a lot.
+
+What it does not show is that either is good. Both spend 12.6% false alarms,
+which no documentation desk would accept, and the honest reading of the whole
+table is that this task is not solved by anything in this repository.
+
+** Correlation, on text nobody here wrote
+
+The grouping rule exists so that rails firing for the same reason do not each
+get a vote. Measured on the shipped corpus, no pair reached the 0.6 threshold
+and the machinery never engaged. Measured on 5,953 real documents:
+
+| Pair | phi |
+|------+-----|
+| =paraphrase= with =obfuscation= | +0.55 |
+| =injected_instructions= with =obfuscation= | +0.26 |
+| =injected_instructions= with =paraphrase= | +0.25 |
+
+=obfuscation= re-runs the other rails over decoded text, so on ordinary
+documentation it is largely re-reporting =paraphrase='s false alarms with
+"(hidden with confusables)" appended. Half a correlation is not double counting,
+but it is much closer to the threshold than the hand-written corpus suggested,
+and it is the pair to watch as either rail changes.
+
+** What this does not settle
+
+*** No model baseline was run
+
+A cross-validated naive Bayes is a floor, not a rival.
+
+Llama Guard, PromptGuard, and the fine-tuned classifiers are the published state
+of the art on this task. Scoring them needs an endpoint serving them and this
+machine has none, so the comparison here is against a learned classifier trained
+on the same data, which is a floor rather than a rival. The rails being better
+or worse than a naive Bayes model says little about whether they are better or
+worse than the thing a deployment would otherwise use.
+
+*** The literature search was verification, not discovery
+
+Every reference cited was checked before it was written down, and several pieces
+of prior art were found that way. But the tool verifies identifiers; it does not
+search a field. Given exact titles and authors, its free-text search failed to
+return papers whose DOIs it then confirmed on request. So nothing here may be
+read as "nobody has published this": the claim is only that these are the
+closest works found, and that the argument this project makes about base rates
+is Axelsson's from 2000 rather than anything new.
+
+*** One machine's documentation is not the world
+
+The benign corpus is what a particular Arch Linux install happens to carry. It
+is real, it is large, and it is not a sample of anything in particular. The
+rates in this page would move on a different machine, and the scripts are
+checked in so that anybody can find out by how much.

@@ -249,24 +249,27 @@ thousand clean documents, and this corpus has forty-eight. Several rails
 agreeing is the honest route to a verdict, and an OR gate cannot tell that apart
 from one rail firing.
 
-That cuts into the shipped numbers too, and the table says so. A rate is a
-posterior rather than a number, so `bits(fired, confidence: 0.95)` reports what
-the corpus can defend rather than what it happened to produce:
+The base rate is no longer assumed. In 18,258 real documents, zero contained an
+instruction addressed to an assistant, which bounds it at **one in 9,506** with
+95% confidence — within six percent of the figure this section used to guess.
+Reaching even money from there takes 13.2 bits and the best context rail is
+worth 8.2, so one rail firing still does not justify a block.
 
-| Rail | Point estimate | Defensible at 95% | Capability at 1e-4 |
+The table ships what the corpora can defend rather than the point estimate,
+because `bits(fired, confidence: 0.95)` is what `assess` now uses by default.
+Measured against published attacks and real documentation:
+
+| Rail | Context side | Input side | False alarms on real text |
 |---|---|---|---|
-| `paraphrase` | +6.2 bits | +4.2 bits | 0.282 |
-| `injected_instructions` | +5.0 | +2.9 | 0.088 |
-| `alignment` | +4.1 | +1.8 | 0.034 |
-| `jailbreak` | +2.6 | −0.0 | 0.006 |
-| `many_shot` | +1.2 | −1.8 | 0.001 |
+| `paraphrase` | +3.8 bits | +1.4 bits | 1.29% of documents, 12.1% of prompts |
+| `injected_instructions` | +5.9 | — | 0.26% |
+| `jailbreak` | +3.9 | +3.4 | 0.11% |
+| `similarity` | +8.2 | +0.3 | 0.00% |
+| `injection_patterns` | — | **−1.6** | 5.3% of prompts |
 
-Read honestly, this corpus cannot show that a `jailbreak` or `many_shot` hit is
-evidence of anything at all. That is a fact about 48 benign documents rather
-than about those rails, and it is the one thing a bigger benign corpus would
-fix. The last column is the information-theoretic reading — the share of the
-uncertainty a rail actually removes at that base rate — which is the only number
-here that moves when the deployment does.
+The point estimate is not used because it is unreadable at the edges: a rail
+that caught nothing and fired on nothing scores +7 bits from two smoothing
+constants dividing each other, and −2.7 on the bound.
 
 Three things follow that a yes-or-no stack cannot express:
 
@@ -276,9 +279,10 @@ Three things follow that a yes-or-no stack cannot express:
   contributes no term at all. `certain?` has always carried that fact; here it
   finally has arithmetic to feed.
 - **Correlated rails vote once.** The generator measures the correlation between
-  every pair and groups the ones that agree. On this corpus none reach the
-  threshold — the highest pair is alignment against similarity at 0.49 —
-  which is worth knowing and was not obvious.
+  every pair and groups the ones that agree. On the hand-written corpus none
+  reach the threshold, the highest pair being alignment against similarity at
+  0.49; on 5,953 real documents `paraphrase` and `obfuscation` reach 0.55,
+  because the decoding rail mostly re-reports the other one's false alarms.
 
 ### A rail that says how sure it is
 
@@ -704,7 +708,7 @@ disable.
 rake test
 ```
 
-588 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
+593 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
 a recorded double; transport, status handling, the `/v1/checks` fallback, and a
 genuinely refused connection run against a loopback server the suite starts
 itself. No outbound network, no keys, nothing outside the standard library.
@@ -738,6 +742,17 @@ decoding pass buys:
 
 Ordinary documentation still passes 15 of 15 with the decoding pass on, which
 is the number that decides whether it can be left switched on.
+
+**Read the external evaluation before any number in this section.** At an
+identical false-alarm rate on in-the-wild jailbreak prompts, a cross-validated
+naive Bayes catches 67% where every hand-written lexicon here together catches
+40%. Everything
+below is measured on corpora written here, which is the first item on every list
+of evaluation mistakes in security machine learning. Scored against published
+attacks and 18,258 real documents, the context rails catch 0 of 125 BIPIA
+injections, the stack drops 2.3% of ordinary documentation, and one rail turns
+out to be anti-informative on real prompts:
+[`docs/orgmode/explanation/external-evaluation.org`](docs/orgmode/explanation/external-evaluation.org).
 
 Reworded attacks are scored the same way, against the rails they are meant to
 beat. Twelve asks the pattern rails catch verbatim, reworded once each and

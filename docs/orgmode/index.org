@@ -54,6 +54,7 @@ Why the design is shaped the way it is.
 - [[file:explanation/measuring-rails.org][Why the injection corpus is scored as
   a pair]]
 - [[file:explanation/evidence.org][Why blocked is not a probability]]
+- [[file:explanation/external-evaluation.org][Scored against somebody else's corpus]]
 - [[file:explanation/coverage.org][What this covers, and what it does not]]
 
 ** Elsewhere

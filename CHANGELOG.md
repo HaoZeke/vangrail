@@ -116,6 +116,21 @@ Nothing has been released yet. This section describes what exists.
   point estimate disagree about the action, the judgement is uncertain:
   48 benign pages did not identify it.
 
+### Changed
+
+- The context rails catch 0 of 125 published BIPIA injections. Those attacks are
+  off-task instructions carrying no override, disclosure, or concealment, which
+  is a coverage gap the documentation never named rather than a detection
+  failure; the shipped corpus scores the same rails at 60 of 60 because it was
+  written out of the same idea of an attack.
+- Screening drops 2.32% of real documentation. The hand-written benign corpus
+  reported 0 of 48 and could not have found this.
+- `injection_patterns` is anti-informative on real prompts: it fires on 5.3% of
+  ordinary ones and 2.5% of in-the-wild jailbreaks, so a hit from it is worth
+  −1.6 bits.
+- The base rate is measured rather than assumed: zero injections in 18,258 real
+  documents bounds it at one in 9,506 with 95% confidence.
+
 ### Added
 
 - `Profile` (`workspace`, `strict`, `read_only`, `off`): named
@@ -240,6 +255,13 @@ Nothing has been released yet. This section describes what exists.
   the deployment does.
 - `Session#verdict`, Wald's sequential test beside the posterior, with
   thresholds fixed by the error rates rather than chosen.
+- An external evaluation, and the scripts to reproduce it: `local_corpus`,
+  `measure_false_alarms`, `measure_union`, `fetch_external`, `measure_external`,
+  `measure_bipia_families`, `baseline_external`, and `adjudicate`. Every rail is
+  now scored against published attacks and 18,258 real documents rather than
+  against text this repository wrote.
+- The evidence table is regenerated from those measurements, per side, and
+  `Posterior` defaults to the Beta bound rather than the point estimate.
 - `Rails::Bayes` and `script/train_bayes.rb`: a naive Bayes classifier over word
   n-grams that reports a log-likelihood ratio rather than a verdict, with the
   score-to-evidence map fitted on held-out folds and pooled to monotone. Off by
