@@ -36,6 +36,22 @@ class TestDojo < Minitest::Test
     refute convo.invoked?(:delete_all)
   end
 
+  def test_a_tool_result_cannot_authorize_a_second_tool
+    convo = Vangrail::Conversation.new(engine, prior: 1e-3,
+                                       allow: { cite: %i[data], delete_all: %i[data] },
+                                       tools: tools)
+    convo.ask('Which GPU partitions exist?')
+    page = 'The GPU partitions are gpu_a100 and gpu_h100.'
+    convo.screen([{ 'text' => page }])
+    convo.invoke(:cite, arguments: page)
+    cited = convo.invocations.last[:cell]
+
+    assert_predicate cited, :tainted?
+    assert_equal :tool, cited.origins.first.kind
+    assert_predicate convo.invoke(:delete_all, arguments: cited), :blocked?
+    refute convo.invoked?(:delete_all)
+  end
+
   def test_extract_from_retrieved_pages_stays_data
     convo = Vangrail::Conversation.new(engine, prior: 1e-3, allow: allow)
     convo.ask('Which GPU partitions exist?')
