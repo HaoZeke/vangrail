@@ -185,8 +185,8 @@ module Vangrail
   class Admission
     def initialize(allow: {})
       @allow = allow.transform_keys(&:to_sym)
-                     .transform_values { |kinds| Array(kinds).map(&:to_sym) }
-                     .freeze
+                    .transform_values { |kinds| Array(kinds).map(&:to_sym) }
+                    .freeze
     end
 
     def permit?(capability, request:, arguments: nil)
