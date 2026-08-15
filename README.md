@@ -387,6 +387,19 @@ against an instruct model on a shared gateway.
 caught, fourteen ordinary handbook sentences untouched, and an explicit test
 asserting that a rephrased attack walks past it, because it does.
 
+## What this does not do
+
+[`docs/orgmode/explanation/coverage.org`](docs/orgmode/explanation/coverage.org)
+maps the rails onto the published category list and marks the gaps as plainly
+as the coverage. The short version: paraphrase beats every pattern here, an
+attacker who reads this source wins more often than one who does not, a model
+rail is a model reading an argument written to persuade it, and none of it
+replaces an output sanitiser, a rate limit, or a log somebody reads.
+
+The one guarantee worth the word: nothing here reports a clean check it did not
+perform. A rail that was off, unreachable, or undecided returns `passed` with
+`certain?` false.
+
 ## Documentation
 
 Longer material lives in [`docs/orgmode/`](docs/orgmode/index.org): a

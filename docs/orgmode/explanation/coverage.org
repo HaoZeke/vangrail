@@ -1,0 +1,67 @@
+#+TITLE: What This Covers, and What It Does Not
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* What This Covers, and What It Does Not
+
+A rail list is easy to read as a claim of completeness, which it never is. This
+page maps the rails onto the published categories, and it is written so the
+gaps are as visible as the coverage: the reader who needs this page is deciding
+what else they still have to build.
+
+** Against the OWASP list for language model applications
+
+The 2025 edition, read for a retrieval-augmented documentation assistant. The
+categories that assume tool use or an agent loop do not apply to one, and
+saying so is more useful than stretching a rail to cover them.
+
+| Category                        | Rails                                        | State |
+|---------------------------------+----------------------------------------------+-------|
+| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Spotlight= marking and its hierarchy | covered, with the limits below |
+| Sensitive information disclosure | =Secrets= on the answer, =PersonalData= on the question | covered for shapes, not for judgement |
+| Supply chain                    | none                                         | out of scope; the gem's own answer is a runtime with no dependencies |
+| Data and model poisoning        | =Engine#screen= drops a poisoned document rather than failing the turn | partial: a poisoned page that reads as ordinary prose passes |
+| Improper output handling        | =Markup=, =Exfiltration=                     | covered for rendering and for outbound URLs |
+| Excessive agency                | none                                         | not applicable: no tools, no actions |
+| System prompt leakage           | =Canary= for the exact token, =Pattern= for the ask | covered for verbatim, not for paraphrase |
+| Vector and embedding weaknesses | =Engine#screen= at the boundary              | partial: retrieval quality is the application's |
+| Misinformation                  | =Grounding=                                  | covered, at the cost of a round trip |
+| Unbounded consumption           | =Budget=                                     | covered for size; rate limiting belongs to the server |
+
+** The limits worth repeating
+
+*** Paraphrase beats every pattern here
+
+The jailbreak fingerprints, the injection patterns, and the canary all fall to
+a rewrite that means the same thing. What they buy is that the copied and
+pasted majority never reaches a model, and that they keep working when the
+endpoint does not. The model-backed rails are what remain against a rewrite,
+and a model's verdict is an opinion rather than a rule.
+
+*** An attacker who reads the source wins more often
+
+The published work on adaptive attacks breaks detection-based defences by
+optimising against the detector. Every pattern in this gem is public. That is
+the right trade for a documentation desk, where the traffic is overwhelmingly
+ordinary and the attacks are overwhelmingly copied, and it is the wrong trade
+for anything where a motivated attacker is the expected case.
+
+*** A model rail is a model reading an argument written to persuade it
+
+=SelfCheck=, =GuardModel=, =Grounding=, and =Trajectory= all send text to a
+model and believe the answer. When the text is a retrieved page, it was written
+by whoever wants it believed. Deterministic rails cannot be argued with, which
+is why the context side leans on them.
+
+*** Nothing here is a substitute for the application's own defences
+
+An output sanitiser, a rate limit, an authorisation check on retrieval, and a
+log a human reads are all outside this gem and all more important than any rail
+in it. The rails are a layer, and a layer is what they are worth.
+
+*** Uncertainty is reported rather than hidden
+
+Every rail that could not reach a decision returns =passed= with =certain?=
+false. An engine whose endpoint is down keeps its deterministic rails and says
+so in every result. That is the one guarantee here worth calling a guarantee:
+nothing reports a clean check it did not perform.
