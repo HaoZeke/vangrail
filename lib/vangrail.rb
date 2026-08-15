@@ -4,6 +4,7 @@ require_relative 'vangrail/version'
 require_relative 'vangrail/errors'
 require_relative 'vangrail/http'
 require_relative 'vangrail/chat'
+require_relative 'vangrail/completion'
 require_relative 'vangrail/embeddings'
 require_relative 'vangrail/parsers'
 require_relative 'vangrail/prompt'
@@ -29,6 +30,7 @@ require_relative 'vangrail/rails/paraphrase'
 require_relative 'vangrail/rails/language'
 require_relative 'vangrail/rails/similarity'
 require_relative 'vangrail/rails/semantic'
+require_relative 'vangrail/rails/perplexity'
 require_relative 'vangrail/rails/missing'
 require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
@@ -82,6 +84,9 @@ module Vangrail
   #   GUARDRAILS_PROMPT_FILE=<path>  the prompt text that must not come back out
   #   GUARDRAILS_EMBED_MODEL=<model> an embedding model, for GUARDRAILS_RAILS=...,semantic
   #   GUARDRAILS_SEMANTIC_THRESHOLD=<0..1>  calibrate it with script/embedding_probe.rb
+  #   GUARDRAILS_RAILS=...,perplexity  block optimised gibberish, where the
+  #                               endpoint will score a prompt it echoes
+  #   GUARDRAILS_PERPLEXITY_THRESHOLD=<nats>  calibrate it with script/perplexity_probe.rb
   #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
   #   GUARDRAILS_RAILS=...,markup   strip active markup from the answer
   #   GUARDRAILS_RAILS=...,budget   refuse text too large to be a question
@@ -119,7 +124,7 @@ module Vangrail
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
     ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
-                   markup budget semantic].freeze
+                   markup budget semantic perplexity].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -213,6 +218,7 @@ module Vangrail
       # party it is close to obligatory, and where it is a local proxy it buys
       # little.
       rails << semantic(:input) if on?(:semantic)
+      rails << perplexity(:input) if on?(:perplexity)
       rails << Rails::PersonalData.new if on?(:privacy)
       rails << Rails::Budget.new(sides: [:input]) if on?(:budget)
       # Off unless asked for: they read history, and a caller that threads none
@@ -249,6 +255,7 @@ module Vangrail
       # Reporting that costs a token count and keeps `certain?` honest.
       rails << Rails::Language.new
       rails << semantic(:context) if on?(:semantic)
+      rails << perplexity(:context) if on?(:perplexity)
       rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
       rails
     end
@@ -380,6 +387,21 @@ module Vangrail
 
       Rails::Semantic.new(embeddings: provider.embeddings, sides: [side],
                           threshold: semantic_threshold)
+    end
+
+    # Off unless asked for, and not only for the round trip: the threshold is a
+    # property of the endpoint's model, and an uncalibrated detector switched on
+    # by default is a detector that blocks somebody's shell transcript.
+    def perplexity(side)
+      return missing('perplexity', side) unless provider&.available?
+
+      Rails::Perplexity.new(completion: provider.completion, sides: [side],
+                            threshold: perplexity_threshold)
+    end
+
+    def perplexity_threshold
+      value = env['GUARDRAILS_PERPLEXITY_THRESHOLD'].to_f
+      value.positive? ? value : Rails::Perplexity::THRESHOLD
     end
 
     def semantic_threshold

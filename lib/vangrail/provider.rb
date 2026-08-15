@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'chat'
+require_relative 'completion'
 require_relative 'embeddings'
 require_relative 'errors'
 
@@ -185,6 +186,16 @@ module Vangrail
       raise ConfigError, "provider #{self.name} has no #{role} model" unless name
 
       Embeddings.new(model: name, base_url: base_url, api_key: api_key, **kwargs)
+    end
+
+    # Scoring rather than generation, from whichever model answers questions.
+    # No separate role: any causal model can score text, and asking a
+    # deployment to name a second one for it would be ceremony.
+    def completion(role = :judge, **kwargs)
+      name = model(role)
+      raise ConfigError, "provider #{self.name} has no #{role} model" unless name
+
+      Completion.new(model: name, base_url: base_url, api_key: api_key, **kwargs)
     end
 
     def to_h
