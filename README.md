@@ -365,7 +365,7 @@ decoding pass buys:
 
 | | patterns alone | with `Rails::Obfuscation` |
 |---|---|---|
-| base64 | 0 of 12 | 11 of 12 |
+| base64 | 0 of 12 | 12 of 12 |
 | rot13 | 0 of 12 | 12 of 12 |
 | zero-width | 0 of 12 | 12 of 12 |
 | homoglyph | 0 of 12 | 12 of 12 |

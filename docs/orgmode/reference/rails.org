@@ -110,7 +110,7 @@ heuristic, because a cluster handbook is full of base64: ssh keys, checksums,
 contributes nothing.
 
 Measured on the injection corpus rewritten five ways: the pattern rail alone
-catches 0 of 60, with the decoding pass 59 of 60, and ordinary documentation is
+catches 0 of 60, with the decoding pass 60 of 60, and ordinary documentation is
 untouched.
 
 ** Rails::ManyShot

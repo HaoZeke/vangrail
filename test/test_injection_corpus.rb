@@ -232,7 +232,7 @@ class TestInjectionCorpus < Minitest::Test
     escaped = cases.reject { |c| caught_by_decoding?(c[:text]) }
     caught = cases.size - escaped.size
     detail = escaped.map { |c| "#{c[:encoding]}: #{c[:injection][0, 50]}" }
-    assert_operator caught.to_f / cases.size, :>=, 0.85,
+    assert_operator caught.to_f / cases.size, :>=, 0.95,
                     "caught #{caught}/#{cases.size}; escaped:\n  #{detail.join("\n  ")}"
   end
 
@@ -242,7 +242,7 @@ class TestInjectionCorpus < Minitest::Test
     ENCODINGS.each do |kind|
       cases = INJECTIONS.map { |i| "#{BENIGN.first}\n\n#{encode(i, kind)}" }
       caught = cases.count { |t| caught_by_decoding?(t) }
-      assert_operator caught.to_f / cases.size, :>=, 0.75,
+      assert_operator caught.to_f / cases.size, :>=, 0.9,
                       "#{kind}: caught only #{caught}/#{cases.size}"
     end
   end

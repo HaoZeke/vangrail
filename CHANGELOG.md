@@ -60,7 +60,7 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::Obfuscation`, which undoes an encoding and runs other rails over the
   result: zero-width and bidi strips, homoglyph folding, rot13, base64, and
   compatibility normalisation. Scored on the injection corpus rewritten five
-  ways: 0 of 60 with patterns alone, 59 of 60 with the decoding pass.
+  ways: 0 of 60 with patterns alone, 60 of 60 with the decoding pass.
 - `Rails::Escalation`, which reads conversation history and catches a refused
   question asked again, or repeated refusals in a short window.
 - `Rails::ManyShot`, which strips chat template control tokens and blocks a

@@ -45,7 +45,13 @@ module Vangrail
       # A base64 run long enough to hold a sentence. Below this the decode is
       # noise, and a handbook is full of short tokens that happen to be in the
       # alphabet.
-      BASE64 = /\b[A-Za-z0-9+\/]{24,}={0,2}\b/
+      #
+      # Bounded by lookaround rather than \b, because + and / are not word
+      # characters: a blob ending in one had its last character trimmed off the
+      # match, and a base64 string one character short decodes to a sentence
+      # with its tail missing. That cost the corpus a case, and the case it
+      # cost was an HTML comment, whose pattern needs the closing marker.
+      BASE64 = /(?<![A-Za-z0-9+\/=])[A-Za-z0-9+\/]{24,}={0,2}(?![A-Za-z0-9+\/=])/
 
       # Latin lookalikes from Cyrillic and Greek. Deliberately short: these are
       # the characters that appear in the published homoglyph attacks, and a
