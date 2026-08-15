@@ -157,8 +157,8 @@ module Vangrail
         # Imperatives first: an injection written in Dutch is an order, and
         # Dutch puts the verb of an order at the front, which is what keeps the
         # ordered templates working across both languages.
-        override: %w[negeer negeren vergeet vergeten overschrijf overschrijven verwerp verwerpen
-                     omzeil omzeilen schrap schrappen],
+        override: %w[negeer negeert negeren vergeet vergeten overschrijf overschrijft overschrijven
+                     verwerp verwerpt verwerpen omzeil omzeilt omzeilen schrap schrapt schrappen],
         instruction: %w[instructie instructies richtlijn richtlijnen regel regels voorschrift voorschriften
                         opdracht opdrachten aanwijzing aanwijzingen beleid prompt],
         prior: %w[vorige eerdere eerder bovenstaande voorgaande hierboven hiervoor voorafgaande

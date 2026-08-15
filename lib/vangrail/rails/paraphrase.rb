@@ -111,14 +111,15 @@ module Vangrail
         return [] if found.empty?
 
         present = found.map { |(_, concept, _)| concept }.to_set
+        length = NLP.words(clause).size
         templates.filter_map do |template|
           next unless Array(template[:requires]).all? { |concept| present.include?(concept) }
 
-          match(found, template)
+          match(found, template, length)
         end
       end
 
-      def match(found, template)
+      def match(found, template, length)
         first, second = template[:concepts]
         lefts = found.select { |(_, concept, _)| concept == first }
         rights = found.select { |(_, concept, _)| concept == second }
@@ -129,13 +130,21 @@ module Vangrail
             # an instruction and a secret at the same index, and a page that
             # says it once has not said anything twice.
             next if i == j
-            next if template[:ordered] && j < i
+            next if template[:ordered] && j < i && !verb_final_object?(i, length)
             next if (i - j).abs > template[:window]
 
             return { label: template[:label], words: [left_word, right_word] }
           end
         end
         nil
+      end
+
+      # Dutch subordinates put the verb last, so the object of an override
+      # sits to its left: "dat je de richtlijnen negeert". English "follow
+      # the guidance and ignore stale copies" has the override mid-clause
+      # with its own object after it, and stays unflagged.
+      def verb_final_object?(verb_index, length)
+        verb_index == length - 1
       end
 
       def describe(hit)

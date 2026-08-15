@@ -58,10 +58,12 @@ an opinion rather than a rule.
 
 *** A third language is reported rather than read
 
-=Rails::Language= exists because the honest answer to a page in German is
-"nothing here read this". It identifies the language by function words and
-returns =passed= with =certain?= false for anything outside the lexicons, and it
-never blocks: another language is not an attack.
+=Rails::Language= exists because the honest answer to a page or a question in
+German is "nothing here read this". It identifies the language by function
+words and returns =passed= with =certain?= false for anything outside the
+lexicons, and it never blocks: another language is not an attack. It sits
+on the input side as well as on context, so =check_input= cannot certain-pass
+a long unread question.
 
 What it does not do is extend coverage. A German page is exactly as unguarded as
 it was; the difference is that the result now says so, which is what lets an
@@ -96,14 +98,15 @@ well, and it is scored on a Dutch corpus rather than assumed to transfer: 60 of
 60 caught, 24 of 24 ordinary Dutch pages kept, and the English pattern rails
 catch 0 of the 12 Dutch attacks.
 
-Two pieces of Dutch grammar are handled and worth knowing about, because they
+Three pieces of Dutch grammar are handled and worth knowing about, because they
 are where a naive port would fail: negation lands after the verb, so the scope
-reaches further right than left, and a backward reference behind a determiner
-at the end of a clause is a noun, which is how /negeer het bovenstaande/ names
-the instruction it cancels. Anything past those two is not modelled. Dutch word
-order in a subordinate clause puts the verb last, and the ordered rules do not
-see it; injections are imperatives, which is why that costs less than it
-sounds, and it is still a hole.
+reaches further right than left; a backward reference behind a determiner at
+the end of a clause is a noun, which is how /negeer het bovenstaande/ names
+the instruction it cancels; and a subordinate clause puts the verb last, so
+the ordered override templates also match when the verb is the last token
+(/dat je de richtlijnen negeert/) and leave the coordinated handbook sentence
+(/volg de richtlijnen en negeer verouderde kopieen/) alone. Anything past
+those three is not modelled.
 
 *** An attacker who reads the source wins more often
 

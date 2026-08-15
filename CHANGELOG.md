@@ -84,6 +84,9 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::Language` now sits on the input side as well as on context, so
   a long question in an unread language no longer certain-passes
   `check_input`.
+- Dutch verb-final subordinates match the ordered paraphrase templates:
+  "dat je de richtlijnen negeert" is an override. The coordinated
+  handbook sentence that made the rule ordered stays clean.
 
 ### Added
 
