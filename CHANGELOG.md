@@ -103,6 +103,16 @@ Nothing has been released yet. This section describes what exists.
   already sees also feed a Session. The two objects stay distinct; they
   share one history.
 
+- A house Ruby style, parented on thoughtbot's guide, with the deviations
+  this gem has to make written down. `rubocop-performance` and
+  `rubocop-minitest` run next to the style cops.
+- `rake test` loads the suite in one process, so the reported count is
+  true and `COVERAGE=1` sees the whole library. Shared prose lives in
+  `test/corpus.rb` instead of in test files that required each other.
+- `isolate_env!` clears every `GUARDRAILS*`, `WILLMA_*`, and `LLMLITE_*`
+  variable by prefix, so a new gateway key cannot leak a laptop token
+  into a builder test.
+
 - `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
   a suffix stripper, a concept lexicon with negation and multiword phrases,
   clause segmentation, and set similarity over character n-grams.

@@ -22,7 +22,7 @@ class TestPerplexity < Minitest::Test
                      words = payload['prompt'].to_s.split
                      values = words.each_with_index.map { |word, i| i.zero? ? nil : scorer.call(word) }
                      { 'choices' => [{ 'logprobs' => { 'token_logprobs' => values } }] }
-                   }
+                   },
                  })
   end
 

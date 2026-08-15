@@ -32,8 +32,8 @@ class TestTrajectory < Minitest::Test
     stub = http
     result = rail(stub).call('the newest question', side: :input, history: turns(2))
 
-    assert result.passed?
-    assert result.certain?
+    assert_predicate result, :passed?
+    assert_predicate result, :certain?
     assert_empty stub.calls
   end
 
@@ -41,7 +41,7 @@ class TestTrajectory < Minitest::Test
     stub = http
     result = rail(stub).call('the newest question', side: :input, history: turns(4))
 
-    assert result.passed?
+    assert_predicate result, :passed?
     assert_equal 1, stub.calls.size
   end
 
@@ -49,7 +49,7 @@ class TestTrajectory < Minitest::Test
     stub = http('{"violation": 1, "rule_ids": ["T1"], "rationale": "staged escalation"}')
     result = rail(stub).call('and now the last step', side: :input, history: turns(6))
 
-    assert result.blocked?
+    assert_predicate result, :blocked?
     assert_includes result.categories, 'T1'
   end
 
@@ -82,11 +82,13 @@ class TestTrajectory < Minitest::Test
     r = rail(stub, every: 2)
 
     skipped = r.call('q', side: :input, history: turns(5))
-    refute skipped.certain?, 'a skipped turn must not look like a clean check'
+
+    refute_predicate skipped, :certain?, 'a skipped turn must not look like a clean check'
     assert_empty stub.calls
 
     judged = r.call('q', side: :input, history: turns(6))
-    assert judged.certain?
+
+    assert_predicate judged, :certain?
     assert_equal 1, stub.calls.size
   end
 
@@ -105,14 +107,15 @@ class TestTrajectory < Minitest::Test
       'q', side: :input, history: turns(4)
     )
 
-    assert result.passed?
-    refute result.certain?
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
     assert_includes result.reason, 'unparsed'
   end
 
   def test_it_is_not_offline_and_not_memoizable
     r = rail(http)
-    refute r.offline?
+
+    refute_predicate r, :offline?
     assert_nil r.cache_key('text', side: :input)
     assert r.applies_to?(:input)
     refute r.applies_to?(:output)

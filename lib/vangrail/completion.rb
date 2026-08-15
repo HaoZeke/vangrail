@@ -46,7 +46,7 @@ module Vangrail
                               'max_tokens' => 0,
                               'echo' => true,
                               'logprobs' => 0,
-                              'temperature' => 0
+                              'temperature' => 0,
                             })
       values = logprobs_in(body)
       raise ProtocolError, 'completions endpoint returned no token logprobs' if values.empty?
@@ -73,7 +73,7 @@ module Vangrail
       values = logprobs['token_logprobs']
       raise ProtocolError, 'completions endpoint returned no token_logprobs array' unless values.is_a?(Array)
 
-      values.map { |value| value.nil? ? nil : value.to_f }
+      values.map { |value| value&.to_f }
     end
   end
 end

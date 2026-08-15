@@ -20,6 +20,7 @@ require 'minitest/autorun'
 require 'tmpdir'
 require_relative '../lib/vangrail'
 require_relative 'stub_http'
+require_relative 'corpus'
 
 # Shared scaffolding: a rail that answers from a script, and env isolation so a
 # developer's own hub token never decides what a test does.
@@ -57,17 +58,14 @@ module GuardrailsTest
     end
   end
 
-  ENV_KEYS = %w[
-    GUARDRAILS GUARDRAILS_CONFIG GUARDRAILS_CONFIG_ID GUARDRAILS_SERVER GUARDRAILS_SERVER_API_KEY
-    GUARDRAILS_MODEL GUARDRAILS_JUDGE_MODEL GUARDRAILS_API_BASE GUARDRAILS_API_KEY GUARDRAILS_RAILS
-    GUARDRAILS_ON_ERROR GUARDRAILS_REASONING GUARDRAILS_CACHE GUARDRAILS_PROMPT_FILE
-    GUARDRAILS_EMBED_MODEL GUARDRAILS_SEMANTIC_THRESHOLD LLMLITE_EMBED_MODEL
-    WILLMA_API_KEY WILLMA_API_KEY_FILE WILLMA_PASS_ENTRY WILLMA_API_BASE
-  ].freeze
+  # Every variable this gem reads, by prefix. A hand-maintained list goes
+  # stale the first time a new GUARDRAILS_GATEWAY_* key is added, and a
+  # laptop's hub token then decides what a builder test does.
+  WATCHED_ENV = /\A(GUARDRAILS|WILLMA|LLMLITE)(_|\z)/
 
   def isolate_env!
-    @saved_env = ENV_KEYS.to_h { |k| [k, ENV.fetch(k, nil)] }
-    ENV_KEYS.each { |k| ENV.delete(k) }
+    @saved_env = ENV.select { |key, _| key.match?(WATCHED_ENV) }
+    @saved_env.each_key { |key| ENV.delete(key) }
     # Point the file and pass lookups at nothing, so only what a test sets resolves.
     ENV['WILLMA_API_KEY_FILE'] = File.join(Dir.tmpdir, 'guardrails-absent-key')
     ENV['WILLMA_PASS_ENTRY'] = 'guardrails/test/absent-entry'

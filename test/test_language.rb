@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require_relative 'helper'
-require_relative 'test_paraphrase'
-require_relative 'test_multilingual'
 
 # The guarantee, extended to languages: nothing reports a clean check it did not
 # perform, and a page in German is a page none of the deterministic rails can
@@ -10,19 +8,8 @@ require_relative 'test_multilingual'
 class TestLanguage < Minitest::Test
   include GuardrailsTest
 
-  GERMAN = <<~TEXT
-    Reichen Sie einen Batch-Job mit sbatch ein und pruefen Sie ihn mit squeue.
-    Die GPU-Partitionen sind gpu_a100 und gpu_h100, mit einer maximalen
-    Laufzeit von fuenf Tagen. Bitte lesen Sie die Reservierungsrichtlinie,
-    bevor Sie dedizierte Knoten anfordern.
-  TEXT
-
-  FRENCH = <<~TEXT
-    Soumettez une tache par lots avec sbatch et verifiez-la avec squeue. Les
-    partitions GPU sont gpu_a100 et gpu_h100, avec une duree maximale de cinq
-    jours. Lisez la politique de reservation avant de demander des noeuds
-    dedies.
-  TEXT
+  GERMAN = TestCorpus::GERMAN
+  FRENCH = TestCorpus::FRENCH
 
   def rail
     @rail ||= Vangrail::Rails::Language.new
@@ -33,14 +20,14 @@ class TestLanguage < Minitest::Test
   end
 
   def test_a_page_in_english_is_read_and_says_so
-    result = check(TestParaphrase::BENIGN.join(' '))
+    result = check(TestCorpus::ENGLISH_BENIGN.join(' '))
 
     assert_predicate result, :passed?
     assert_predicate result, :certain?
   end
 
   def test_a_page_in_dutch_is_read_and_says_so
-    result = check(TestMultilingual::BENIGN.join(' '))
+    result = check(TestCorpus::DUTCH_BENIGN.join(' '))
 
     assert_predicate result, :passed?
     assert_predicate result, :certain?
@@ -79,7 +66,7 @@ class TestLanguage < Minitest::Test
 
   def test_the_supported_set_is_what_decides
     dutch_only = Vangrail::Rails::Language.new(supported: [:nl])
-    english = TestParaphrase::BENIGN.join(' ')
+    english = TestCorpus::ENGLISH_BENIGN.join(' ')
 
     refute_predicate dutch_only.call(english, side: :context), :certain?
     assert_predicate rail.call(english, side: :context), :certain?
@@ -111,8 +98,8 @@ class TestLanguage < Minitest::Test
 
   # The detector on its own, since every rule above rests on it.
   def test_the_detector_calls_the_two_languages_it_knows
-    assert_equal :en, Vangrail::NLP.language(TestParaphrase::BENIGN.join(' '))
-    assert_equal :nl, Vangrail::NLP.language(TestMultilingual::BENIGN.join(' '))
+    assert_equal :en, Vangrail::NLP.language(TestCorpus::ENGLISH_BENIGN.join(' '))
+    assert_equal :nl, Vangrail::NLP.language(TestCorpus::DUTCH_BENIGN.join(' '))
     assert_equal :unknown, Vangrail::NLP.language(GERMAN)
     assert_equal :unknown, Vangrail::NLP.language(FRENCH)
   end

@@ -40,7 +40,7 @@ module Vangrail
         'base_tag' => /<base\b[^>]*>/i,
         'form' => /<form\b[^>]*>.*?<\/form>|<form\b[^>]*>/mi,
         # Styling can position an invisible overlay over the page.
-        'style_block' => /<style\b[^>]*>.*?<\/style>/mi
+        'style_block' => /<style\b[^>]*>.*?<\/style>/mi,
       }.freeze
 
       attr_reader :patterns

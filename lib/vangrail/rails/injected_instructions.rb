@@ -80,7 +80,7 @@ module Vangrail
         # Hidden text: a marker for content meant for the model and not the
         # reader. HTML comments in a rendered page are the common carrier.
         'hidden_directive' => /<!--[^>]*\b(?:ignore|instruction|assistant|system|prompt|
-                                             negeer|instructie|assistent|systeem)\b[^>]*-->/imx
+                                             negeer|instructie|assistent|systeem)\b[^>]*-->/imx,
       }.freeze
 
       attr_reader :patterns

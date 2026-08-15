@@ -99,7 +99,7 @@ module Vangrail
         'reason' => reason,
         'categories' => (categories unless categories.empty?),
         'model' => model,
-        'latency_ms' => latency_ms
+        'latency_ms' => latency_ms,
       }.compact
     end
 

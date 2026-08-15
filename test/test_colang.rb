@@ -24,6 +24,7 @@ class TestColang < Minitest::Test
 
   def test_a_flow_and_its_messages_parse
     program = Parser.parse(FLOW)
+
     assert_equal ['self check input'], program.flow_names
     assert_equal 2, program.bot_message('refuse to respond').size
     assert_equal 2, program.flow('self check input').body.size
@@ -31,6 +32,7 @@ class TestColang < Minitest::Test
 
   def test_the_built_in_flows_parse_with_this_parser
     names = Vangrail::Colang::Library.flow_names
+
     assert_includes names, 'self check input'
     assert_includes names, 'self check output'
     assert_includes names, 'self check facts'
@@ -42,6 +44,7 @@ class TestColang < Minitest::Test
         $ok = execute my_action(threshold=3, label="high", flag=True)
     CO
     call = program.flow('check').body.first.expression
+
     assert_equal 'my_action', call.action
     assert_equal({ 'threshold' => 3, 'label' => 'high', 'flag' => true }, call.arguments)
   end
@@ -61,6 +64,7 @@ class TestColang < Minitest::Test
         "no"
     CO
     node = program.flow('check').body.last
+
     assert_equal 1, node.then_body.size
     assert_equal 1, node.else_body.size
   end
@@ -100,6 +104,7 @@ class TestColang < Minitest::Test
 
   def test_a_refusing_flow_blocks_and_carries_the_message
     outcome = interpret(FLOW, { 'self_check_input' => ->(_a, _c) { false } })
+
     assert_equal :blocked, outcome.status
     assert_equal "I'm sorry, I can't respond to that.", outcome.content
   end
@@ -109,6 +114,7 @@ class TestColang < Minitest::Test
   def test_the_refusal_is_deterministic
     5.times do
       outcome = interpret(FLOW, { 'self_check_input' => ->(_a, _c) { false } })
+
       assert_equal "I'm sorry, I can't respond to that.", outcome.content
     end
   end
@@ -124,6 +130,7 @@ class TestColang < Minitest::Test
       seen = [args, ctx]
       true
     } }, flow: 'check', context: { text: 'hello' })
+
     assert_equal({ 'level' => 2 }, seen[0])
     assert_equal 'hello', seen[1][:text]
   end
@@ -133,6 +140,7 @@ class TestColang < Minitest::Test
   def test_assigning_to_the_message_variable_is_a_rewrite
     source = "define flow mask\n  $bot_message = execute redact\n"
     outcome = interpret(source, { 'redact' => ->(_a, _c) { 'masked answer' } }, flow: 'mask')
+
     assert_equal :modified, outcome.status
     assert_equal 'masked answer', outcome.content
   end
@@ -162,8 +170,10 @@ class TestColang < Minitest::Test
         "too high"
     CO
     blocked = interpret(source, { 'level' => ->(_a, _c) { 'high' } }, flow: 'check')
+
     assert_equal :blocked, blocked.status
     passed = interpret(source, { 'level' => ->(_a, _c) { 'low' } }, flow: 'check')
+
     assert_equal :passed, passed.status
   end
 
@@ -173,13 +183,14 @@ class TestColang < Minitest::Test
     program = Vangrail::Colang::Library.program.merge(Parser.parse(FLOW))
     actions = Vangrail::Actions.new('self_check_input' => ->(_a, ctx) { !ctx[:text].include?('bad') })
     rail = Vangrail::Rails::ColangFlow.new(
-      flow_name: 'self check input', program: program, actions: actions, sides: [:input]
+      flow_name: 'self check input', program: program, actions: actions, sides: [:input],
     )
     engine = Vangrail::Engine.new(input: [rail])
     blocked = engine.check_input('something bad')
-    assert blocked.blocked?
+
+    assert_predicate blocked, :blocked?
     assert_equal "I'm sorry, I can't respond to that.", blocked.content
-    assert engine.check_input('something fine').passed?
+    assert_predicate engine.check_input('something fine'), :passed?
   end
 
   # A flow can call anything registered, so this class cannot know what its
@@ -189,6 +200,7 @@ class TestColang < Minitest::Test
       flow_name: 'self check input', program: Vangrail::Colang::Library.program,
       actions: Vangrail::Actions.new
     )
+
     assert_nil rail.cache_key('text', side: :input)
   end
 end

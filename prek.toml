@@ -24,8 +24,8 @@ hooks = [
   { id = "detect-private-key" },
 ]
 
-# The test suite is intentionally not a hook: `rake test` starts one Ruby
-# process per file and belongs in CI, not in front of every commit.
+# The test suite is intentionally not a hook: `rake test` is a full
+# suite and belongs in CI, not in front of every commit.
 
 # Project-local tools (must be on PATH: `gem install rubocop`).
 [[repos]]

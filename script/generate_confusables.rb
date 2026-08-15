@@ -32,7 +32,7 @@ RANGES = [
   0xA000..0xABFF,   # Yi, Vai, Latin extended-D, Cherokee supplement
   0xFB00..0xFFEF,   # alphabetic presentation forms through halfwidth and fullwidth
   0x1D400..0x1D7FF, # mathematical alphanumeric symbols
-  0x1F100..0x1F1FF  # enclosed alphanumeric supplement
+  0x1F100..0x1F1FF, # enclosed alphanumeric supplement
 ].freeze
 
 PRINTABLE_ASCII = (33..126).map(&:chr).freeze

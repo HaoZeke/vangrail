@@ -44,6 +44,7 @@ class TestProvider < Minitest::Test
       name: 'hub', base_url: 'https://gateway.invalid/api/v0',
       models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
     )
+
     assert_equal %w[llmlite hub], Vangrail::Provider.names
   ensure
     Vangrail::Providers.reset!
@@ -52,9 +53,10 @@ class TestProvider < Minitest::Test
   def test_registering_a_name_twice_replaces_it
     2.times do
       Vangrail::Providers.register_gateway(
-        name: 'hub', base_url: 'https://gateway.invalid/api/v0', key_env: 'HUB_KEY'
+        name: 'hub', base_url: 'https://gateway.invalid/api/v0', key_env: 'HUB_KEY',
       )
     end
+
     assert_equal 1, Vangrail::Provider.names.count('hub')
   ensure
     Vangrail::Providers.reset!
@@ -68,14 +70,15 @@ class TestProvider < Minitest::Test
       'GUARDRAILS_GATEWAY_API_KEY' => 'tok',
       'GUARDRAILS_GATEWAY_JUDGE_MODEL' => 'some/instruct',
       'GUARDRAILS_GATEWAY_GUARD_MODEL' => 'some/guard',
-      'GUARDRAILS_GATEWAY_GUARD_PRESET' => 'apriel_guard'
+      'GUARDRAILS_GATEWAY_GUARD_PRESET' => 'apriel_guard',
     }
     Vangrail::Providers.install!(env)
     hub = Vangrail::Provider['hub']
+
     refute_nil hub
     assert_equal 'https://gateway.invalid/api/v0', hub.base_url
     assert_equal 'some/instruct', hub.model(:judge)
-    assert hub.guard?
+    assert_predicate hub, :guard?
     assert_equal :apriel_guard, hub.guard_preset
   ensure
     Vangrail::Providers.reset!
@@ -98,8 +101,9 @@ class TestProvider < Minitest::Test
   def test_a_pinned_provider_is_taken_even_when_it_is_down
     with_registry(provider(name: 'down', available: false), provider(name: 'up', available: true)) do
       chosen = Vangrail::Provider.resolve('GUARDRAILS_PROVIDER' => 'down')
+
       assert_equal 'down', chosen.name
-      refute chosen.available?
+      refute_predicate chosen, :available?
     end
   end
 
@@ -114,26 +118,29 @@ class TestProvider < Minitest::Test
     chosen = Vangrail::Provider.resolve(
       'GUARDRAILS_API_BASE' => 'http://elsewhere.invalid/v1',
       'GUARDRAILS_API_KEY' => 'k',
-      'GUARDRAILS_JUDGE_MODEL' => 'some-model'
+      'GUARDRAILS_JUDGE_MODEL' => 'some-model',
     )
+
     assert_equal 'env', chosen.name
     assert_equal 'some-model', chosen.model(:judge)
-    assert chosen.available?
+    assert_predicate chosen, :available?
   end
 
   def test_model_overrides_reach_a_registered_provider
     chosen = Vangrail::Provider.resolve(
       'GUARDRAILS_PROVIDER' => 'llmlite',
-      'GUARDRAILS_JUDGE_MODEL' => 'my/judge'
+      'GUARDRAILS_JUDGE_MODEL' => 'my/judge',
     )
+
     assert_equal 'my/judge', chosen.model(:judge)
   end
 
   # The difference that changes which rail class gets built.
   def test_llmlite_offers_no_classifier
     llmlite = Vangrail::Provider['llmlite']
+
     assert_nil llmlite.model(:guard)
-    refute llmlite.guard?
+    refute_predicate llmlite, :guard?
     assert llmlite.local
   end
 
@@ -144,7 +151,8 @@ class TestProvider < Minitest::Test
       guard_preset: :apriel_guard, key_env: 'HUB_KEY', env: { 'HUB_KEY' => 'tok' }
     )
     hub = Vangrail::Provider['hub']
-    assert hub.guard?
+
+    assert_predicate hub, :guard?
     assert_equal :apriel_guard, hub.guard_preset
     refute hub.local
   ensure
@@ -158,6 +166,7 @@ class TestProvider < Minitest::Test
 
   def test_chat_for_a_served_role_points_at_the_provider
     chat = Vangrail::Provider['llmlite'].chat(:judge)
+
     assert_equal Vangrail::Providers::Llmlite.base_url, chat.http.base_url
     assert_equal Vangrail::Providers::Llmlite::DEFAULT_MODEL, chat.model
   end
@@ -174,12 +183,14 @@ class TestProvider < Minitest::Test
     probe = TCPServer.new('127.0.0.1', 0)
     port = probe.addr[1]
     probe.close
+
     refute Vangrail::Providers::Llmlite.listening?('LLMLITE_PORT' => port.to_s)
   end
 
   def test_llmlite_probe_is_true_for_an_open_port
     server = TCPServer.new('127.0.0.1', 0)
     port = server.addr[1]
+
     assert Vangrail::Providers::Llmlite.listening?('LLMLITE_PORT' => port.to_s)
   ensure
     server&.close
@@ -200,6 +211,7 @@ class TestProvider < Minitest::Test
       path = File.join(dir, 'api_key')
       File.write(path, "from-file\n")
       env = { 'HUB_KEY' => 'from-env' }
+
       assert_equal 'from-env', Vangrail::Providers::Gateway.token(spec(key_file: path), env)
     end
   end
@@ -208,6 +220,7 @@ class TestProvider < Minitest::Test
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'api_key')
       File.write(path, "  file-token  \n")
+
       assert_equal 'file-token',
                    Vangrail::Providers::Gateway.token(spec(key_file: path, pass_entry: 'absent/entry'), {})
     end
@@ -218,6 +231,7 @@ class TestProvider < Minitest::Test
       path = File.join(dir, 'elsewhere')
       File.write(path, "redirected\n")
       env = { 'HUB_KEY_FILE' => path }
+
       assert_equal 'redirected', Vangrail::Providers::Gateway.token(spec(key_file: '/nowhere'), env)
     end
   end

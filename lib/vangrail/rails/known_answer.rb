@@ -101,7 +101,7 @@ module Vangrail
       def ask(token, body)
         chat.ask([
                    { 'role' => 'system', 'content' => format(INSTRUCTION, token: token) },
-                   { 'role' => 'user', 'content' => "<<<DOCUMENT\n#{body}\nDOCUMENT>>>" }
+                   { 'role' => 'user', 'content' => "<<<DOCUMENT\n#{body}\nDOCUMENT>>>" },
                  ])
       end
 

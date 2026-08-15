@@ -148,7 +148,7 @@ module Vangrail
       'instruction_override' => /\bignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+instructions?\b/i,
       'prompt_disclosure' => /\b(?:reveal|print|repeat|show|output)\s+(?:me\s+)?(?:your|the|its)?\s*
                               (?:system\s+prompt|initial\s+instructions|developer\s+message)\b/xi,
-      'role_reset' => /\byou\s+are\s+now\s+(?:a|an|in)\b.{0,40}\b(?:mode|persona|dan|jailbreak)\b/i
+      'role_reset' => /\byou\s+are\s+now\s+(?:a|an|in)\b.{0,40}\b(?:mode|persona|dan|jailbreak)\b/i,
     }.freeze
 
     attr_reader :env
@@ -179,12 +179,14 @@ module Vangrail
 
       core = [
         (Rails::InjectedInstructions.new if side == :context),
-        (Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
-                            sides: [side]) if side == :input),
+        (if side == :input
+           Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
+                              sides: [side])
+         end),
         Rails::Jailbreak.new(sides: [side]),
         Rails::Paraphrase.new(sides: [side]),
         Rails::Similarity.new(sides: [side]),
-        Rails::ManyShot.new(sides: [side])
+        Rails::ManyShot.new(sides: [side]),
       ].compact
       extras = [Rails::Obfuscation.new(rails: core, sides: [side])]
       extras << Rails::Hidden.new(rails: core) if side == :context

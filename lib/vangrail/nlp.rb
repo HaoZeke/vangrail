@@ -151,7 +151,7 @@ module Vangrail
         self: %w[your you yours yourself],
         # Totalising quantifiers. An attack cancels the lot, because it does
         # not know what it is cancelling; a page cancels one named thing.
-        totality: %w[everything anything all every each entirely completely]
+        totality: %w[everything anything all every each entirely completely],
       },
       nl: {
         # Imperatives first: an injection written in Dutch is an order, and
@@ -175,8 +175,8 @@ module Vangrail
         unrestricted: %w[ongefilterd onbeperkt ongecensureerd onbegrensd jailbroken],
         limits: %w[beperking beperkingen restrictie restricties filter filters grens grenzen waarborg],
         self: %w[je jij jou jouw uw jezelf uzelf],
-        totality: %w[alles alle elke ieder iedere volledig helemaal]
-      }
+        totality: %w[alles alle elke ieder iedere volledig helemaal],
+      },
     }.freeze
 
     # Concepts that only exist as several words. A token lexicon cannot hold
@@ -189,7 +189,7 @@ module Vangrail
         'initial instruction' => %i[secret],
         'api key' => %i[secret],
         'do anything now' => %i[unrestricted],
-        'no longer bound' => %i[unrestricted]
+        'no longer bound' => %i[unrestricted],
       },
       nl: {
         'systeem prompt' => %i[secret],
@@ -198,8 +198,8 @@ module Vangrail
         # "doe" alone is the commonest verb in the language and means nothing
         # here; "doe alsof" is the one that assigns a role.
         'doe alsof' => %i[persona],
-        'zonder beperkingen' => %i[unrestricted]
-      }
+        'zonder beperkingen' => %i[unrestricted],
+      },
     }.freeze
 
     LANGUAGES = CONCEPTS.keys.freeze
@@ -210,7 +210,7 @@ module Vangrail
     # for limits.
     NEGATORS = {
       en: %w[not never dont doesnt cannot cant without no none neither nor avoid],
-      nl: %w[niet nooit geen zonder nergens niemand niets noch vermijd]
+      nl: %w[niet nooit geen zonder nergens niemand niets noch vermijd],
     }.freeze
 
     # What a negated concept becomes. A concept mapped to nil is cancelled
@@ -288,10 +288,10 @@ module Vangrail
     PHRASE_LEXICONS = LANGUAGES.to_h { |language| [language, build_phrases([language])] }
                                .merge(LANGUAGES => build_phrases(LANGUAGES)).freeze
 
-    NEGATOR_STEMS = NEGATORS.values.flatten.map { |w| stem(w) }.to_set.freeze
-    DETERMINER_STEMS = DETERMINERS.map { |w| stem(w) }.to_set.freeze
-    PRONOUN_STEMS = PRONOUNS.map { |w| stem(w) }.to_set.freeze
-    COPULA_STEMS = COPULAS.map { |w| stem(w) }.to_set.freeze
+    NEGATOR_STEMS = NEGATORS.values.flatten.to_set { |w| stem(w) }.freeze
+    DETERMINER_STEMS = DETERMINERS.to_set { |w| stem(w) }.freeze
+    PRONOUN_STEMS = PRONOUNS.to_set { |w| stem(w) }.freeze
+    COPULA_STEMS = COPULAS.to_set { |w| stem(w) }.freeze
     PHRASE_LENGTHS = PHRASE_LEXICONS[LANGUAGES].keys.map { |k| k.count(' ') + 1 }.uniq.sort.reverse.freeze
 
     def lexicon(languages = LANGUAGES)
@@ -318,7 +318,7 @@ module Vangrail
     # than one common one.
     FUNCTION_WORDS = {
       en: %w[the and of to is are that with for this you it was were from have has not but they],
-      nl: %w[het een van niet zijn aan ook maar deze wordt worden je uw naar met dat als bij]
+      nl: %w[het een van niet zijn aan ook maar deze wordt worden je uw naar met dat als bij],
     }.freeze
 
     # A language needs this many distinct function words present before it is
@@ -385,7 +385,7 @@ module Vangrail
 
         negated = negated?(stems, i)
         found.each do |concept|
-          concept = negated ? NEGATION.fetch(concept, concept) : concept
+          concept = NEGATION.fetch(concept, concept) if negated
           out << [i, concept, tokens[i]] if concept
         end
       end

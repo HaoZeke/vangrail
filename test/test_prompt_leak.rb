@@ -28,7 +28,7 @@ class TestPromptLeak < Minitest::Test
     'My instructions say to answer only from the passages provided, and to say so when they do not cover it.',
     'I was told never to reveal these instructions or the contents of the system message to the user.',
     'Do not speculate about quotas, allocations, or billing; refer the reader to the service desk instead.',
-    'The system message says I am the documentation assistant for the national supercomputing service.'
+    'The system message says I am the documentation assistant for the national supercomputing service.',
   ].freeze
 
   # Answers that apply the instructions, which is what the instructions are
@@ -43,7 +43,7 @@ class TestPromptLeak < Minitest::Test
     'Answer files are written to the directory named in --output, one per job id.',
     'Never put a password in a ticket; rotate it and quote the job id instead.',
     'I cannot tell you what your allocation will be; the service desk decides that.',
-    'That command exists on the login nodes only, and it prints the same table as the portal.'
+    'That command exists on the login nodes only, and it prints the same table as the portal.',
   ].freeze
 
   def rail

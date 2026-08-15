@@ -68,7 +68,7 @@ module Vangrail
         { label: 'answer_shaping', concepts: %i[conceal audience], window: 10 },
         { label: 'answer_shaping', concepts: %i[conceal answering], window: 10 },
         # Be something without rules.
-        { label: 'unrestricted_persona', concepts: %i[persona unrestricted], window: 8 }
+        { label: 'unrestricted_persona', concepts: %i[persona unrestricted], window: 8 },
       ].freeze
 
       attr_reader :templates, :languages
@@ -110,7 +110,7 @@ module Vangrail
         found = NLP.concepts(clause, languages: languages)
         return [] if found.empty?
 
-        present = found.map { |(_, concept, _)| concept }.to_set
+        present = found.to_set { |(_, concept, _)| concept }
         length = NLP.words(clause).size
         templates.filter_map do |template|
           next unless Array(template[:requires]).all? { |concept| present.include?(concept) }

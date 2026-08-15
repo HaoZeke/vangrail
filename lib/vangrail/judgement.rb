@@ -53,7 +53,7 @@ module Vangrail
         'action' => action.to_s,
         'certain' => certain?,
         'fired' => fired.map { |c| { 'rail' => c[:rail], 'bits' => c[:bits].round(2) } },
-        'skipped' => (skipped unless skipped.empty?)
+        'skipped' => (skipped unless skipped.empty?),
       }.compact
     end
 

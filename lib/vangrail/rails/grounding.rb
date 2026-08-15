@@ -45,7 +45,7 @@ module Vangrail
 
         answer = chat.ask([
                             { 'role' => 'system', 'content' => policy },
-                            { 'role' => 'user', 'content' => Policies.grounding_prompt(text, passages) }
+                            { 'role' => 'user', 'content' => Policies.grounding_prompt(text, passages) },
                           ])
         parsed = Parsers.policy(answer.text)
         unless parsed[:decided]

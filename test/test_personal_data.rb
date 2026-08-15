@@ -17,24 +17,24 @@ class TestPersonalData < Minitest::Test
   def test_a_mailbox_is_redacted
     result = check('My colleague r.jansen@example.org cannot log in either.')
 
-    assert result.modified?
+    assert_predicate result, :modified?
     assert_includes result.categories, 'email'
     refute_includes result.content, 'r.jansen@example.org'
     assert_includes result.content, 'cannot log in either'
   end
 
   def test_a_phone_number_is_redacted
-    assert check('Call me on +31 6 12345678 if the job fails.').modified?
-    assert check('My desk line is 070 123 4567.').modified?
+    assert_predicate check('Call me on +31 6 12345678 if the job fails.'), :modified?
+    assert_predicate check('My desk line is 070 123 4567.'), :modified?
   end
 
   def test_an_iban_is_redacted
-    assert check('The invoice went to NL91 ABNA 0417 1643 00 last month.').modified?
+    assert_predicate check('The invoice went to NL91 ABNA 0417 1643 00 last month.'), :modified?
   end
 
   def test_a_card_number_is_redacted_and_a_long_id_is_not
-    assert check('I paid with 4111 1111 1111 1111 for the workshop.').modified?
-    assert check('Job 4111111111111112 is still pending.').passed?
+    assert_predicate check('I paid with 4111 1111 1111 1111 for the workshop.'), :modified?
+    assert_predicate check('Job 4111111111111112 is still pending.'), :passed?
   end
 
   # --- the traps ---
@@ -46,28 +46,31 @@ class TestPersonalData < Minitest::Test
     'scp results.tar rgoswami@snellius.example.org:/scratch/ fails with permission denied.',
     'Use `rsync -a data/ rgoswami@snellius.example.org:/project/` to copy it up.',
     'My ~/.ssh/config has Host snel with User rgoswami@snellius.example.org, is that wrong?',
-    'The docs say to run ssh-copy-id rgoswami@snellius.example.org first.'
+    'The docs say to run ssh-copy-id rgoswami@snellius.example.org first.',
   ].freeze
 
   def test_login_targets_survive
     eaten = LOGIN_EXAMPLES.reject { |t| check(t).passed? }
+
     assert_empty eaten, "redacted a login example:\n  #{eaten.join("\n  ")}"
   end
 
   def test_anything_inside_backticks_survives
     text = 'Is `user@host.example.org` the right form, or should I write it differently?'
-    assert check(text).passed?
+
+    assert_predicate check(text), :passed?
   end
 
   def test_a_fenced_block_survives
     text = "Here is my config:\n\n```\nHost snel\n  User someone@example.org\n```\n\nWhat is wrong?"
-    assert check(text).passed?
+
+    assert_predicate check(text), :passed?
   end
 
   def test_a_documentation_placeholder_is_not_a_person
     ['Do I write user@example.org or my real address?',
      'The manual shows username@example.org in the ssh line.'].each do |text|
-      assert check(text).passed?, text
+      assert_predicate check(text), :passed?, text
     end
   end
 
@@ -78,11 +81,12 @@ class TestPersonalData < Minitest::Test
     'The node has 128 cores and 512 GB of memory.',
     'Set --time=24:00:00 and --mem=64G in the script.',
     'The checksum is 8f14e45fceea167a5a36dedd4bea2543.',
-    'I requested 4 nodes and got 2, why?'
+    'I requested 4 nodes and got 2, why?',
   ].freeze
 
   def test_ordinary_questions_are_untouched
     flagged = BENIGN.reject { |t| check(t).passed? }
+
     assert_empty flagged, "flagged:\n  #{flagged.join("\n  ")}"
   end
 
@@ -131,16 +135,18 @@ class TestPersonalData < Minitest::Test
 
   def test_it_reads_questions_by_default
     r = rail
+
     assert r.applies_to?(:input)
     refute r.applies_to?(:output)
-    assert r.offline?
+    assert_predicate r, :offline?
     assert_equal 'text', r.cache_key('text', side: :input)
   end
 
   def test_it_rewrites_rather_than_refusing
     result = check('Email me at someone@example.org with the answer.')
-    assert result.modified?
-    refute result.blocked?
-    assert result.allowed?
+
+    assert_predicate result, :modified?
+    refute_predicate result, :blocked?
+    assert_predicate result, :allowed?
   end
 end

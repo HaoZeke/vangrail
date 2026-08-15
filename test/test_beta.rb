@@ -11,6 +11,7 @@ class TestBeta < Minitest::Test
   include GuardrailsTest
 
   B = Vangrail::Beta
+  QUANTILES = [0.05, 0.5, 0.95].freeze
 
   # Beta(1, 1) is the uniform distribution, and Beta(a, 1) and Beta(1, b) have
   # closed forms: x**a and 1 - (1 - x)**b.
@@ -33,7 +34,7 @@ class TestBeta < Minitest::Test
 
   def test_the_quantile_inverts_the_cdf
     [[0.5, 1, 1], [2.5, 7.5, 0.2], [0.5, 48.5, 0.95]].each do |a, b, _|
-      [0.05, 0.5, 0.95].each do |p|
+      QUANTILES.each do |p|
         x = B.quantile(p, a, b)
 
         assert_in_delta p, B.cdf(x, a, b), 1e-6, "quantile(#{p}, #{a}, #{b}) did not invert"

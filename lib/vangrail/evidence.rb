@@ -114,7 +114,7 @@ module Vangrail
         'rail' => rail,
         'bits_if_fired' => bits(true, confidence: confidence).round(2),
         'bits_if_silent' => bits(false, confidence: confidence).round(2),
-        'capability' => capability(prior: prior).round(4)
+        'capability' => capability(prior: prior).round(4),
       }
     end
 
@@ -234,7 +234,7 @@ module Vangrail
         rail: chosen[:rail],
         fired: chosen[:fired],
         bits: chosen[:entry].bits(chosen[:fired], confidence: confidence),
-        spoke_for: members.map { |m| m[:rail] }
+        spoke_for: members.map { |m| m[:rail] },
       }
     end
 

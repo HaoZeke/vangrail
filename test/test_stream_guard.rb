@@ -30,8 +30,9 @@ class TestStreamGuard < Minitest::Test
   def test_nothing_to_report_while_the_text_is_clean
     guard = Vangrail::StreamGuard.new(engine)
     events = stream(guard, 'Submit the job with sbatch and watch it with squeue. ' * 3)
+
     assert_empty events.compact
-    assert guard.finish.passed?
+    assert_predicate guard.finish, :passed?
   end
 
   # The point of the class. A credential that appears for four seconds has
@@ -54,7 +55,7 @@ class TestStreamGuard < Minitest::Test
     tail = 'this text should never be inspected because the stream stopped. ' * 5
     stream(guard, "A normal opening sentence. Then a forbidden phrase appears. #{tail}")
 
-    assert guard.blocked?
+    assert_predicate guard, :blocked?
     assert_operator guard.content.length, :<, 200, 'the guard kept consuming after blocking'
   end
 
@@ -63,6 +64,7 @@ class TestStreamGuard < Minitest::Test
     guard = Vangrail::StreamGuard.new(engine([pattern]))
     stream(guard, "a nope arrives here and the guard stops#{' padding' * 10}")
     before = guard.content
+
     assert_nil_or_blocked guard.push('more text that should be ignored entirely')
     assert_equal before, guard.content
   end
@@ -82,9 +84,11 @@ class TestStreamGuard < Minitest::Test
 
     guard = Vangrail::StreamGuard.new(engine([judge]))
     stream(guard, 'a long answer that arrives in many small pieces over time. ' * 4)
+
     assert_empty http.calls, 'a model rail ran mid-stream'
 
     guard.finish
+
     assert_equal 1, http.calls.size, 'the model rail did not run at the end'
   end
 
@@ -97,8 +101,9 @@ class TestStreamGuard < Minitest::Test
 
     guard = Vangrail::StreamGuard.new(engine([grounding]), passages: [{ 'text' => 'Use gpu_a100.' }])
     events = stream(guard, 'Use gpu_h200 for the job. ' * 4)
+
     assert_empty events.compact, 'the grounding rail ran on a partial answer'
-    assert guard.finish.blocked?, 'the grounding rail did not run at the end'
+    assert_predicate guard.finish, :blocked?, 'the grounding rail did not run at the end'
   end
 
   # --- bookkeeping ---
@@ -106,12 +111,14 @@ class TestStreamGuard < Minitest::Test
   def test_the_check_interval_is_respected
     guard = Vangrail::StreamGuard.new(engine, interval: 100)
     stream(guard, 'x' * 250, size: 10)
+
     assert_operator guard.checks, :<=, 3
     assert_operator guard.checks, :>=, 2
   end
 
   def test_an_empty_chunk_changes_nothing
     guard = Vangrail::StreamGuard.new(engine)
+
     assert_nil guard.push('')
     assert_nil guard.push(nil)
     assert_equal '', guard.content
@@ -121,7 +128,8 @@ class TestStreamGuard < Minitest::Test
     guard = Vangrail::StreamGuard.new(engine)
     guard.push("here is a token #{SECRET} in the answer")
     result = guard.finish
-    assert result.allowed?
+
+    assert_predicate result, :allowed?
     refute_includes guard.content, SECRET
   end
 
@@ -131,8 +139,10 @@ class TestStreamGuard < Minitest::Test
   def test_take_hands_out_only_what_has_not_been_shown
     guard = Vangrail::StreamGuard.new(engine, interval: 6)
     guard.push('hello ')
+
     assert_equal 'hello ', guard.take
     guard.push('world!')
+
     assert_equal 'world!', guard.take
     assert_equal '', guard.take
   end
@@ -151,6 +161,7 @@ class TestStreamGuard < Minitest::Test
 
     guard.finish
     released = guard.take
+
     refute_empty released
     refute_includes released, SECRET
   end
@@ -170,10 +181,12 @@ class TestStreamGuard < Minitest::Test
     guard = Vangrail::StreamGuard.new(engine, interval: 1)
     prefix = 'Set the key in your config: '
     guard.push(prefix)
+
     assert_equal prefix, guard.take
 
     guard.push("api_key=#{SECRET} then submit with sbatch. #{'padding ' * 8}")
     delta = guard.take
+
     refute_includes delta, SECRET
     refute_includes delta, prefix.rstrip
     refute_includes guard.content, SECRET
@@ -182,9 +195,11 @@ class TestStreamGuard < Minitest::Test
 
   def test_an_engine_with_no_output_rails_says_nothing_and_finishes_unchecked
     guard = Vangrail::StreamGuard.new(Vangrail::Engine.new)
+
     assert_empty stream(guard, 'anything at all, at some length, arriving in pieces. ' * 2).compact
     result = guard.finish
-    assert result.passed?
-    refute result.certain?
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
   end
 end

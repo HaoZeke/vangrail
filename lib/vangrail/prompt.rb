@@ -23,7 +23,7 @@ module Vangrail
     FILTERS = {
       'upper' => lambda(&:upcase),
       'lower' => lambda(&:downcase),
-      'trim' => lambda(&:strip)
+      'trim' => lambda(&:strip),
     }.freeze
 
     TAG = /\{%\s*(\w+)\s*([^%]*?)\s*%\}/

@@ -27,7 +27,7 @@ module Vangrail
       'S11' => 'Suicide & Self-Harm',
       'S12' => 'Sexual Content',
       'S13' => 'Elections',
-      'S14' => 'Code Interpreter Abuse'
+      'S14' => 'Code Interpreter Abuse',
     }.freeze
 
     # "safe" or "unsafe\nS1,S10".
@@ -51,8 +51,8 @@ module Vangrail
       return reasoned if reasoned
 
       lines = clean_lines(text)
-      safety = lines.find { |l| l.match?(/\A(safe|unsafe)/i) }
-      adversarial = lines.find { |l| l.match?(/\A(non_adversarial|adversarial)/i) }
+      safety = lines.detect { |l| l.match?(/\A(safe|unsafe)/i) }
+      adversarial = lines.detect { |l| l.match?(/\A(non_adversarial|adversarial)/i) }
       return undecided(text) if safety.nil? && adversarial.nil?
 
       unsafe = safety.to_s.match?(/\Aunsafe/i)
@@ -81,9 +81,9 @@ module Vangrail
       fields = {}
       body.each_line do |line|
         m = line.chomp.match(
-          /\A(safety_risks_class|safety_risks_categories|adversarial_attacks_class)\s*:\s*(.*)\z/
+          /\A(safety_risks_class|safety_risks_categories|adversarial_attacks_class)\s*:\s*(.*)\z/,
         )
-        fields[m[1]] = m[2].strip.sub(/,\z/, '') if m
+        fields[m[1]] = m[2].strip.delete_suffix(',') if m
       end
       unsafe = fields['safety_risks_class'].to_s.match?(/unsafe/i)
       attack = fields['adversarial_attacks_class'].to_s.match?(/\Aadversarial/i)

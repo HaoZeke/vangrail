@@ -103,14 +103,14 @@ module Vangrail
     end
 
     def last_user_turn
-      turns.reverse.find(&:user?)
+      turns.reverse.detect(&:user?)
     end
 
     def to_h
       {
         'turns' => turns.map(&:to_h),
         'blocked' => blocked_turns.size,
-        'session' => session&.to_h
+        'session' => session&.to_h,
       }.compact
     end
 

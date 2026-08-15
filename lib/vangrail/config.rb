@@ -68,7 +68,7 @@ module Vangrail
         flows: flows,
         instructions: yaml['instructions'],
         sample_conversation: yaml['sample_conversation'],
-        path: dir
+        path: dir,
       )
     end
 
@@ -96,12 +96,12 @@ module Vangrail
     end
 
     def prompt_for(task)
-      entry = prompts.find { |p| p['task'].to_s == task.to_s }
+      entry = prompts.detect { |p| p['task'].to_s == task.to_s }
       entry && entry['content'].to_s
     end
 
     def model_for(type)
-      models.find { |m| m['type'].to_s == type.to_s }
+      models.detect { |m| m['type'].to_s == type.to_s }
     end
 
     # Builds the engine this configuration describes.
@@ -122,7 +122,7 @@ module Vangrail
         context: compose(:context, rails_for(:context, registry), stdlib),
         output: rails_for(:output, registry),
         on_error: on_error,
-        cache: cache
+        cache: cache,
       )
     end
 
@@ -165,7 +165,7 @@ module Vangrail
         policy: prompt_for(task),
         model: entry['model'],
         chat: chat,
-        provider: provider_for(entry, provider)
+        provider: provider_for(entry, provider),
       )
     end
 
@@ -207,24 +207,24 @@ module Vangrail
         models: [
           model_entry('main', main_model, base_url),
           model_entry('self_check_input', judge_model, base_url),
-          model_entry('self_check_output', judge_model, base_url)
+          model_entry('self_check_output', judge_model, base_url),
         ],
         rails: {
           'input' => { 'flows' => ['self check input'] },
-          'output' => { 'flows' => ['self check output'] }
+          'output' => { 'flows' => ['self check output'] },
         },
         prompts: [
           { 'task' => 'self_check_input', 'content' => self_check_prompt(:input, subject) },
-          { 'task' => 'self_check_output', 'content' => self_check_prompt(:output, subject) }
+          { 'task' => 'self_check_output', 'content' => self_check_prompt(:output, subject) },
         ],
         instructions: [
           {
             'type' => 'general',
             'content' => "You answer questions about #{subject}. Every factual clause " \
                          'comes from a supplied passage. Where the passages do not cover ' \
-                         'the question, say so.'
-          }
-        ]
+                         'the question, say so.',
+          },
+        ],
       )
     end
 

@@ -80,7 +80,7 @@ class TestBayes < Minitest::Test
 
     engine = Vangrail::Engine.new(context: [rail], cache: false)
     judgement = engine.assess(POISONED, side: :context, prior: 1e-2)
-    contribution = judgement.contributions.find { |c| c[:rail] == 'bayes' }
+    contribution = judgement.contributions.detect { |c| c[:rail] == 'bayes' }
 
     assert contribution[:quantified]
     assert_in_delta rail.bits(POISONED), contribution[:bits], 1e-9

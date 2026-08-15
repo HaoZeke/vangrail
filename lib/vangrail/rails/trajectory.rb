@@ -82,7 +82,7 @@ module Vangrail
       def judge(text, turns)
         answer = chat.ask([
                             { 'role' => 'system', 'content' => policy },
-                            { 'role' => 'user', 'content' => Policies.trajectory_prompt(turns, text) }
+                            { 'role' => 'user', 'content' => Policies.trajectory_prompt(turns, text) },
                           ])
         parsed = Parsers.policy(answer.text)
         unless parsed[:decided]

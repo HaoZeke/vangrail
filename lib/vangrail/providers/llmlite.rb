@@ -71,7 +71,7 @@ module Vangrail
           models: { judge: model(env), guard: nil, embed: embed_model(env) },
           key_resolver: -> { key(env) },
           local: true,
-          probe: -> { listening?(env) }
+          probe: -> { listening?(env) },
         )
       end
     end

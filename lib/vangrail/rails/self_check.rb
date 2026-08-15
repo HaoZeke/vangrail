@@ -45,7 +45,7 @@ module Vangrail
         rendered = Prompt.render(policy, template_context(text, context))
         answer = chat.ask([
                             { 'role' => 'system', 'content' => rendered },
-                            { 'role' => 'user', 'content' => text.to_s }
+                            { 'role' => 'user', 'content' => text.to_s },
                           ])
         parsed = Parsers.policy(answer.text)
         unless parsed[:decided]
@@ -69,7 +69,7 @@ module Vangrail
         {
           'user_input' => (context[:side] == :input ? text : context[:user_input]).to_s,
           'bot_response' => (context[:side] == :output ? text : '').to_s,
-          'context' => context
+          'context' => context,
         }
       end
 

@@ -30,7 +30,7 @@ module Vangrail
       end
 
       def call(text, _context)
-        hit = patterns.find { |_label, pattern| pattern.match?(text.to_s) }
+        hit = patterns.detect { |_label, pattern| pattern.match?(text.to_s) }
         return pass unless hit
 
         label = hit.first

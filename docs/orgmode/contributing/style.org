@@ -1,0 +1,48 @@
+#+TITLE: Ruby style
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Ruby style
+
+The parent is thoughtbot's Ruby guide
+([[https://github.com/thoughtbot/guides/tree/main/ruby][thoughtbot/guides/ruby]]).
+That is the document that says prefer =detect= over =find=, nest class
+definitions, trailing commas on multiline literals, no monkey-patches, =def
+self.method=, predicate methods end in =?=, unused names start with =_=.
+
+Their checked-in =.rubocop.yml= is not the guide. It is a Rails application
+config that turns most departments off, requires =rubocop-rails=, and wants
+double-quoted strings. Copying it would make this gem worse. What we take is
+the written rules, enforced here, plus the things this gem cannot inherit.
+
+** What we take
+
+- Collection methods: =detect=, =select=, =map=, =reduce=. Not =find=,
+  =find_all=, =collect=, =inject=.
+- Nested =class= / =module= rather than =class Foo::Bar=.
+- Trailing commas on multiline arrays, hashes, and argument lists.
+- =def self.method=, never =class << self=.
+- Prefix unused parameters with =_=.
+- =rubocop-performance= and =rubocop-minitest= sit next to the style cops, so
+  a slow construct and a weak assertion fail the same way a long line does.
+
+** What we do not take, and why
+
+| thoughtbot | Here | Why |
+|------------+------+-----|
+| Double-quoted strings | Single quotes unless interpolation | The library is already single-quoted. Flipping it is a thousand-line noise commit. |
+| Disable every metric | Metrics stay on, thresholds named | A disabled cop tells you nothing. An honest ceiling tells you when a method has grown. |
+| =rubocop-rails= | Not loaded | There is no Rails. |
+| Bundler lockfile and binstubs | No =Gemfile= | Runtime is the standard library. A lockfile would be a dependency the gem promises not to have. |
+| RSpec | stdlib minitest | Same reason: the suite cannot need a gem the library refuses. |
+| Avoid bang names | =write!= stays | It writes to disk. The bang is the warning. |
+| Avoid most ternaries | Short ternaries stay | A one-line choose-a-parser is more readable than a four-line =if=. |
+| Conditional modifiers only when tiny | Same, not a cop | The prose rule is enough. The cop fights every =return pass if=. |
+
+Thresholds live in =.rubocop.yml= with a comment on each one. Raise the number
+and say why; do not add an inline disable.
+
+#+begin_src bash
+gem install rubocop rubocop-performance rubocop-minitest
+rubocop        # -A to autocorrect
+#+end_src

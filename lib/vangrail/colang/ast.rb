@@ -23,7 +23,7 @@ module Vangrail
         Program.new(
           flows: flows.merge(other.flows),
           bot_messages: bot_messages.merge(other.bot_messages),
-          user_messages: user_messages.merge(other.user_messages)
+          user_messages: user_messages.merge(other.user_messages),
         )
       end
     end

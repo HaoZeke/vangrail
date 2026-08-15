@@ -182,7 +182,7 @@ module Vangrail
           return Compare.new(
             left: condition(Regexp.last_match(1), line),
             operator: Regexp.last_match(2),
-            right: condition(Regexp.last_match(3), line)
+            right: condition(Regexp.last_match(3), line),
           )
         end
         return Var.new(name: Regexp.last_match(1)) if text =~ /\A\$(\w+)\z/

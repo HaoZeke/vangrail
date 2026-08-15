@@ -25,6 +25,7 @@ class TestPrompt < Minitest::Test
 
   def test_conditionals_include_and_exclude
     template = 'a{% if x %} b{% endif %} c'
+
     assert_equal 'a b c', P.render(template, 'x' => 'yes')
     assert_equal 'a c', P.render(template, 'x' => '')
     assert_equal 'a c', P.render(template, {})
@@ -32,6 +33,7 @@ class TestPrompt < Minitest::Test
 
   def test_nested_conditionals_resolve
     template = '{% if a %}A{% if b %}B{% endif %}{% endif %}'
+
     assert_equal 'AB', P.render(template, 'a' => 1, 'b' => 1)
     assert_equal 'A', P.render(template, 'a' => 1)
   end
@@ -54,6 +56,7 @@ class TestPrompt < Minitest::Test
   def test_substituted_text_is_never_evaluated
     payload = '{{ other }} {% if other %}injected{% endif %}'
     rendered = P.render('user said: {{ text }}', 'text' => payload, 'other' => 'secret')
+
     assert_equal "user said: #{payload}", rendered
   end
 end

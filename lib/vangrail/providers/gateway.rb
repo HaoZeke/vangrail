@@ -56,7 +56,7 @@ module Vangrail
           guard_preset: spec.guard_preset,
           key_resolver: lambda do
             tokens[spec.name] ||= token(spec, env)
-          end
+          end,
         )
       end
 
@@ -111,14 +111,14 @@ module Vangrail
           base_url: base,
           models: {
             judge: present(env["#{ENV_PREFIX}_JUDGE_MODEL"]) || present(env["#{ENV_PREFIX}_MODEL"]),
-            guard: present(env["#{ENV_PREFIX}_GUARD_MODEL"])
+            guard: present(env["#{ENV_PREFIX}_GUARD_MODEL"]),
           }.compact,
           guard_preset: present(env["#{ENV_PREFIX}_GUARD_PRESET"])&.to_sym,
           key_env: "#{ENV_PREFIX}_API_KEY",
           file_env: "#{ENV_PREFIX}_KEY_FILE",
           pass_env: "#{ENV_PREFIX}_PASS_ENTRY",
           key_file: present(env["#{ENV_PREFIX}_KEY_FILE"]),
-          pass_entry: present(env["#{ENV_PREFIX}_PASS_ENTRY"])
+          pass_entry: present(env["#{ENV_PREFIX}_PASS_ENTRY"]),
         )
       end
 

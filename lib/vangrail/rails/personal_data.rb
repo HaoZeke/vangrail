@@ -68,7 +68,7 @@ module Vangrail
         # The number beside its own name, in the words a Dutch reader uses for
         # it. The digits may carry the dots or spaces a form prints them with.
         'bsn' => /\b(?:bsn|burgerservicenummer|sofinummer|sofi[\s-]?nummer)\b
-                  [^\n]{0,24}?((?:\d[\s.-]?){8}\d)\b/xi
+                  [^\n]{0,24}?((?:\d[\s.-]?){8}\d)\b/xi,
       }.freeze
 
       attr_reader :patterns, :placeholder

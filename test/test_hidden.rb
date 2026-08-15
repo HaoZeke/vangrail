@@ -24,7 +24,7 @@ class TestHidden < Minitest::Test
   end
 
   def test_the_plain_form_is_caught_by_what_this_delegates_to
-    assert Vangrail::Rails::InjectedInstructions.new.call(PLAIN, side: :context).blocked?
+    assert_predicate Vangrail::Rails::InjectedInstructions.new.call(PLAIN, side: :context), :blocked?
   end
 
   CARRIERS = {
@@ -39,30 +39,32 @@ class TestHidden < Minitest::Test
     'invisible_style' => %(<div style="display:none">#{PLAIN}</div>),
     'hidden_attribute' => "<div hidden>#{PLAIN}</div>",
     'link_title' => %([the queue page](/queue "#{PLAIN}")),
-    'image_alt' => "![#{PLAIN}](diagram.png)"
+    'image_alt' => "![#{PLAIN}](diagram.png)",
   }.freeze
 
   def test_every_carrier_is_read
     missed = CARRIERS.reject { |_name, markup| check("#{PAGE}\n#{markup}\n#{PAGE}").blocked? }
+
     assert_empty missed.keys, "not read:\n  #{missed.keys.join("\n  ")}"
   end
 
   def test_the_carrier_is_named_in_the_verdict
     result = check(%(#{PAGE}<div style="visibility:hidden">#{PLAIN}</div>))
 
-    assert result.blocked?
+    assert_predicate result, :blocked?
     assert_includes result.categories, 'hidden:invisible_style'
     assert_includes result.reason, 'hidden in invisible style'
   end
 
   def test_the_inner_rail_categories_survive
     result = check("<!-- #{PLAIN} -->")
+
     assert_includes result.categories, 'override_above'
   end
 
   def test_zero_sized_and_background_coloured_text_count
     ['font-size:0', 'color:#fff', 'opacity: 0', 'color: white'].each do |style|
-      assert check(%(<p style="#{style}">#{PLAIN}</p>)).blocked?, style
+      assert_predicate check(%(<p style="#{style}">#{PLAIN}</p>)), :blocked?, style
     end
   end
 
@@ -78,30 +80,33 @@ class TestHidden < Minitest::Test
     '<a href="/quota" title="Quota and allocation reference">quota page</a>',
     '<div hidden>Table of contents placeholder</div>',
     '![Cluster layout diagram showing login and compute nodes](layout.png)',
-    '[the accounting page](/sacct "Accounting and SBU reference")'
+    '[the accounting page](/sacct "Accounting and SBU reference")',
   ].freeze
 
   def test_ordinary_markup_passes
     flagged = BENIGN.reject { |m| check("#{PAGE}\n#{m}").passed? }
+
     assert_empty flagged, "flagged:\n  #{flagged.join("\n  ")}"
   end
 
   def test_a_page_with_no_markup_at_all_passes
-    assert check("#{PAGE}\n\nSubmit with sbatch and watch with squeue.").passed?
+    assert_predicate check("#{PAGE}\n\nSubmit with sbatch and watch with squeue."), :passed?
   end
 
   # --- bookkeeping ---
 
   def test_it_reports_the_spans_it_found
     found = rail.spans(%(<meta name="x" content="a description of the cluster page">))
+
     assert_equal [['meta', 'a description of the cluster page']], found
   end
 
   def test_it_reads_documents_only_by_default
     r = rail
+
     assert r.applies_to?(:context)
     refute r.applies_to?(:input)
-    assert r.offline?
+    assert_predicate r, :offline?
     assert_equal 'text', r.cache_key('text', side: :context)
   end
 
@@ -109,9 +114,10 @@ class TestHidden < Minitest::Test
     http = StubHTTP.new(responses: { '/chat/completions' => chat_body('{"violation": 0}') })
     chat = Vangrail::Chat.new(model: 'm', http: http)
     wrapped = Vangrail::Rails::Hidden.new(
-      rails: [Vangrail::Rails::SelfCheck.new(chat: chat, model: 'm', sides: [:context])]
+      rails: [Vangrail::Rails::SelfCheck.new(chat: chat, model: 'm', sides: [:context])],
     )
-    refute wrapped.offline?
+
+    refute_predicate wrapped, :offline?
     assert_nil wrapped.cache_key('text', side: :context)
   end
 end

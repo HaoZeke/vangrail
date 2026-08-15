@@ -178,7 +178,7 @@ module Vangrail
         'turns' => turns.size,
         'action' => action.to_s,
         'verdict' => verdict.to_s,
-        'certain' => certain?
+        'certain' => certain?,
       }
     end
 

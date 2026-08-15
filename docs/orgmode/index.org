@@ -57,3 +57,5 @@ Why the design is shaped the way it is.
 - [[file:changelog.org][Changelog]]
 - [[file:code_of_conduct.org][Code of conduct]]
 - [[file:contributing/index.org][Contributing]]
+- [[file:contributing/style.org][Ruby style]]
+- [[file:contributing/testing.org][How the suite is run]]

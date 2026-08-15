@@ -23,7 +23,7 @@ class TestNLP < Minitest::Test
   def test_normalize_survives_invalid_bytes
     # Scrubbed rather than raised on. A rail that dies on a byte sequence is a
     # rail an attacker turns off by sending one.
-    assert_equal 'a b', N.normalize("a\xC3(b".dup.force_encoding('UTF-8'))
+    assert_equal 'a b', N.normalize((+"a\xC3(b").force_encoding('UTF-8'))
   end
 
   def test_stem_collapses_the_inflections_the_lexicon_would_otherwise_list

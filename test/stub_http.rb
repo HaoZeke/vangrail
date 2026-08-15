@@ -32,7 +32,7 @@ class StubHTTP
   end
 
   def last_payload
-    @calls.reverse.find { |c| c[:method] == :post }&.fetch(:payload)
+    @calls.reverse.detect { |c| c[:method] == :post }&.fetch(:payload)
   end
 
   private
@@ -58,7 +58,7 @@ def chat_body(content, extra = {})
     'model' => 'test-model',
     'choices' => [
       { 'index' => 0, 'message' => { 'role' => 'assistant', 'content' => content },
-        'finish_reason' => 'stop' }
-    ]
+        'finish_reason' => 'stop' },
+    ],
   }.merge(extra)
 end

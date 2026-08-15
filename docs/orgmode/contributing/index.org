@@ -6,17 +6,14 @@
 
 ** Running the tests
 
-The suite is stdlib minitest run as plain files. There is no bundle to install.
+The suite is stdlib minitest. There is no bundle to install. =rake test=
+loads every file into one process so the count is true and coverage sees
+the whole library. See [[file:testing.org][How the suite is run]].
 
 #+begin_src bash
 gem install minitest   # not a default gem since Ruby 3.4
 rake test
-#+end_src
-
-A single file runs on its own, which is the fastest loop while working:
-
-#+begin_src bash
-ruby test/test_engine.rb
+ruby -Ilib test/test_engine.rb   # one file
 #+end_src
 
 No test touches the network. Transport is exercised against a loopback server
@@ -24,8 +21,12 @@ the suite starts itself, and model responses come from a recorded double.
 
 ** Style
 
+thoughtbot's Ruby guide, with the deviations this gem has to make, in
+[[file:style.org][Ruby style]].
+
 #+begin_src bash
-rubocop        # -a to autocorrect
+gem install rubocop rubocop-performance rubocop-minitest
+rubocop        # -A to autocorrect
 #+end_src
 
 Thresholds in =.rubocop.yml= are adjusted rather than departments switched off,

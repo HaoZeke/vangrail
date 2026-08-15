@@ -30,7 +30,7 @@ module Vangrail
 
         messages = raw['messages']
         if messages.is_a?(Array)
-          last = messages.reverse.find { |m| m.is_a?(Hash) && m['role'].to_s == 'assistant' }
+          last = messages.reverse.detect { |m| m.is_a?(Hash) && m['role'].to_s == 'assistant' }
           return last['content'].to_s if last
         end
         ''

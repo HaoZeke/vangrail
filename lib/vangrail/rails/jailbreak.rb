@@ -85,7 +85,7 @@ module Vangrail
           |
           \bthis\s+is\s+(?:the\s+)?[a-z][\w.-]*(?:\s+(?:ai|inc|labs?))?\b[^.\n]{0,30}
           \byou\s+are\s+now\s+(?:permitted|allowed|required|authori[sz]ed)\b
-        /xi
+        /xi,
       }.freeze
 
       attr_reader :patterns

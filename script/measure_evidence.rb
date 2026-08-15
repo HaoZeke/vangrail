@@ -139,7 +139,7 @@ rows = names.map do |name|
     attacks: attacks.size,
     benign_flagged: measured[name][:benign].count(true),
     benign: benign.size,
-    group: groups[name]
+    group: groups[name],
   }
 end
 
@@ -194,7 +194,7 @@ RUBY
 puts "wrote #{OUT}"
 PRIORS = [0.5, 1e-2, 1e-4].freeze
 
-puts format('  %-24s %-16s %8s %8s %8s %8s', 'rail', 'caught/flagged', 'fired', 'at 95%', 'CID 0.5', 'CID 1e-4')
+puts '  rail                     caught/flagged      fired   at 95%  CID 0.5 CID 1e-4'
 rows.each do |row|
   entry = Vangrail::Evidence.new(**row)
   puts format('  %-24s %6d/%-3d %3d/%-3d %+8.1f %+8.1f %8.3f %8.3f',

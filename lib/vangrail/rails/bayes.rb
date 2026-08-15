@@ -66,7 +66,7 @@ module Vangrail
 
         block(categories: ['bayes'], raw: payload,
               reason: format('scores %<score>+.1f, worth %<bits>+.1f bits of evidence', score: score,
-                                                                                       bits: evidence))
+                                                                                        bits: evidence))
       end
 
       # The worst clause's raw naive Bayes score. Not a likelihood ratio and not
@@ -86,7 +86,7 @@ module Vangrail
       # demonstrate rather than by how loudly the classifier scored.
       def bits(text)
         score = score_for(text)
-        band = calibration.reverse.find { |floor, _| score > floor }
+        band = calibration.reverse.detect { |floor, _| score > floor }
         band ? band.last : calibration.first.last
       end
 

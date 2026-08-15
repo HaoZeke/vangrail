@@ -90,7 +90,7 @@ module Vangrail
           'kept' => kept.size,
           'rejected' => rejected.map { |r| r[:result].to_h },
           'certain' => certain?,
-          'reason' => reason
+          'reason' => reason,
         }.compact
       end
     end
@@ -156,7 +156,7 @@ module Vangrail
     def triage(documents, prior:, policy: Policy::DEFAULT, escalate: false, **context)
       judged = Array(documents).each_with_index.map do |document, index|
         judgement = assess(text_of(document), side: :context, prior: prior, policy: policy,
-                           escalate: escalate, **context, document: document, index: index)
+                                              escalate: escalate, **context, document: document, index: index)
         { document: document, judgement: judgement }
       end
       Triage.new(judged: judged.sort_by { |row| -row[:judgement].posterior })
@@ -187,7 +187,7 @@ module Vangrail
           'kept' => kept.size,
           'review' => review.size,
           'dropped' => dropped.map { |row| row[:judgement].to_h },
-          'certain' => certain?
+          'certain' => certain?,
         }
       end
     end
@@ -222,7 +222,7 @@ module Vangrail
         'output' => rail_names(:output),
         'on_error' => on_error.to_s,
         'offline' => offline?,
-        'cache' => cache&.to_h
+        'cache' => cache&.to_h,
       }.compact
     end
 
@@ -442,13 +442,13 @@ module Vangrail
     # Cache keys carry everything the decision depends on. A rail says what that
     # is through `cache_key`; nil means the rail is not memoizable, which is the
     # right answer for anything reading passages or history.
-    def memoized(rail, text, ctx, &block)
-      return block.call unless cache
+    def memoized(rail, text, ctx, &)
+      return yield unless cache
 
       key = rail.respond_to?(:cache_key) ? rail.cache_key(text, ctx) : nil
-      return block.call if key.nil?
+      return yield if key.nil?
 
-      cache.fetch(ctx[:side], rail.name, key, &block)
+      cache.fetch(ctx[:side], rail.name, key, &)
     end
   end
 end

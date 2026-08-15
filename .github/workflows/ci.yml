@@ -58,7 +58,7 @@ jobs:
           bundler-cache: false
 
       - name: Install rubocop
-        run: gem install --no-document rubocop
+        run: gem install --no-document rubocop rubocop-performance rubocop-minitest
 
       - run: rubocop --format github
 

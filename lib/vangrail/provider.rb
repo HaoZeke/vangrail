@@ -58,7 +58,7 @@ module Vangrail
 
         wanted = present(env['GUARDRAILS_PROVIDER'])
         if wanted
-          found = candidates.find { |p| p.name == wanted }
+          found = candidates.detect { |p| p.name == wanted }
           raise ConfigError, "unknown provider #{wanted.inspect}; known: #{names.join(', ')}" unless found
 
           return found.with_env(env)
@@ -67,7 +67,7 @@ module Vangrail
         explicit = from_env_pair(env)
         return explicit if explicit
 
-        candidates.map { |p| p.with_env(env) }.find(&:available?)
+        candidates.map { |p| p.with_env(env) }.detect(&:available?)
       end
 
       # A gateway described by the environment this call was handed, rather than
@@ -93,7 +93,7 @@ module Vangrail
           base_url: base,
           key_resolver: -> { present(env['GUARDRAILS_API_KEY']) },
           models: { judge: present(env['GUARDRAILS_JUDGE_MODEL']), guard: present(env['GUARDRAILS_MODEL']),
-                    embed: present(env['GUARDRAILS_EMBED_MODEL']) }
+                    embed: present(env['GUARDRAILS_EMBED_MODEL']) },
         )
       end
 
@@ -122,7 +122,7 @@ module Vangrail
       overrides = {
         judge: self.class.present(env['GUARDRAILS_JUDGE_MODEL']),
         guard: self.class.present(env['GUARDRAILS_MODEL']),
-        embed: self.class.present(env['GUARDRAILS_EMBED_MODEL'])
+        embed: self.class.present(env['GUARDRAILS_EMBED_MODEL']),
       }.compact
       base = self.class.present(env["#{env_prefix}_API_BASE"]) || base_url
       key = self.class.present(env["#{env_prefix}_API_KEY"])
@@ -205,7 +205,7 @@ module Vangrail
         'models' => models.transform_keys(&:to_s).compact,
         'guard_preset' => guard_preset&.to_s,
         'local' => local,
-        'available' => available?
+        'available' => available?,
       }.compact
     end
 

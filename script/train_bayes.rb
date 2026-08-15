@@ -104,7 +104,7 @@ def informative(attack_counts, benign_counts, n_attack, n_benign, limit)
      [b, n_benign, present], [n_benign - b, n_benign, absent]].each do |cell, row, column|
       next if cell <= 0 || row.zero? || column.zero?
 
-      score += (cell.fdiv(total)) * Math.log2((cell.fdiv(total)) / ((row.fdiv(total)) * (column.fdiv(total))))
+      score += cell.fdiv(total) * Math.log2(cell.fdiv(total) / (row.fdiv(total) * column.fdiv(total)))
     end
     [feature, score]
   end
@@ -171,7 +171,7 @@ caught = held_out[:attack].count { |s| s > threshold }
 flagged = held_out[:benign].count { |s| s > threshold }
 
 puts format('cross-validated over %<folds>d folds, threshold %<threshold>+d bits', folds: FOLDS,
-                                                                                  threshold: threshold)
+                                                                                   threshold: threshold)
 puts format('  attacks above threshold: %<caught>d/%<total>d', caught: caught, total: held_out[:attack].size)
 puts format('  benign above threshold:  %<flagged>d/%<total>d', flagged: flagged, total: held_out[:benign].size)
 puts format('  attack scores:  median %<median>+.1f, min %<min>+.1f',
@@ -215,7 +215,7 @@ end
 # apart.
 def isotonic(bins, n_attack, n_benign)
   loop do
-    index = (0...(bins.size - 1)).find do |i|
+    index = (0...(bins.size - 1)).detect do |i|
       bits_for(bins[i], n_attack, n_benign) > bits_for(bins[i + 1], n_attack, n_benign)
     end
     break bins if index.nil?

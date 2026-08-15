@@ -636,10 +636,11 @@ disable.
 rake test
 ```
 
-516 tests, stdlib minitest. Parsing and payload shape run against a recorded
-double; transport, status handling, the `/v1/checks` fallback, and a genuinely
-refused connection run against a loopback server the suite starts itself. No
-outbound network, no keys, nothing outside the standard library.
+526 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
+a recorded double; transport, status handling, the `/v1/checks` fallback, and a
+genuinely refused connection run against a loopback server the suite starts
+itself. No outbound network, no keys, nothing outside the standard library.
+A single file is `ruby -Ilib test/test_engine.rb`.
 
 ## Measured
 

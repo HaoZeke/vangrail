@@ -35,7 +35,7 @@ module Vangrail
         base_url: base_url,
         api_key: api_key,
         open_timeout: open_timeout,
-        read_timeout: read_timeout
+        read_timeout: read_timeout,
       )
     end
 
@@ -53,7 +53,7 @@ module Vangrail
         'messages' => normalize(messages),
         'temperature' => temperature,
         'max_tokens' => max_tokens || @max_tokens,
-        'stream' => false
+        'stream' => false,
       }.merge(extra)
 
       t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)

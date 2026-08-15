@@ -1,0 +1,51 @@
+#+TITLE: How the suite is run
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* How the suite is run
+
+** One process
+
+=rake test= loads =test/suite.rb=, which requires every =test/test_*.rb= into
+one Ruby process. That is what makes the reported count true, and it is what
+makes =COVERAGE=1 rake test= see the whole library. A process per file used to
+report the last file's numbers as the suite, and SimpleCov wrote a coverage
+report for whichever file finished last.
+
+A single file still runs on its own:
+
+#+begin_src bash
+ruby -Ilib test/test_engine.rb
+#+end_src
+
+=rake test:each= is the isolation loop: one process per file, for the day a
+global leak is the thing you are hunting.
+
+** Files do not require each other
+
+Shared prose lives in =test/corpus.rb= (=TestCorpus=). A test that needs the
+German page or the English handbook reads that module. Requiring another test
+file loads its test class into your process, so =rake test:each= used to run
+the paraphrase suite three times and report a number nobody could add up.
+
+** The environment is emptied by prefix
+
+=GuardrailsTest#isolate_env!= deletes every =GUARDRAILS*=, =WILLMA_*=, and
+=LLMLITE_*= variable, not a hand-maintained list of them. A new
+=GUARDRAILS_GATEWAY_*= key cannot leak a laptop's hub token into a builder
+test. Tests that need a gateway describe it in the hash they pass to
+=Builder.new=.
+
+** What a new rail test has to contain
+
+Two columns, always: the attacks it is supposed to catch, and the ordinary
+pages it must leave alone. See
+[[file:../explanation/measuring-rails.org][Why the injection corpus is scored as
+a pair]]. An assertion that only counts hits is how a rail that flags the
+handbook looks finished.
+
+** What this is not
+
+It is not RSpec. thoughtbot's testing defaults assume a Rails app and a
+factory. This gem's tests are minitest files that start no network and load
+no bundle, which is the stronger constraint.

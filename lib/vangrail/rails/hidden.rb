@@ -57,7 +57,7 @@ module Vangrail
         'hidden_attribute' => /<(\w+)\b[^>]*\bhidden\b[^>]*>(.*?)<\/\1>/mi,
         # Markdown carries two of its own: a link title, and image alt text.
         'link_title' => /\[[^\]]*\]\([^)\s]+\s+["']([^"']{12,})["']\)/,
-        'image_alt' => /!\[([^\]]{12,})\]\(/
+        'image_alt' => /!\[([^\]]{12,})\]\(/,
       }.freeze
 
       attr_reader :rails, :carriers
