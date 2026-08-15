@@ -57,7 +57,7 @@ class TestProfile < Minitest::Test
   def test_a_pre_invoke_hook_can_still_block
     hook = ->(name, _args, _convo) { name != :cite }
     convo = Vangrail::Conversation.new(engine, prior: 1e-3, profile: :workspace, tools: tools,
-                                      hooks: { pre_invoke: hook })
+                                     hooks: { pre_invoke: hook })
     convo.ask('Which GPU partitions exist?')
     convo.intend(:cite)
     convo.screen([{ 'text' => 'gpu_a100' }])
