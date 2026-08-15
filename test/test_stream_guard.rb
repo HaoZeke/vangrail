@@ -125,6 +125,32 @@ class TestStreamGuard < Minitest::Test
     refute_includes guard.content, SECRET
   end
 
+  # The emit path. A caller that prints result.content reprints the whole
+  # buffer after every rewrite. take hands out only the suffix that has not
+  # been shown, so a redaction in the latest chunk does not replay the prefix.
+  def test_take_hands_out_only_what_has_not_been_shown
+    guard = Vangrail::StreamGuard.new(engine, interval: 10_000)
+    guard.push('hello ')
+    assert_equal 'hello ', guard.take
+    guard.push('world')
+    assert_equal 'world', guard.take
+    assert_equal '', guard.take
+  end
+
+  def test_take_after_a_redaction_does_not_reprint_the_clean_prefix
+    guard = Vangrail::StreamGuard.new(engine, interval: 1)
+    prefix = 'Set the key in your config: '
+    guard.push(prefix)
+    assert_equal prefix, guard.take
+
+    guard.push("api_key=#{SECRET} then submit with sbatch. #{'padding ' * 8}")
+    delta = guard.take
+    refute_includes delta, SECRET
+    refute_includes delta, prefix.rstrip
+    refute_includes guard.content, SECRET
+    assert_includes guard.content, prefix
+  end
+
   def test_an_engine_with_no_output_rails_says_nothing_and_finishes_unchecked
     guard = Vangrail::StreamGuard.new(Vangrail::Engine.new)
     assert_empty stream(guard, 'anything at all, at some length, arriving in pieces. ' * 2).compact

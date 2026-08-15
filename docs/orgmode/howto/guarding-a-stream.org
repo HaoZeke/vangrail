@@ -20,7 +20,7 @@ client.stream(prompt) do |chunk|
   verdict = guard.push(chunk)
   break if verdict&.blocked?
 
-  emit(verdict&.content || chunk)
+  emit(guard.take)
 end
 
 final = guard.finish
@@ -31,6 +31,11 @@ show_retraction(final.reason) if final.blocked?
 returns a =Result= when a rail rewrote the buffer or blocked it. A caller that
 ignores the return value entirely gets the old end-of-stream behaviour and
 nothing worse.
+
+=take= is what to print. It returns only the suffix that has not been handed
+out yet. After a redaction that keeps the already-shown prefix, that is the
+rewritten tail, not the whole buffer. Do not print =result.content= on every
+event: that reprints everything already on screen.
 
 ** What runs when
 

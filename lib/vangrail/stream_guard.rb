@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'engine'
 require_relative 'result'
 
 module Vangrail
@@ -19,7 +20,7 @@ module Vangrail
   #   stream.each do |chunk|
   #     verdict = guard.push(chunk)
   #     break if verdict&.blocked?
-  #     emit(verdict&.content || chunk)
+  #     emit(guard.take)
   #   end
   #   final = guard.finish
   #
@@ -49,6 +50,7 @@ module Vangrail
       @checks = 0
       @blocked = nil
       @modified = false
+      @released = +''
     end
 
     def blocked?
@@ -84,6 +86,23 @@ module Vangrail
     # What the caller should show, given everything decided so far.
     def content
       buffer
+    end
+
+    # Text the caller has not been given yet.
+    #
+    # After a rewrite that keeps the already-shown prefix, this is only the
+    # new suffix. After a rewrite that changes what was already shown, this
+    # is the whole buffer, because the prefix on screen is no longer true.
+    def take
+      current = content
+      if @released.empty? || current.start_with?(@released)
+        out = current[@released.length..] || ''
+        @released = current.dup
+        return out
+      end
+
+      @released = current.dup
+      current
     end
 
     private
