@@ -8,10 +8,22 @@
 |-----------------------------+---------------+---------+----------------------------|
 | =Rails::Pattern=            | either        | no      | passed, blocked            |
 | =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
+| =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
+| =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
+| =Rails::Hidden=             | context       | depends | passed, blocked            |
+| =Rails::Escalation=         | input         | no      | passed, blocked            |
+| =Rails::ManyShot=           | input, context | no     | passed, modified, blocked  |
+| =Rails::Canary=             | input, output | no      | passed, blocked            |
+| =Rails::PersonalData=       | input         | no      | passed, modified           |
 | =Rails::Secrets=            | output        | no      | passed, modified           |
+| =Rails::Exfiltration=       | output        | no      | passed, modified           |
+| =Rails::Markup=             | output        | no      | passed, modified           |
+| =Rails::Budget=             | input, context | no     | passed, blocked            |
 | =Rails::GuardModel=         | either        | yes     | passed, blocked            |
 | =Rails::SelfCheck=          | either        | yes     | passed, blocked            |
 | =Rails::Grounding=          | output        | yes     | passed, blocked            |
+| =Rails::Trajectory=         | input         | yes     | passed, blocked            |
+| =Rails::KnownAnswer=        | context       | yes     | passed, blocked            |
 | =Rails::ColangFlow=         | either        | depends | passed, modified, blocked  |
 | =Rails::Remote=             | either        | yes     | passed, modified, blocked  |
 | =Rails::Missing=            | either        | no      | passed, never certain      |
@@ -46,12 +58,301 @@ Categories:
 Deterministic on purpose: the text is written by whoever wants it believed, so
 a model asked to judge it is reading an argument composed to persuade it.
 
+** Rails::Jailbreak
+
+Fingerprints for the wrappers that circulate. Input and context sides,
+deterministic, offline, on by default.
+
+| Category                 | The shape                                            |
+|--------------------------+------------------------------------------------------|
+| =unrestricted_persona=   | a named persona whose defining trait is having no rules |
+| =restrictions_lifted=    | a claim that safety was disabled, or an instruction to enter a mode |
+| =dual_answer=            | two answers demanded, one of them unfiltered         |
+| =sentimental_wrapper=    | a relative, a bedtime story, a dying wish            |
+| =fiction_licence=        | fiction as licence, where the harm is what the character says |
+| =forged_authority=       | a claimed identity conferring permission             |
+
+A floor rather than a defence: rephrasing beats a pattern, and the suite says
+so with a test asserting that a rewritten attack passes. What it buys is that
+the copied-and-pasted majority never reaches a model, and that it keeps working
+when the model rail is unreachable.
+
+Measured at fourteen attack shapes caught against fourteen ordinary handbook
+sentences untouched. The second number is the one that decides whether it can
+be switched on at all, because a documentation desk discusses roles, modes, and
+restrictions daily.
+
+** Rails::Obfuscation
+
+Runs other rails again over the text an attacker meant rather than the text
+they wrote. Takes a rail list rather than patterns of its own:
+
+#+BEGIN_SRC ruby
+Vangrail::Rails::Obfuscation.new(
+  rails: [Vangrail::Rails::InjectedInstructions.new,
+          Vangrail::Rails::Jailbreak.new]
+)
+#+END_SRC
+
+| Transform      | What it undoes                                             |
+|----------------+------------------------------------------------------------|
+| =:invisible=   | zero-width joiners and bidi overrides, stripped and reported |
+| =:confusables= | mixed-script words folded back to the ASCII they imitate   |
+| =:confusables_all= | the same fold applied without the mixed-word test      |
+| =:rot13=       | the rotation                                                |
+| =:base64=      | runs of 24 characters or more that decode to printable text |
+| =:nfkc=        | the fullwidth and mathematical alphabets                    |
+
+A block names both the rail and the encoding: =encoded:base64= alongside the
+inner rail's own categories. Invisible characters on their own are a =modified=
+result, not a block, because stripping them costs a reader nothing.
+
+=offline?= and =cache_key= follow whatever it wraps, so wrapping a model rail
+gives a rail that is not offline and not memoizable.
+
+Nothing here guesses. There is no entropy score and no "this looks encoded"
+heuristic, because a cluster handbook is full of base64: ssh keys, checksums,
+=base64 -d= examples. A run either decodes to text a rail objects to or
+contributes nothing.
+
+The confusables table is generated from the Unicode data (UTS #39) by
+=script/generate_confusables.rb= and checked in as
+=lib/vangrail/confusables_data.rb=: 1645 entries, against the twenty-nine that
+preceded it and covered only the attacks somebody had already published. The
+gem that supplies the data is a development dependency; an installed vangrail
+still needs nothing but the standard library.
+
+Two passes over the same text, because they fail in opposite directions.
+=:confusables= folds only words that mix ASCII with imitators, which is what an
+imitation attack looks like and what leaves a page of Russian intact; it misses
+a word converted character for character. =:confusables_all= folds regardless
+and catches that, at the price of turning genuine Cyrillic into noise. A
+variant is only ever read by a pattern and never shown to a reader, and the
+corpus asserts that the noise matches nothing.
+
+Measured on the injection corpus rewritten five ways: the pattern rail alone
+catches 0 of 60, with the decoding pass 60 of 60, and ordinary documentation is
+untouched. A separate test walks seven Unicode blocks, taking its imitators
+from the shipped table rather than from typed codepoints, so a fixture cannot
+silently substitute nothing.
+
+** Rails::ManyShot
+
+A fake conversation pasted into a real one, in two forms. On by default on both
+the input and context sides.
+
+| Category          | What happened                                          |
+|-------------------+--------------------------------------------------------|
+| =template_tokens= | chat template control tokens removed from the text     |
+| =many_shot=       | more than four conversation turns in one message       |
+
+Template tokens are stripped rather than blocked, because "what does
+=<|im_start|>= mean in the Llama chat template?" is a real question on a desk
+that documents machine-learning software. Removed from the text the token
+cannot restructure a prompt, and the question survives. The families covered
+are the ChatML, Llama, Mistral, and Gemma delimiters.
+
+The volume threshold counts turns rather than length, since a long question is
+not an attack. Move it with =max_turns:=.
+
+** Rails::Canary
+
+A marker the application puts in its own prompt, which must never appear
+anywhere else.
+
+#+BEGIN_SRC ruby
+token = Vangrail::Rails::Canary.generate
+prompt = "#{token}\n#{system_prompt}"
+Vangrail::Rails::Canary.new(tokens: token)
+#+END_SRC
+
+Set =GUARDRAILS_CANARY= to switch it on through the environment; without a
+token there is nothing to check, so its absence is the off switch.
+
+The only check here that cannot produce a false positive: no ordinary text
+contains a random sixteen-character token, so it blocks outright where a
+heuristic could only warn. Formatting is ignored in the comparison, since a
+model that writes the token with a line break in it has still leaked it.
+
+On the input side it means the reader already has the prompt from somewhere.
+That is too late to prevent and worth knowing.
+
+What it cannot see is a paraphrase. A model asked to summarise its instructions
+rather than repeat them leaks the content and not the token, and this rail
+passes. The suite asserts that.
+
+** Rails::Hidden
+
+Reads the parts of a page a human never sees, and hands each span to the rails
+that already know what an injection looks like. Context side, on by default.
+
+| Carrier             | Where the text was                        |
+|---------------------+-------------------------------------------|
+| =comment=           | an HTML comment                           |
+| =meta=              | a meta tag's content attribute            |
+| =alt_text=          | an image alt attribute                    |
+| =title_attribute=   | a title attribute                         |
+| =aria_label=        | an aria-label                             |
+| =data_attribute=    | any data-* attribute                      |
+| =script=, =template= | a script, template, or noscript body     |
+| =invisible_style=   | display:none, visibility:hidden, zero size, or background-coloured text |
+| =hidden_attribute=  | an element with the hidden attribute      |
+| =link_title=        | a markdown link title                     |
+| =image_alt=         | markdown image alt text                   |
+
+The largest survey of indirect injection in the wild puts roughly seven in ten
+instances in non-rendered HTML, which is the reason this is a rail rather than
+a footnote. A visible paragraph telling an assistant to ignore its instructions
+is one the page's own readers notice; the same sentence in an alt attribute is
+read by the model and by nobody else.
+
+It judges nothing itself. A hidden span with ordinary content passes, because
+pages carry meta descriptions and alt text for good reasons.
+
+Only useful where documents arrive as HTML. A retrieval step that converts to
+markdown first has usually dropped these carriers already, which is a reason to
+run this at the fetch boundary rather than a reason to skip it: what the
+converter drops silently is exactly what nobody is looking at.
+
+** Rails::Escalation
+
+Judges the sequence rather than the message, by reading =:history= from the
+context. Input side, deterministic, offline, never memoized. Off unless
+=GUARDRAILS_RAILS= names =multiturn=.
+
+| Category              | When                                                  |
+|-----------------------+-------------------------------------------------------|
+| =retry_after_refusal= | the previous question was refused and this one is it again |
+| =paraphrase=          | three fifths or more of the content words are shared  |
+| =reframed=            | a reframing opener over the same subject              |
+| =reference_back=      | a bare demand to answer it anyway                     |
+| =repeated_refusals=   | more than two refusals in the last six turns          |
+
+A caller that never passes =:history= gets =passed= with =certain?= false: a
+rail that reads history and was handed none has not checked anything. A caller
+that passes an empty one gets a certain pass, because an empty dialogue is an
+answer rather than a missing one, and without that distinction this rail would
+be the first uncertain result in every single-turn engine and would mask the
+reason a model rail actually failed. Pair it with =Conversation=, which fills
+the history in.
+
+The limit, stated because it matters: a genuine crescendo never triggers a
+refusal until the last turn, and this sees nothing until one happens. It raises
+the cost of the cheap version, where an attacker probes until something lands.
+
+** Rails::PersonalData
+
+Redacts a reader's own details before the question leaves the building. Input
+side, deterministic, opt-in with =GUARDRAILS_RAILS=...,privacy=.
+
+| Category | What is removed                                     |
+|----------+-----------------------------------------------------|
+| =email=  | a mailbox, but not a login target                   |
+| =phone=  | an international or grouped national number         |
+| =iban=   | an account number                                   |
+| =card=   | thirteen to nineteen digits that pass the Luhn check |
+
+A privacy rail rather than a security one. A question is about to be sent to a
+model endpoint, which may be a third party, may log, and may sit in another
+jurisdiction, and nothing in the answer needs the reader's phone number. Opt-in
+because it rewrites the question before the model sees it: close to obligatory
+against a third party, and worth little against a local proxy.
+
+The hard part on a cluster desk is not detection. =ssh you@login.example.org=
+is an email address by every syntactic measure, and eating it destroys the
+answer to the most commonly asked question there is. An address survives when
+it sits inside backticks or a fence, when its line carries a command that takes
+a user@host argument or an ssh config keyword, when a remote path follows it,
+or when its local part is a documentation placeholder.
+
+National identity numbers are deliberately absent. A Dutch BSN is nine digits
+with a checksum, a Slurm job id is six to eight digits, and one job id in
+eleven passes that checksum by accident. A rail that redacts job ids from a
+support question is unusable.
+
 ** Rails::Secrets
 
 Redacts credentials and returns =modified=. Output side by default. Recognises
 private key blocks, provider key prefixes, tokens, JWTs, bearer headers, and
 inline password assignments. An inline assignment keeps its key name and loses
 its value, so the reader still learns which setting was being discussed.
+
+** Rails::Exfiltration
+
+Strips outbound URLs an answer has no business emitting. Output side,
+deterministic, offline. Switched on by naming =GUARDRAILS_LINK_HOSTS=.
+
+#+BEGIN_SRC ruby
+Vangrail::Rails::Exfiltration.new(allow_hosts: %w[docs.example.org],
+                                  allow_images: [])
+#+END_SRC
+
+| Category        | What was removed                                          |
+|-----------------+-----------------------------------------------------------|
+| =foreign_link=  | a link to a host that is not on the list                  |
+| =foreign_image= | an image from a host that is not on the image list        |
+| =link_payload=  | a query carrying encoded text, allowlisted or not         |
+| =image_payload= | the same in an image, which is fetched without a click    |
+
+The allowlist defaults to empty, so an application that never named its hosts
+gets no links rather than all of them. Images are held to =allow_images=, which
+defaults to the link list and can be emptied on its own. A host worth linking
+to is not automatically a host worth auto-loading from.
+
+The payload check runs before the allowlist, so a permitted host cannot be used
+as a courier. Non-http schemes and protocol-relative URLs never resolve to a
+host, which covers =data:=, =file:=, =javascript:=, and =//collector=.
+
+Redacts rather than blocks, and the link text survives so the reader still
+learns what was being pointed at.
+
+** Rails::Markup
+
+Removes markup that does something when the answer is rendered. Output side,
+opt-in with =markup=.
+
+| Category         | What is removed                                    |
+|------------------+----------------------------------------------------|
+| =script=         | a script tag                                       |
+| =frame=          | iframe, frame, embed, object, applet               |
+| =event_handler=  | an on* attribute, which is how a lone img tag becomes an exploit |
+| =active_scheme=  | javascript:, vbscript:, data:                      |
+| =meta_refresh=   | a refresh redirect                                 |
+| =base_tag=       | a rewritten base URL                               |
+| =form=           | a form pointing anywhere                           |
+| =style_block=    | a style block, which can position an invisible overlay |
+
+An answer is text until a client renders it, and most markdown renderers pass
+raw HTML straight through. At that point a script tag in the answer is a script
+tag in the page, and the model wrote it because a retrieved document said to.
+The application's own sanitiser is the real defence; this covers the case where
+there is not one, which is most of them.
+
+Off by default: a desk whose client renders answers as plain text does not need
+it, and stripping markup nobody would have executed is noise in the result.
+
+** Rails::Budget
+
+Refuses text too large to be a question. Input and context, opt-in with
+=budget=.
+
+| Side      | Default    |
+|-----------+------------|
+| =input=   | 8000 characters |
+| =context= | 60000 characters |
+
+Characters rather than tokens, because counting tokens means shipping a
+tokeniser, and a tokeniser is a model-specific dependency. The ratio is close
+enough for a limit.
+
+Blocks rather than truncating. A truncated question is a different question,
+and answering that one well is worse than saying the box has a limit. Either
+side can be set to nil to turn it off.
+
+The cost of answering is paid by whoever runs the endpoint, and a public desk
+gives anybody a way to spend it. The same size also dilutes the instructions,
+which is the mechanism the many-shot work measured, so the limit is worth
+having twice over.
 
 ** Rails::GuardModel
 
@@ -82,6 +383,65 @@ Asks whether an answer says only what its passages support. Output side, never
 memoized, and it returns =passed= with =certain?= false when no passages were
 supplied. Categories G1 to G4 cover an unsupported fact, an invented
 identifier, a wrong number, and a miscitation.
+
+** Rails::Trajectory
+
+Judges where a conversation is going rather than what its newest message says.
+Input side, model-backed, never memoized, and switched on with =multiturn=
+alongside =Rails::Escalation=.
+
+| Category | The shape                                                        |
+|----------+------------------------------------------------------------------|
+| =T1=     | staged escalation, each turn using the last answer as a foothold |
+| =T2=     | a payload split across turns, inert until joined                 |
+| =T3=     | persistent extraction, rephrased after each deflection           |
+| =T4=     | role erosion, an accumulating fiction ending outside the remit   |
+
+This is the rail =Rails::Escalation= cannot be: the published multi-turn
+methods are built so that no single turn triggers a refusal, and reading a
+sequence for direction is what a model can do and a regexp cannot.
+
+Below =min_turns= (four) it passes and reports =certain?= true, which is a
+judgement rather than a dodge: a two-message conversation has no trajectory,
+and the single-turn rails have read both messages already.
+
+Measured live against an instruct model on a shared gateway: three staged
+dialogues stopped, seven ordinary ones answered, median 1.6 to 1.8 s a turn.
+=script/trajectory_probe.rb= is that measurement, and the seven are the half
+that matters. Two of them are readers who look pushy and are not: one
+frustrated, one asking for a job script "as an administrator would write it".
+A policy tuned only against attacks blocks both, and the corrections that
+stopped it doing so are in =Policies.trajectory_policy=.
+
+=every: 2= judges one turn in two, for a desk unwilling to pay a round trip per
+turn. A skipped turn passes with =certain?= false, because it was not judged.
+The schedule is counted over the dialogue rather than over calls, so a retry
+does not shift it.
+
+** Rails::KnownAnswer
+
+Detects an injection by whether it worked rather than by what it said. Give a
+model a task whose answer is known, put the untrusted document beside it, and
+see whether the known answer comes back. Nothing reads the document, so a novel
+phrasing and an attack invented tomorrow are detected on the same evidence.
+
+That is the theory, and the measurement does not support it here. Against an
+instruct model of the size a shared gateway serves, the rail detected 0 of 10
+injections while passing 10 of 10 ordinary pages
+(=script/known_answer_probe.rb=). A model asked to repeat a token is not
+derailed by a page telling it to answer differently, and a probe task written
+to resemble the real one fares no better: appending a token and obeying an
+injection are not mutually exclusive, so the model does both.
+
+The technique detects total derailment. These models are not totally derailed.
+They are selectively persuaded on the task that matters while complying with
+everything else they were asked.
+
+Kept, not enabled, and documented this way on purpose. The failure is a
+property of the model rather than of the code, a weaker or more heavily loaded
+model behaves differently, and the probe turns "does this help me" into one
+command instead of an assumption. Run it before switching this on, and expect
+the answer to be no.
 
 ** Rails::ColangFlow
 

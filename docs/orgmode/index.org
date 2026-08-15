@@ -30,6 +30,8 @@ Task-shaped, for when you know what you want.
 - [[file:howto/writing-a-rail.org][Write your own rail]]
 - [[file:howto/screening-documents.org][Screen retrieved documents]]
 - [[file:howto/choosing-an-endpoint.org][Point the model-backed rails somewhere]]
+- [[file:howto/guarding-a-stream.org][Guard an answer while it streams]]
+- [[file:howto/guarding-a-conversation.org][Guard a conversation rather than a message]]
 
 ** Reference
 
@@ -44,6 +46,7 @@ Why the design is shaped the way it is.
   separate]]
 - [[file:explanation/measuring-rails.org][Why the injection corpus is scored as
   a pair]]
+- [[file:explanation/coverage.org][What this covers, and what it does not]]
 
 ** Elsewhere
 

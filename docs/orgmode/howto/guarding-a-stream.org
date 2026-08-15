@@ -1,0 +1,62 @@
+#+TITLE: Guarding a Streamed Answer
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Guarding a Streamed Answer
+
+An output rail that runs on the finished text runs after the reader has read
+it. Streaming makes that worse. The tokens are on screen as they arrive, so the
+most a caller can do at the end is withdraw text somebody has already seen.
+
+=StreamGuard= runs the deterministic output rails as the buffer grows.
+
+** Wrap the stream
+
+#+BEGIN_SRC ruby
+engine = Vangrail.from_env
+guard = Vangrail::StreamGuard.new(engine, user_input: question)
+
+client.stream(prompt) do |chunk|
+  verdict = guard.push(chunk)
+  break if verdict&.blocked?
+
+  emit(verdict&.content || chunk)
+end
+
+final = guard.finish
+show_retraction(final.reason) if final.blocked?
+#+END_SRC
+
+=push= returns =nil= when there is nothing to say, which is the usual case. It
+returns a =Result= when a rail rewrote the buffer or blocked it. A caller that
+ignores the return value entirely gets the old end-of-stream behaviour and
+nothing worse.
+
+** What runs when
+
+| Rail kind     | When it runs        | Why                          |
+|---------------+---------------------+------------------------------|
+| deterministic | every 40 characters | microseconds, cannot fail    |
+| model-backed  | at =finish= only    | one round trip per chunk is a minute per answer |
+
+Half a sentence is also not the object a grounding rail was written to judge.
+Its citation has not been generated yet. Refusing an answer for arriving slowly
+would be a worse failure than the one being fixed.
+
+Set the interval with =interval:=. Lower means more checks over shorter text;
+the rails are regexps, so the cost is real but small.
+
+** What this buys, exactly
+
+Everything the deterministic rails can see is caught before display. What only
+a model can see is caught at the end, as before. A stream guard that implied
+otherwise would be the more dangerous object, so it is worth repeating in
+whatever your application tells its readers.
+
+** After a block
+
+=guard.content= is the text that was actually shown. The guard stops consuming
+once blocked, so pushing more chunks changes nothing and returns the block
+again. What to do with the partial text is an application decision. Leaving it
+on screen with a note is honest, and removing it is defensible. Pretending the
+answer completed is neither.

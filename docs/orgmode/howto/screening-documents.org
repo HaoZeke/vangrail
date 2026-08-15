@@ -55,16 +55,24 @@ ones that carry something subtler, by making the boundary between your prompt
 and their text unmistakable.
 
 #+begin_src ruby
-marked, instruction = Vangrail::Spotlight.apply_all(
-  screening.kept.map { |d| d['text'] }
+messages = Vangrail::Spotlight.messages(
+  system: base_instructions, question: question, passages: screening.kept
 )
-
-system_prompt = [base_instructions, instruction].join("\n\n")
+answer = chat.ask(messages)
 #+end_src
 
-State the rule once, from =instruction=, rather than per passage. The delimiter
-tag is random per request, because a fixed tag is one an attacker writes into a
-page to close the block early.
+One call, because the parts are easy to put together wrongly: marked passages
+with no hierarchy say where the text came from and not what to do when it
+argues with you, and a marking rule stated over unfenced passages describes a
+fence that is not there. Passages may be strings or the hashes retrieval
+returns; a title stays outside the fence so citation instructions can still
+refer to it.
+
+The delimiter tag is random per request, because a fixed tag is one an attacker
+writes into a page to close the block early.
+
+=HIERARCHY= and =apply_all= remain available for a prompt builder that assembles
+its own messages.
 
 ** Check the posture, not just the result
 

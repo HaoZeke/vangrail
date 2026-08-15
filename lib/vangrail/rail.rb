@@ -53,6 +53,14 @@ module Vangrail
       false
     end
 
+    # A rail that stands in for one that could not be built, rather than a rail
+    # that ran. The engine prefers the reason from something that actually ran
+    # when both are uncertain, because "the endpoint refused the connection" is
+    # more actionable than "no endpoint was resolved".
+    def placeholder?
+      false
+    end
+
     def to_s
       name
     end

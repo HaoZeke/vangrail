@@ -158,4 +158,31 @@ class TestEngine < Minitest::Test
     assert_equal 'allow', h['on_error']
     assert h.key?('cache')
   end
+
+  # Two rails cannot decide: one was never built, one tried and had its
+  # connection refused. The second is the one worth telling the caller about.
+  def test_a_rail_that_ran_reports_over_a_rail_that_was_never_built
+    unbuilt = Vangrail::Rails::Missing.new(reason: 'no endpoint resolved', name: 'trajectory',
+                                           sides: [:input])
+    tried = Class.new(Vangrail::Rail) do
+      def call(_text, _context) = unchecked('policy_input failed: connection refused')
+    end.new(name: 'policy_input', sides: [:input])
+
+    result = Vangrail::Engine.new(input: [unbuilt, tried]).check_input('a question')
+
+    assert result.passed?
+    refute result.certain?
+    assert_includes result.reason, 'connection refused'
+    assert_equal 'policy_input', result.rail
+  end
+
+  # And when nothing ran at all, the placeholder is still what there is to say.
+  def test_a_placeholder_reports_when_it_is_the_only_thing_uncertain
+    unbuilt = Vangrail::Rails::Missing.new(reason: 'no endpoint resolved', name: 'trajectory',
+                                           sides: [:input])
+    result = Vangrail::Engine.new(input: [unbuilt]).check_input('a question')
+
+    refute result.certain?
+    assert_includes result.reason, 'no endpoint resolved'
+  end
 end

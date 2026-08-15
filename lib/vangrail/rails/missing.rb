@@ -26,6 +26,10 @@ module Vangrail
         true
       end
 
+      def placeholder?
+        true
+      end
+
       def call(_text, _context)
         unchecked(reason)
       end

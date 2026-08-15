@@ -24,4 +24,11 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   spec.metadata['rubygems_mfa_required'] = 'true'
+
+  # Development only, and deliberately so. unicode-confusable supplies the
+  # Unicode confusables data that script/generate_confusables.rb turns into
+  # lib/vangrail/confusables_data.rb. The table is checked in, so an installed
+  # gem needs nothing but the standard library, and the data still comes from
+  # UTS #39 rather than from somebody's memory of it.
+  spec.add_development_dependency 'unicode-confusable', '~> 1.13'
 end

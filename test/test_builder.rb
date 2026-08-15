@@ -77,11 +77,97 @@ class TestBuilder < Minitest::Test
     assert_includes engine(gateway_env).rail_names(:output), 'secrets'
   end
 
+  # The deterministic input rails travel together: they cost microseconds, they
+  # keep working when the endpoint is down, and asking for one alone buys
+  # nothing worth a separate name. The decoding pass rides with them for the
+  # same reason, and because a pattern list that only reads plain text is a
+  # pattern list with a published bypass.
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
-    assert_equal ['injection_patterns'], e.rail_names(:input)
+    assert_equal %w[injection_patterns jailbreak many_shot obfuscation], e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
+  end
+
+  # Naming the hosts is the opt-in. An application that never mentioned links
+  # keeps the behaviour it had, because the empty allowlist means no links at
+  # all and imposing that silently would break every answer with a reference
+  # in it.
+  def test_the_link_allowlist_is_what_switches_the_exfiltration_rail_on
+    plain = engine(gateway_env)
+    refute_includes plain.rail_names(:output), 'exfiltration'
+
+    guarded = engine(gateway_env.merge('GUARDRAILS_LINK_HOSTS' => 'docs.example.org, example.org'))
+    assert_includes guarded.rail_names(:output), 'exfiltration'
+  end
+
+  def test_images_can_be_held_to_a_shorter_list_than_links
+    e = engine(gateway_env.merge('GUARDRAILS_LINK_HOSTS' => 'docs.example.org',
+                                 'GUARDRAILS_IMAGE_HOSTS' => 'nothing.example'))
+    rail = e.output_rails.find { |r| r.name == 'exfiltration' }
+    assert_equal ['docs.example.org'], rail.allow_hosts
+    assert_equal ['nothing.example'], rail.allow_images
+  end
+
+  # It reads history, and a caller threading none would have every input check
+  # come back uncertain: true, and useless.
+  def test_the_multi_turn_rails_are_off_until_they_are_asked_for
+    refute_includes engine(gateway_env).rail_names(:input), 'escalation'
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,multiturn'))
+    assert_includes e.rail_names(:input), 'escalation'
+    assert_includes e.rail_names(:input), 'trajectory'
+  end
+
+  # The free one runs first, so a refused question asked again never reaches
+  # the judge.
+  def test_the_deterministic_multi_turn_rail_runs_before_the_judge
+    names = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,multiturn')).rail_names(:input)
+    assert_operator names.index('escalation'), :<, names.index('trajectory')
+  end
+
+  # An unreachable endpoint leaves a placeholder rather than a shorter list,
+  # so the pass stays uncertain instead of resting on the free rail.
+  def test_an_unreachable_endpoint_leaves_the_judge_named
+    e = engine('GUARDRAILS_RAILS' => 'input,multiturn')
+    assert_includes e.rail_names(:input), 'trajectory'
+    result = e.check_input('anything', history: [])
+    refute result.certain?
+  end
+
+  # It rewrites the question before the model sees it, which is a deployment's
+  # call and not a default.
+  def test_the_privacy_rail_is_opt_in
+    refute_includes engine(gateway_env).rail_names(:input), 'personal_data'
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,privacy'))
+    assert_includes e.rail_names(:input), 'personal_data'
+    assert e.check_input('mail me at someone@example.org').modified?
+  end
+
+  def test_markup_stripping_is_opt_in
+    refute_includes engine(gateway_env).rail_names(:output), 'markup'
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'output,markup'))
+    assert_includes e.rail_names(:output), 'markup'
+  end
+
+  def test_a_size_limit_can_be_switched_on_for_both_sides
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,context,budget'))
+    assert_includes e.rail_names(:input), 'budget'
+    assert_includes e.rail_names(:context), 'budget'
+    assert e.check_input('x' * 20_000).blocked?
+  end
+
+  def test_the_decoding_pass_reads_documents_as_well_as_questions
+    assert_includes engine(gateway_env).rail_names(:context), 'obfuscation'
+  end
+
+  # Nothing can be checked without a token, so naming one is the switch.
+  def test_the_canary_rail_appears_only_when_a_token_is_named
+    refute_includes engine(gateway_env).rail_names(:output), 'canary'
+
+    e = engine(gateway_env.merge('GUARDRAILS_CANARY' => 'canary-Ab12Cd34Ef56Gh78'))
+    assert_includes e.rail_names(:output), 'canary'
+    assert_includes e.rail_names(:input), 'canary'
+    assert e.check_output('the prompt began canary-Ab12Cd34Ef56Gh78').blocked?
   end
 
   def test_all_turns_on_grounding_too

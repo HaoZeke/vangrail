@@ -11,20 +11,35 @@ require_relative 'vangrail/result'
 require_relative 'vangrail/result_cache'
 require_relative 'vangrail/rail'
 require_relative 'vangrail/engine'
+require_relative 'vangrail/stream_guard'
+require_relative 'vangrail/conversation'
 require_relative 'vangrail/actions'
 require_relative 'vangrail/provider'
 require_relative 'vangrail/providers'
 require_relative 'vangrail/colang/parser'
 require_relative 'vangrail/colang/interpreter'
 require_relative 'vangrail/colang/library'
+require_relative 'vangrail/confusables'
 require_relative 'vangrail/spotlight'
 require_relative 'vangrail/rails/injected_instructions'
 require_relative 'vangrail/rails/missing'
+require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
+require_relative 'vangrail/rails/obfuscation'
+require_relative 'vangrail/rails/hidden'
+require_relative 'vangrail/rails/escalation'
+require_relative 'vangrail/rails/many_shot'
+require_relative 'vangrail/rails/canary'
+require_relative 'vangrail/rails/personal_data'
+require_relative 'vangrail/rails/markup'
+require_relative 'vangrail/rails/budget'
 require_relative 'vangrail/rails/secrets'
+require_relative 'vangrail/rails/exfiltration'
 require_relative 'vangrail/rails/guard_model'
 require_relative 'vangrail/rails/self_check'
 require_relative 'vangrail/rails/grounding'
+require_relative 'vangrail/rails/trajectory'
+require_relative 'vangrail/rails/known_answer'
 require_relative 'vangrail/rails/colang_flow'
 require_relative 'vangrail/rails/remote'
 require_relative 'vangrail/client'
@@ -54,7 +69,13 @@ module Vangrail
   #   GUARDRAILS_GATEWAY_*        describe a shared gateway (see Providers)
   #   GUARDRAILS_MODEL=<model>    classifier, where the provider hosts one
   #   GUARDRAILS_JUDGE_MODEL=<m>  instruct model for policy and grounding rails
-  #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns
+  #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
+  #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
+  #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
+  #   GUARDRAILS_RAILS=...,markup   strip active markup from the answer
+  #   GUARDRAILS_RAILS=...,budget   refuse text too large to be a question
+  #   GUARDRAILS_LINK_HOSTS=a.example,b.example  hosts an answer may link to
+  #   GUARDRAILS_IMAGE_HOSTS=a.example           hosts it may auto-load from
   #   GUARDRAILS_ON_ERROR=allow|block
   #   GUARDRAILS_REASONING=1      ask a classifier for a written rationale
   #   GUARDRAILS_CACHE=0          turn off the in-process memo
@@ -86,7 +107,8 @@ module Vangrail
   # decision is separable and testable on its own.
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
-    ALL_RAILS = %i[input context output grounding secrets patterns].freeze
+    ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
+                   markup budget].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -165,7 +187,27 @@ module Vangrail
     def input_rails
       return [] unless on?(:input) || on?(:patterns)
 
-      rails = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns', sides: [:input])]
+      deterministic = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
+                                          sides: [:input]),
+                       Rails::Jailbreak.new(sides: [:input]),
+                       Rails::ManyShot.new(sides: [:input])]
+      rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:input])]
+      # A question carrying the canary is too late to prevent and worth
+      # knowing: the prompt is already out.
+      rails << canary(:input) if canary_token
+      # Opt-in: it rewrites the question before the model sees it, which is a
+      # deployment's call rather than a default. Where the endpoint is a third
+      # party it is close to obligatory, and where it is a local proxy it buys
+      # little.
+      rails << Rails::PersonalData.new if on?(:privacy)
+      rails << Rails::Budget.new(sides: [:input]) if on?(:budget)
+      # Off unless asked for: they read history, and a caller that threads none
+      # would have every input check come back uncertain, which is true and
+      # useless. Conversation is what makes them worth having.
+      #
+      # The deterministic one goes first so a refused question asked again
+      # never reaches the judge: it is free, and the round trip is not.
+      rails.concat(multiturn_rails) if on?(:multiturn)
       rails << judged(:input) if on?(:input)
       rails.compact
     end
@@ -173,18 +215,65 @@ module Vangrail
     # Deterministic, offline, and free, so it is on by default. The document a
     # retrieval step just fetched is the side an attacker can usually reach
     # without touching the application, and nothing else in this engine reads it.
+    #
+    # The decoding pass matters more here than anywhere else: a page an
+    # attacker edits is a page they can base64.
     def context_rails
       return [] unless on?(:context)
 
-      [Rails::InjectedInstructions.new]
+      deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context]),
+                       Rails::ManyShot.new(sides: [:context])]
+      # Two passes over the same definitions, for the two ways a page hides
+      # one: encoded so the patterns cannot read it, or in markup a reader
+      # never sees.
+      rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
+                               Rails::Hidden.new(rails: deterministic)]
+      rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
+      rails
     end
 
     def output_rails
       rails = []
       rails << Rails::Secrets.new if on?(:secrets) || on?(:output)
+      rails << canary(:output) if canary_token
+      # Off by default: a desk whose client renders answers as plain text does
+      # not need it, and stripping markup nobody would have executed is noise
+      # in the result.
+      rails << Rails::Markup.new if on?(:markup)
+      rails << exfiltration if link_hosts || on?(:links)
       rails << judged(:output) if on?(:output)
       rails << grounding if on?(:grounding)
       rails.compact
+    end
+
+    # The hosts an answer may link to. Not defaulted to anything, because the
+    # empty allowlist means "no links at all", which is right for an
+    # application that said so and wrong to impose on one that never mentioned
+    # links. Naming the variable is the opt-in.
+    def link_hosts
+      present(env['GUARDRAILS_LINK_HOSTS'])
+    end
+
+    # The pair, because they cover different halves. Escalation sees a retry
+    # after a refusal and nothing before one; the judge reads a sequence that
+    # has never been refused, which is what the published multi-turn methods
+    # are built to produce.
+    def multiturn_rails
+      rails = [Rails::Escalation.new]
+      rails << if provider&.available?
+                 Rails::Trajectory.new(provider: provider, every: judge_every)
+               else
+                 missing('trajectory', :input)
+               end
+      rails
+    end
+
+    # One round trip per turn is the honest cost, and a desk may not want to
+    # pay it every turn. A staged escalation takes several turns by
+    # construction and cannot finish inside a gap of two.
+    def judge_every
+      value = env['GUARDRAILS_TRAJECTORY_EVERY'].to_i
+      value.positive? ? value : 1
     end
 
     # The rail class follows what the endpoint can actually serve. A provider
@@ -223,6 +312,24 @@ module Vangrail
     def guard_model(side)
       Rails::GuardModel.new(provider: provider, reasoning: truthy?(env['GUARDRAILS_REASONING']),
                             sides: [side])
+    end
+
+    # The application generates the token, puts it in its prompt, and names it
+    # here. Nothing can be checked without one, so its absence is the off
+    # switch.
+    def canary_token
+      present(env['GUARDRAILS_CANARY'])
+    end
+
+    def canary(side)
+      Rails::Canary.new(tokens: canary_token.split(/[,\s]+/), sides: [side])
+    end
+
+    def exfiltration
+      hosts = link_hosts.to_s.split(/[,\s]+/).reject(&:empty?)
+      images = present(env['GUARDRAILS_IMAGE_HOSTS'])
+      Rails::Exfiltration.new(allow_hosts: hosts,
+                              allow_images: images&.split(/[,\s]+/)&.reject(&:empty?))
     end
 
     def grounding
