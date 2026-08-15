@@ -97,7 +97,12 @@ module Vangrail
       def call(text, _context)
         # Clause by clause: a rule that reaches across a full stop is reading
         # two statements as one, and a long page has a full stop every line.
-        hits = NLP.clauses(text).flat_map { |clause| clause_hits(clause) }
+        # Anaphora is applied across that cut: "Ignore them" after a clause
+        # that named an instruction is the same pair as "Ignore the instructions".
+        clauses = NLP.clauses(text)
+        hits = NLP.clause_concepts(text, languages: languages).flat_map.with_index do |found, i|
+          clause_hits(clauses[i], found)
+        end
         return pass if hits.empty?
 
         block(categories: hits.map { |hit| hit[:label] }.uniq,
@@ -106,8 +111,8 @@ module Vangrail
 
       private
 
-      def clause_hits(clause)
-        found = NLP.concepts(clause, languages: languages)
+      def clause_hits(clause, found = nil)
+        found ||= NLP.concepts(clause, languages: languages)
         return [] if found.empty?
 
         present = found.to_set { |(_, concept, _)| concept }

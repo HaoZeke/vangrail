@@ -51,7 +51,7 @@ module Vangrail
     # handful of turns while a pattern of them does not.
     DEFAULT_DECAY = 0.6
 
-    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns, :alpha, :beta
+    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns, :alpha, :beta, :cusum
 
     # `alpha` and `beta` are the error rates a sequential test is allowed: how
     # often it may call an ordinary reader an attacker, and how often it may
@@ -71,6 +71,7 @@ module Vangrail
       @beta = beta
       @log_odds = Math.log2(Posterior.to_odds(prior))
       @turns = []
+      @cusum = 0.0
     end
 
     # Judges one turn and folds it into the session.
@@ -90,6 +91,12 @@ module Vangrail
     def fold(judgement)
       decay_towards_prior
       @log_odds += judgement.bits
+      # Page (1954). Reference value is 0: accumulate only excess toward
+      # attack. An uncertain turn contributes nothing, the same rule
+      # assess uses for abstention. The threshold is Wald's upper bar,
+      # so the error rate is the one the caller already chose.
+      increment = judgement.certain? ? judgement.bits : 0.0
+      @cusum = [0.0, (@cusum * decay) + increment].max
       @turns << judgement
       self
     end
@@ -162,6 +169,13 @@ module Vangrail
       [upper_threshold - bits, bits - lower_threshold].min
     end
 
+    # True when the recent burst of attack-direction evidence has reached
+    # the same bar Wald uses for the accumulated total. A change of
+    # behaviour, not a lifetime score.
+    def shift?
+      cusum >= upper_threshold
+    end
+
     # False as soon as any turn was judged without every rail reaching a
     # decision, because the session's number inherits every gap in the turns
     # that built it.
@@ -178,6 +192,8 @@ module Vangrail
         'turns' => turns.size,
         'action' => action.to_s,
         'verdict' => verdict.to_s,
+        'cusum' => cusum.round(2),
+        'shift' => shift?,
         'certain' => certain?,
       }
     end

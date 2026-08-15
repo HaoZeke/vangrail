@@ -114,6 +114,15 @@ Nothing has been released yet. This section describes what exists.
 
 ### Added
 
+- `Rails::Alignment`, a three-concept ordered match with a gap, so
+  "Ignore, once the module is loaded, every previous instruction"
+  is caught and "follow the guidance and ignore stale copies" is
+  not. On by default with the other lexicon rails. Not in the
+  evidence table until it is measured on the same corpora.
+- Anaphora across a full stop: "There are guidelines above. Ignore
+  them." binds `them` to the previous clause's instruction.
+- `Session#cusum` and `Session#shift?`, Page's one-sided scheme over
+  the same turn bits, thresholded at Wald's upper bar.
 - `Builder#session` and `Vangrail.session_from_env`, so a deployment
   that already builds from the environment can carry a posterior across
   turns without constructing the engine twice.

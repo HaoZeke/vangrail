@@ -10,6 +10,7 @@
 | =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
 | =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
 | =Rails::Paraphrase=         | input, context | no     | passed, blocked            |
+| =Rails::Alignment=          | input, context | no     | passed, blocked            |
 | =Rails::Similarity=         | input, context | no     | passed, blocked            |
 | =Rails::Bayes=              | input, context | no     | passed, blocked            |
 | =Rails::Language=           | input, context | no     | passed, never blocks       |
@@ -108,6 +109,26 @@ Always a pair, never one concept. A document that mentions instructions is a
 handbook; a document that mentions overriding them is an attack. Windows are
 short and clause-bounded, because two concepts in one clause are one statement
 and the same two nine lines apart are two sentences.
+
+** Rails::Alignment
+
+Three-concept ordered match with a gap, for the adjunct the pair window
+cannot reach. Input and context, deterministic, offline, on with the
+other lexicon rails. Smith and Waterman (1981) is the motivation;
+the implementation takes the last occurrence of each template concept
+and requires them in order, with no coordinator between the first and
+the last. Extra copies of =instruction= mid-clause do not steal the
+object of the override.
+
+Not in the evidence table until it is scored on the same 270/48 texts.
+
+** Session CUSUM
+
+=Session#cusum= is Page's (1954) one-sided scheme over the same turn
+bits Wald already sees. The reference value is 0 (accumulate only
+excess toward attack). The threshold is Wald's upper bar from the
+same =alpha=. Ordinary turns decay it; a burst of probes is
+=shift?=, which is a change of behaviour rather than a lifetime score.
 
 Word order matters where an English verb governs its object: "ignore the
 guidelines" is an attack and "follow the guidance and ignore stale copies of

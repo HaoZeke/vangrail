@@ -33,6 +33,7 @@ require_relative 'vangrail/bayes_data'
 require_relative 'vangrail/spotlight'
 require_relative 'vangrail/rails/injected_instructions'
 require_relative 'vangrail/rails/paraphrase'
+require_relative 'vangrail/rails/alignment'
 require_relative 'vangrail/rails/language'
 require_relative 'vangrail/rails/similarity'
 require_relative 'vangrail/rails/bayes'
@@ -185,6 +186,7 @@ module Vangrail
          end),
         Rails::Jailbreak.new(sides: [side]),
         Rails::Paraphrase.new(sides: [side]),
+        Rails::Alignment.new(sides: [side]),
         Rails::Similarity.new(sides: [side]),
         Rails::ManyShot.new(sides: [side]),
       ].compact

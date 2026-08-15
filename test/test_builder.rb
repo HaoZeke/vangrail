@@ -92,7 +92,7 @@ class TestBuilder < Minitest::Test
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
 
-    assert_equal %w[injection_patterns jailbreak paraphrase similarity many_shot obfuscation language],
+    assert_equal %w[injection_patterns jailbreak paraphrase alignment similarity many_shot obfuscation language],
                  e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert_predicate e, :offline?

@@ -216,6 +216,23 @@ class TestSession < Minitest::Test
     assert_equal 'attack', watched.to_h['verdict']
   end
 
+  def test_a_burst_of_probes_is_a_shift_on_the_cusum
+    watched = session
+    observe_all(watched, PROBES)
+
+    assert_operator watched.cusum, :>, 0
+    assert_predicate watched, :shift?
+  end
+
+  def test_ordinary_turns_reset_the_cusum
+    watched = session
+    observe_all(watched, PROBES)
+    observe_all(watched, CLEAN)
+
+    assert_in_delta 0.0, watched.cusum, 1e-9
+    refute_predicate watched, :shift?
+  end
+
   def test_the_guards_are_on_the_numbers_that_would_break_the_arithmetic
     assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 0.0) }
     assert_raises(ArgumentError) { Vangrail::Session.new(engine: engine, prior: 1.0) }

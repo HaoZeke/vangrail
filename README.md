@@ -560,6 +560,7 @@ one when the local rails cover it.
 | `Rails::InjectedInstructions` | context | no | passed, blocked |
 | `Rails::Jailbreak` | input, context | no | passed, blocked |
 | `Rails::Paraphrase` | input, context | no | passed, blocked |
+| `Rails::Alignment` | input, context | no | passed, blocked |
 | `Rails::Similarity` | input, context | no | passed, blocked |
 | `Rails::Bayes` | input, context | no | passed, blocked |
 | `Rails::Language` | input, context | no | passed, never blocks |
@@ -636,7 +637,7 @@ disable.
 rake test
 ```
 
-540 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
+550 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
 a recorded double; transport, status handling, the `/v1/checks` fallback, and a
 genuinely refused connection run against a loopback server the suite starts
 itself. No outbound network, no keys, nothing outside the standard library.

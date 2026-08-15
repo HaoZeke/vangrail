@@ -262,6 +262,9 @@ module Vangrail
     # rarely writes.
     PRONOUNS = %w[you je jij u].freeze
     COPULAS = %w[are re be become becoming bent ben is wordt word zijn].freeze
+    # A pronoun that names the instruction in the previous clause:
+    # "There are guidelines above. Ignore them."
+    ANAPHORA = %w[them they it ze zij].freeze
 
     def self.build_lexicon(languages)
       lexicon = {}
@@ -298,6 +301,7 @@ module Vangrail
     COORDINATOR_STEMS = COORDINATORS.to_set { |w| stem(w) }.freeze
     PRONOUN_STEMS = PRONOUNS.to_set { |w| stem(w) }.freeze
     COPULA_STEMS = COPULAS.to_set { |w| stem(w) }.freeze
+    ANAPHORA_STEMS = ANAPHORA.to_set { |w| stem(w) }.freeze
     PHRASE_LENGTHS = PHRASE_LEXICONS[LANGUAGES].keys.map { |k| k.count(' ') + 1 }.uniq.sort.reverse.freeze
 
     def lexicon(languages = LANGUAGES)
@@ -471,6 +475,33 @@ module Vangrail
         end
       end
       out.sort_by { |(i, concept, _)| [i, concept.to_s] }
+    end
+
+    # Concepts per clause, with a backward pronoun bound to the previous
+    # clause's instruction. "There are guidelines above. Ignore them."
+    # is one statement split by a full stop; without the bind, the second
+    # clause is an override with no object.
+    def clause_concepts(text, languages: LANGUAGES)
+      carry = false
+      clauses(text).map do |clause|
+        found = concepts(clause, languages: languages)
+        found = bind_anaphora(clause, found) if carry
+        carry = found.any? { |(_, concept, _)| concept == :instruction }
+        found
+      end
+    end
+
+    def bind_anaphora(clause, found)
+      tokens = words(clause)
+      return found if tokens.empty?
+      return found unless ANAPHORA_STEMS.include?(stem(tokens.last))
+      return found unless found.any? { |(_, concept, _)| concept == :override }
+      return found if found.any? { |(_, concept, _)| concept == :instruction }
+
+      override_at = found.detect { |(_, concept, _)| concept == :override }&.first
+      return found if override_at.nil? || (tokens.size - 1 - override_at) > 3
+
+      found + [[tokens.size - 1, :instruction, tokens.last]]
     end
 
     # Multiword concepts, reported at the position of their first token so the
