@@ -56,8 +56,10 @@ judgement is uncertain: the action was not identified.
 The origin of the span is a different question from what the rails
 saw. A retrieved page that trips =paraphrase= is contaminated data,
 not a user attack. =assess= labels the span (~input~ is user,
-~context~ is data); =Session= accumulates one channel and quarantines
-the other. =Admission= refuses a capability whose request is not
+~context~ is data); =Session= keeps an attack track and a
+contamination track, and they never add. =Conversation#screen= folds
+pages onto contamination; =admit?= takes the last user turn as the
+request. =Admission= refuses a capability whose request is not
 privileged, or whose arguments are untrusted without an allowlist.
 Detection still runs. Promotion is what it no longer does.
 

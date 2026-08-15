@@ -366,10 +366,13 @@ gate.permit?(:shell, request: question, arguments: page)          # => false
 ```
 
 `Engine#assess` labels the span (`origin:` defaults from the side).
-`Session` takes its channel from the first folded origin. A later
-judgement on the other rank is quarantined: data cannot move an
-attack posterior. Mixing unions origins; quoting does not wash off
-taint.
+`Session` keeps two tracks. Privileged origin updates attack;
+untrusted origin updates contamination. They never add. A later
+judgement on the other rank still moves that rank; it does not move
+this one. `Conversation#screen` folds pages onto contamination.
+`Conversation#admit?` takes the last user turn as the request and
+treats a bare argument as data. Mixing unions origins; quoting does
+not wash off taint.
 
 This is not a second model and it is not a trained preference. It is
 the capability cut those papers run, expressed as a lattice over

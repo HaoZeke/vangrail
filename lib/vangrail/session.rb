@@ -52,8 +52,29 @@ module Vangrail
     # handful of turns while a pattern of them does not.
     DEFAULT_DECAY = 0.6
 
-    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns, :alpha, :beta, :cusum,
-                :channel, :quarantined
+    # One rank's running total. Attack and contamination each have one;
+    # they decay and accumulate on their own clock and they do not add.
+    class Track
+      attr_accessor :log_odds, :cusum
+      attr_reader :turns
+
+      def initialize(log_odds)
+        @log_odds = log_odds
+        @cusum = 0.0
+        @turns = []
+      end
+
+      def posterior
+        Posterior.from_odds(2**log_odds)
+      end
+
+      def bits(prior)
+        log_odds - Math.log2(Posterior.to_odds(prior))
+      end
+    end
+
+    attr_reader :engine, :prior, :decay, :policy, :alpha, :beta, :channel,
+                :attack, :contamination
 
     # `alpha` and `beta` are the error rates a sequential test is allowed: how
     # often it may call an ordinary reader an attacker, and how often it may
@@ -71,11 +92,10 @@ module Vangrail
       @policy = policy
       @alpha = alpha
       @beta = beta
-      @log_odds = Math.log2(Posterior.to_odds(prior))
-      @turns = []
-      @cusum = 0.0
+      base = Math.log2(Posterior.to_odds(prior))
+      @attack = Track.new(base)
+      @contamination = Track.new(base)
       @channel = nil
-      @quarantined = []
     end
 
     # Judges one turn and folds it into the session.
@@ -87,10 +107,10 @@ module Vangrail
     # accumulation belongs in the session's state, not in each turn's premise.
     #
     # `origin` defaults from the side: a question is a user span, a retrieved
-    # page is data. The first folded origin fixes the session's channel.
-    # A later judgement on the other rank is quarantined rather than added:
-    # data cannot move an attack posterior, and a reader cannot contaminate
-    # a document they did not write.
+    # page is data. Privileged origin updates the attack track. Untrusted
+    # origin updates contamination. The two numbers never add: a poisoned
+    # wiki page cannot accuse a reader, and a reader cannot contaminate a
+    # document they did not write.
     def observe(text, side: :input, origin: nil, **context)
       origin = Origin.coerce(origin || Origin.default_for(side))
       judgement = engine.assess(text, side: side, prior: prior, policy: policy,
@@ -103,21 +123,26 @@ module Vangrail
     def fold(judgement)
       origin = judgement.origin || Origin.default_for(judgement.side || :input)
       @channel ||= origin.channel
-      if origin.channel != @channel
-        @quarantined << judgement
-        return self
-      end
-
-      decay_towards_prior
-      @log_odds += judgement.bits
-      # Page (1954). Reference value is 0: accumulate only excess toward
-      # attack. An uncertain turn contributes nothing, the same rule
-      # assess uses for abstention. The threshold is Wald's upper bar,
-      # so the error rate is the one the caller already chose.
-      increment = judgement.certain? ? judgement.bits : 0.0
-      @cusum = [0.0, (@cusum * decay) + increment].max
-      @turns << judgement
+      apply(track_for(origin.channel), judgement)
       self
+    end
+
+    def log_odds
+      primary.log_odds
+    end
+
+    def turns
+      primary.turns
+    end
+
+    def cusum
+      primary.cusum
+    end
+
+    # Turns that landed on the other rank. They still moved that rank's
+    # posterior; they did not move this one.
+    def quarantined
+      other.turns
     end
 
     def posterior
@@ -199,7 +224,7 @@ module Vangrail
     # decision, because the session's number inherits every gap in the turns
     # that built it.
     def certain?
-      turns.all?(&:certain?)
+      attack.turns.all?(&:certain?) && contamination.turns.all?(&:certain?)
     end
 
     def to_h
@@ -211,12 +236,14 @@ module Vangrail
         'turns' => turns.size,
         'channel' => channel&.to_s,
         'quarantined' => (quarantined.size unless quarantined.empty?),
+        'attack' => track_h(attack),
+        'contamination' => track_h(contamination),
         'action' => action.to_s,
         'verdict' => verdict.to_s,
         'cusum' => cusum.round(2),
         'shift' => shift?,
         'certain' => certain?,
-      }
+      }.compact
     end
 
     def to_s
@@ -226,12 +253,43 @@ module Vangrail
 
     private
 
+    def primary
+      @channel == :contamination ? @contamination : @attack
+    end
+
+    def other
+      primary.equal?(@attack) ? @contamination : @attack
+    end
+
+    def track_for(name)
+      name == :attack ? @attack : @contamination
+    end
+
+    def apply(track, judgement)
+      decay_track(track)
+      track.log_odds += judgement.bits
+      # Page (1954). Reference value is 0: accumulate only excess toward
+      # attack. An uncertain turn contributes nothing, the same rule
+      # assess uses for abstention. The threshold is Wald's upper bar,
+      # so the error rate is the one the caller already chose.
+      increment = judgement.certain? ? judgement.bits : 0.0
+      track.cusum = [0.0, (track.cusum * decay) + increment].max
+      track.turns << judgement
+    end
+
     # Multiply the excess over the prior, not the odds. Decaying the odds
     # themselves would drag a session towards even money from both directions,
     # which would make a long clean session look suspicious.
-    def decay_towards_prior
+    def decay_track(track)
       base = Math.log2(Posterior.to_odds(prior))
-      @log_odds = base + ((@log_odds - base) * decay)
+      track.log_odds = base + ((track.log_odds - base) * decay)
+    end
+
+    def track_h(track)
+      return nil if track.turns.empty?
+
+      { 'posterior' => track.posterior.round(6), 'bits' => track.bits(prior).round(2),
+        'turns' => track.turns.size }
     end
   end
 end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'engine'
+require_relative 'origin'
 require_relative 'result'
 require_relative 'session'
 
@@ -35,7 +36,7 @@ module Vangrail
   #   convo.ask(question)
   #   convo.session.posterior
   class Conversation
-    Turn = Struct.new(:role, :text, :result, keyword_init: true) do
+    Turn = Struct.new(:role, :text, :result, :origin, keyword_init: true) do
       def blocked?
         result&.blocked? || false
       end
@@ -45,7 +46,8 @@ module Vangrail
       end
 
       def to_h
-        { 'role' => role.to_s, 'text' => text, 'result' => result&.to_h }.compact
+        { 'role' => role.to_s, 'text' => text, 'origin' => origin&.to_s,
+          'result' => result&.to_h }.compact
       end
     end
 
@@ -54,9 +56,10 @@ module Vangrail
     # an unbounded window makes the cost of a check grow with the session.
     DEFAULT_WINDOW = 12
 
-    attr_reader :engine, :turns, :window, :session
+    attr_reader :engine, :turns, :window, :session, :admission
 
-    def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil, **context)
+    def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
+                   allow: {}, admission: nil, **context)
       raise ArgumentError, 'pass session: or prior:, not both' if session && prior
 
       @engine = engine
@@ -64,6 +67,7 @@ module Vangrail
       @base_context = context
       @turns = []
       @session = session || (prior && Session.new(engine: engine, prior: prior))
+      @admission = admission || Admission.new(allow: allow)
     end
 
     # Checks a question and records it, whatever the verdict. A blocked turn
@@ -71,21 +75,44 @@ module Vangrail
     def ask(text, **context)
       seen = history
       result = engine.check_input(text, history: seen, **@base_context, **context)
-      @turns << Turn.new(role: :user, text: text.to_s, result: result)
+      @turns << Turn.new(role: :user, text: text.to_s, result: result, origin: Origin.user)
       @session&.observe(text, side: :input, origin: :user, history: seen)
       result
     end
 
     def answer(text, **context)
       result = engine.check_output(text, history: history, **@base_context, **context)
-      @turns << Turn.new(role: :assistant, text: content_of(result, text), result: result)
+      @turns << Turn.new(role: :assistant, text: content_of(result, text), result: result,
+                         origin: Origin.tool)
       result
     end
 
     # Screens retrieved documents with the dialogue in view, so a context rail
-    # can see which question they were fetched for.
+    # can see which question they were fetched for. A session, if any, records
+    # each page on the contamination track: instruction-shaped data is
+    # poisoned retrieval, not a user attack.
     def screen(documents, **context)
-      engine.screen(documents, history: history, **@base_context, **context)
+      seen = history
+      result = engine.screen(documents, history: seen, **@base_context, **context)
+      Array(documents).each do |document|
+        @session&.observe(text_of(document), side: :context, origin: :data, history: seen)
+      end
+      result
+    end
+
+    # Whether this dialogue may exercise a capability. The request is the
+    # last user turn; a bare argument string is data. Nothing is admitted
+    # before anyone has asked.
+    def admit?(capability, arguments: nil)
+      turn = last_user_turn
+      return false unless turn
+
+      args = case arguments
+             when nil then nil
+             when Cell then arguments
+             else Cell.data(arguments)
+             end
+      admission.permit?(capability, request: Cell.user(turn.text), arguments: args)
     end
 
     # The window the rails read: role and text, no Result objects, because a
@@ -118,6 +145,12 @@ module Vangrail
 
     def content_of(result, fallback)
       result.respond_to?(:content_or) ? result.content_or(fallback.to_s) : fallback.to_s
+    end
+
+    def text_of(document)
+      return document.to_s unless document.is_a?(Hash)
+
+      (document['text'] || document[:text]).to_s
     end
   end
 end

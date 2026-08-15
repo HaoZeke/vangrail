@@ -126,9 +126,10 @@ Nothing has been released yet. This section describes what exists.
   retrieved page cannot authorize a tool.
 - `Engine#assess(origin:)` labels the span. The side supplies a default
   (`input` is user, `context` is data, `output` is tool). `Session`
-  takes its channel from the first folded origin; a later judgement on
-  the other rank is quarantined rather than added, so a poisoned wiki
-  page cannot move an attack posterior.
+  keeps two tracks: privileged origin updates attack, untrusted origin
+  updates contamination. They never add. `Conversation#screen` folds
+  pages onto contamination; `Conversation#admit?` takes the last user
+  turn as the request and treats a bare argument as data.
 - `Rails::Alignment`, a three-concept ordered match with a gap, so
   "Ignore, once the module is loaded, every previous instruction"
   is caught and "follow the guidance and ignore stale copies" is

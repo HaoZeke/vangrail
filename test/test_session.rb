@@ -246,8 +246,11 @@ class TestSession < Minitest::Test
 
     assert_equal :attack, watched.channel
     assert_in_delta bits, watched.bits, 1e-12
+    assert_in_delta bits, watched.attack.bits(PRIOR), 1e-12
     assert_equal 1, watched.quarantined.size
     assert_equal 1, watched.turns.size
+    assert_operator watched.contamination.posterior, :>, PRIOR
+    refute_in_delta 0.0, watched.contamination.bits(PRIOR), 1e-6
   end
 
   def test_a_context_session_is_contamination_not_an_accusation
