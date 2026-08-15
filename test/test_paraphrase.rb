@@ -178,6 +178,11 @@ class TestParaphrase < Minitest::Test
 
   def test_it_is_offline_and_memoizable
     assert_predicate rail, :offline?
-    assert_equal 'text', rail.cache_key('text', {})
+    # The languages are part of the key: the same text judged against a
+    # different lexicon is a different question, and a memo that forgets that
+    # answers the wrong one.
+    assert_equal "en+nl\ntext", rail.cache_key('text', {})
+    refute_equal rail.cache_key('text', {}),
+                 Vangrail::Rails::Paraphrase.new(languages: [:en]).cache_key('text', {})
   end
 end

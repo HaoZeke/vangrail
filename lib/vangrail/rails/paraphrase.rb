@@ -27,6 +27,12 @@ module Vangrail
     # ordinary documentation, and the pair is what separates the two without a
     # judgement call.
     #
+    # Because concepts are language-independent, a second language costs a word
+    # list rather than a second rail. English and Dutch are both read by
+    # default: the pattern rails in this gem are English-only, so a Dutch wiki
+    # page is a page nothing else here can read, and at a Dutch institution
+    # that page is the ordinary case rather than the exotic one.
+    #
     # The limits are worth being exact about, because this is the rail most
     # likely to be mistaken for understanding. A synonym outside NLP::CONCEPTS
     # is a miss. A sentence in another language is a miss. An attacker who
@@ -65,11 +71,19 @@ module Vangrail
         { label: 'unrestricted_persona', concepts: %i[persona unrestricted], window: 8 }
       ].freeze
 
-      attr_reader :templates
+      attr_reader :templates, :languages
 
-      def initialize(templates: TEMPLATES, name: 'paraphrase', sides: %i[input context])
+      # Both languages by default. A deployment whose corpus is genuinely
+      # single-language can say so and pay a shorter lexicon; one that thinks
+      # it is single-language usually has a Dutch page in it somewhere, which
+      # is the case the default is for.
+      def initialize(templates: TEMPLATES, languages: NLP::LANGUAGES, name: 'paraphrase',
+                     sides: %i[input context])
         super(name: name, sides: sides)
         @templates = templates
+        @languages = Array(languages).map(&:to_sym)
+        unknown = @languages - NLP::LANGUAGES
+        raise ArgumentError, "unknown language(s): #{unknown.join(', ')}" unless unknown.empty?
       end
 
       def offline?
@@ -77,7 +91,7 @@ module Vangrail
       end
 
       def cache_key(text, _context)
-        text
+        "#{languages.join('+')}\n#{text}"
       end
 
       def call(text, _context)
@@ -93,7 +107,7 @@ module Vangrail
       private
 
       def clause_hits(clause)
-        found = NLP.concepts(clause)
+        found = NLP.concepts(clause, languages: languages)
         return [] if found.empty?
 
         present = found.map { |(_, concept, _)| concept }.to_set

@@ -192,6 +192,7 @@ module Vangrail
       deterministic = [Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
                                           sides: [:input]),
                        Rails::Jailbreak.new(sides: [:input]),
+                       Rails::Paraphrase.new(sides: [:input]),
                        Rails::ManyShot.new(sides: [:input])]
       rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:input])]
       # A question carrying the canary is too late to prevent and worth
@@ -224,7 +225,7 @@ module Vangrail
       return [] unless on?(:context)
 
       deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context]),
-                       Rails::ManyShot.new(sides: [:context])]
+                       Rails::Paraphrase.new(sides: [:context]), Rails::ManyShot.new(sides: [:context])]
       # Two passes over the same definitions, for the two ways a page hides
       # one: encoded so the patterns cannot read it, or in markup a reader
       # never sees.
