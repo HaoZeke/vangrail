@@ -10,6 +10,7 @@
 | =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
 | =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
 | =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
+| =Rails::Hidden=             | context       | depends | passed, blocked            |
 | =Rails::Escalation=         | input         | no      | passed, blocked            |
 | =Rails::ManyShot=           | input, context | no     | passed, modified, blocked  |
 | =Rails::Canary=             | input, output | no      | passed, blocked            |
@@ -157,6 +158,39 @@ That is too late to prevent and worth knowing.
 What it cannot see is a paraphrase. A model asked to summarise its instructions
 rather than repeat them leaks the content and not the token, and this rail
 passes. The suite asserts that.
+
+** Rails::Hidden
+
+Reads the parts of a page a human never sees, and hands each span to the rails
+that already know what an injection looks like. Context side, on by default.
+
+| Carrier             | Where the text was                        |
+|---------------------+-------------------------------------------|
+| =comment=           | an HTML comment                           |
+| =meta=              | a meta tag's content attribute            |
+| =alt_text=          | an image alt attribute                    |
+| =title_attribute=   | a title attribute                         |
+| =aria_label=        | an aria-label                             |
+| =data_attribute=    | any data-* attribute                      |
+| =script=, =template= | a script, template, or noscript body     |
+| =invisible_style=   | display:none, visibility:hidden, zero size, or background-coloured text |
+| =hidden_attribute=  | an element with the hidden attribute      |
+| =link_title=        | a markdown link title                     |
+| =image_alt=         | markdown image alt text                   |
+
+The largest survey of indirect injection in the wild puts roughly seven in ten
+instances in non-rendered HTML, which is the reason this is a rail rather than
+a footnote. A visible paragraph telling an assistant to ignore its instructions
+is one the page's own readers notice; the same sentence in an alt attribute is
+read by the model and by nobody else.
+
+It judges nothing itself. A hidden span with ordinary content passes, because
+pages carry meta descriptions and alt text for good reasons.
+
+Only useful where documents arrive as HTML. A retrieval step that converts to
+markdown first has usually dropped these carriers already, which is a reason to
+run this at the fetch boundary rather than a reason to skip it: what the
+converter drops silently is exactly what nobody is looking at.
 
 ** Rails::Escalation
 

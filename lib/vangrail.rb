@@ -25,6 +25,7 @@ require_relative 'vangrail/rails/missing'
 require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
 require_relative 'vangrail/rails/obfuscation'
+require_relative 'vangrail/rails/hidden'
 require_relative 'vangrail/rails/escalation'
 require_relative 'vangrail/rails/many_shot'
 require_relative 'vangrail/rails/canary'
@@ -207,7 +208,11 @@ module Vangrail
 
       deterministic = [Rails::InjectedInstructions.new, Rails::Jailbreak.new(sides: [:context]),
                        Rails::ManyShot.new(sides: [:context])]
-      deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context])]
+      # Two passes over the same definitions, for the two ways a page hides
+      # one: encoded so the patterns cannot read it, or in markup a reader
+      # never sees.
+      deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
+                       Rails::Hidden.new(rails: deterministic)]
     end
 
     def output_rails

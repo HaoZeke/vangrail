@@ -283,6 +283,7 @@ one when the local rails cover it.
 | `Rails::InjectedInstructions` | context | no | passed, blocked |
 | `Rails::Jailbreak` | input, context | no | passed, blocked |
 | `Rails::Obfuscation` | input, context | follows what it wraps | passed, modified, blocked |
+| `Rails::Hidden` | context | follows what it wraps | passed, blocked |
 | `Rails::Escalation` | input | no | passed, blocked |
 | `Rails::ManyShot` | input, context | no | passed, modified, blocked |
 | `Rails::Canary` | input, output | no | passed, blocked |
@@ -340,7 +341,7 @@ disable.
 rake test
 ```
 
-287 tests, stdlib minitest. Parsing and payload shape run against a recorded
+297 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.

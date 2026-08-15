@@ -61,6 +61,11 @@ Nothing has been released yet. This section describes what exists.
   result: zero-width and bidi strips, homoglyph folding, rot13, base64, and
   compatibility normalisation. Scored on the injection corpus rewritten five
   ways: 0 of 60 with patterns alone, 60 of 60 with the decoding pass.
+- `Rails::Hidden`, which extracts the spans of a page a reader never sees —
+  comments, meta tags, alt and title and data attributes, script and template
+  bodies, elements styled invisible, markdown link titles — and hands each to
+  the deterministic rails. The largest in-the-wild survey puts roughly seven in
+  ten indirect injections in non-rendered HTML.
 - `Rails::Escalation`, which reads conversation history and catches a refused
   question asked again, or repeated refusals in a short window.
 - `Rails::ManyShot`, which strips chat template control tokens and blocks a
