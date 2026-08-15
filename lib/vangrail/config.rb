@@ -4,6 +4,7 @@ require 'fileutils'
 require 'yaml'
 require_relative 'actions'
 require_relative 'chat'
+require_relative 'conversation'
 require_relative 'colang/library'
 require_relative 'colang/parser'
 require_relative 'engine'
@@ -124,6 +125,13 @@ module Vangrail
         on_error: on_error,
         cache: cache,
       )
+    end
+
+    # Same engine, already carrying a session and an admission gate, so a
+    # retrieved page enters as data rather than as a raw string a caller
+    # might paste into the question.
+    def conversation(prior:, stdlib: true, **kwargs)
+      Conversation.new(engine(stdlib: stdlib), prior: prior, **kwargs)
     end
 
     def rails_for(side, registry)

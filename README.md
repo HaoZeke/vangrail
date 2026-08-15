@@ -380,6 +380,14 @@ only prompt that object will assemble: the last user turn plus the
 cells `screen` kept. A caller who pastes data into the instruction
 has to do it without that method.
 
+`Conversation#invoke` is the tool loop. The handler runs only after
+`admit?`. AgentDojo's two numbers live in `Vangrail::Dojo`: security
+is whether the injected tool stayed dark when the play *tries* to
+run it (the model obeyed the page); utility is whether the user tool
+still returned the asked-for fact. `script/measure_dojo.rb` prints
+both, including concept-synonym rewrites of the page. Measured:
+handbook 3/3 security and 3/3 utility; adaptive 36/36 and 36/36.
+
 This is not a second model and it is not a trained preference. It is
 the capability cut those papers run, expressed as a lattice over
 spans a stdlib gem can actually own.

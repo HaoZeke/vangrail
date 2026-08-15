@@ -6,6 +6,7 @@ require_relative 'origin'
 require_relative 'result'
 require_relative 'session'
 require_relative 'spotlight'
+require_relative 'tools'
 
 module Vangrail
   # A dialogue, so rails can see more than the turn in front of them.
@@ -58,10 +59,11 @@ module Vangrail
     # an unbounded window makes the cost of a check grow with the session.
     DEFAULT_WINDOW = 12
 
-    attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities
+    attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities,
+                :tools, :invocations
 
     def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
-                   allow: {}, admission: nil, capabilities: nil, **context)
+                   allow: {}, admission: nil, capabilities: nil, tools: nil, **context)
       raise ArgumentError, 'pass session: or prior:, not both' if session && prior
 
       @engine = engine
@@ -69,6 +71,8 @@ module Vangrail
       @base_context = context
       @turns = []
       @retrieved = []
+      @invocations = []
+      @tools = tools || Tools.new
       @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).freeze
       @session = session || (prior && Session.new(engine: engine, prior: prior))
       @admission = admission || Admission.new(allow: allow)
@@ -134,6 +138,38 @@ module Vangrail
                          passages: retrieved, mode: mode, mark: mark)
     end
 
+    # Runs a named tool only if Admission grants it. A refused call is a
+    # blocked turn, not a handler that almost ran. The return value of a
+    # granted handler is wrapped as a tool-origin cell.
+    def invoke(name, arguments: nil)
+      name = name.to_sym
+      raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
+
+      unless admit?(name, arguments: arguments)
+        result = Result.blocked(rail: 'admission', reason: "capability #{name} refused")
+        record_invocation(name, arguments, result, nil)
+        return result
+      end
+
+      value = tools.call(name, arguments, self)
+      cell = value.is_a?(Cell) ? value : Cell.tool(value)
+      result = Result.passed(rail: name.to_s)
+      record_invocation(name, arguments, result, cell)
+      result
+    end
+
+    def invoked?(name)
+      invocations.any? { |row| row[:name] == name.to_sym && row[:result].allowed? }
+    end
+
+    # A span pulled out of retrieved data. The result is still data.
+    def extract(pattern)
+      retrieved.filter_map do |cell|
+        match = cell.value[pattern]
+        Cell.data(match) if match
+      end
+    end
+
     # The window the rails read: role and text, no Result objects, because a
     # rail should not be reasoning about another rail's verdict text.
     def history
@@ -156,11 +192,17 @@ module Vangrail
       {
         'turns' => turns.map(&:to_h),
         'blocked' => blocked_turns.size,
+        'invoked' => invocations.select { |row| row[:result].allowed? }.map { |row| row[:name].to_s },
         'session' => session&.to_h,
       }.compact
     end
 
     private
+
+    def record_invocation(name, arguments, result, cell)
+      @invocations << { name: name, arguments: arguments, result: result, cell: cell }
+      @turns << Turn.new(role: :tool, text: name.to_s, result: result, origin: Origin.tool)
+    end
 
     def content_of(result, fallback)
       result.respond_to?(:content_or) ? result.content_or(fallback.to_s) : fallback.to_s
