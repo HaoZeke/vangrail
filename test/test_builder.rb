@@ -111,10 +111,27 @@ class TestBuilder < Minitest::Test
 
   # It reads history, and a caller threading none would have every input check
   # come back uncertain: true, and useless.
-  def test_the_multi_turn_rail_is_off_until_it_is_asked_for
+  def test_the_multi_turn_rails_are_off_until_they_are_asked_for
     refute_includes engine(gateway_env).rail_names(:input), 'escalation'
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,multiturn'))
     assert_includes e.rail_names(:input), 'escalation'
+    assert_includes e.rail_names(:input), 'trajectory'
+  end
+
+  # The free one runs first, so a refused question asked again never reaches
+  # the judge.
+  def test_the_deterministic_multi_turn_rail_runs_before_the_judge
+    names = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,multiturn')).rail_names(:input)
+    assert_operator names.index('escalation'), :<, names.index('trajectory')
+  end
+
+  # An unreachable endpoint leaves a placeholder rather than a shorter list,
+  # so the pass stays uncertain instead of resting on the free rail.
+  def test_an_unreachable_endpoint_leaves_the_judge_named
+    e = engine('GUARDRAILS_RAILS' => 'input,multiturn')
+    assert_includes e.rail_names(:input), 'trajectory'
+    result = e.check_input('anything', history: [])
+    refute result.certain?
   end
 
   def test_the_decoding_pass_reads_documents_as_well_as_questions

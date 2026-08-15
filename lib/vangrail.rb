@@ -31,6 +31,7 @@ require_relative 'vangrail/rails/exfiltration'
 require_relative 'vangrail/rails/guard_model'
 require_relative 'vangrail/rails/self_check'
 require_relative 'vangrail/rails/grounding'
+require_relative 'vangrail/rails/trajectory'
 require_relative 'vangrail/rails/colang_flow'
 require_relative 'vangrail/rails/remote'
 require_relative 'vangrail/client'
@@ -177,10 +178,13 @@ module Vangrail
                                           sides: [:input]),
                        Rails::Jailbreak.new(sides: [:input])]
       rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:input])]
-      # Off unless asked for: it reads history, and a caller that threads none
+      # Off unless asked for: they read history, and a caller that threads none
       # would have every input check come back uncertain, which is true and
-      # useless. Conversation is what makes it worth having.
-      rails << Rails::Escalation.new if on?(:multiturn)
+      # useless. Conversation is what makes them worth having.
+      #
+      # The deterministic one goes first so a refused question asked again
+      # never reaches the judge: it is free, and the round trip is not.
+      rails.concat(multiturn_rails) if on?(:multiturn)
       rails << judged(:input) if on?(:input)
       rails.compact
     end
@@ -213,6 +217,28 @@ module Vangrail
     # links. Naming the variable is the opt-in.
     def link_hosts
       present(env['GUARDRAILS_LINK_HOSTS'])
+    end
+
+    # The pair, because they cover different halves. Escalation sees a retry
+    # after a refusal and nothing before one; the judge reads a sequence that
+    # has never been refused, which is what the published multi-turn methods
+    # are built to produce.
+    def multiturn_rails
+      rails = [Rails::Escalation.new]
+      rails << if provider&.available?
+                 Rails::Trajectory.new(provider: provider, every: judge_every)
+               else
+                 missing('trajectory', :input)
+               end
+      rails
+    end
+
+    # One round trip per turn is the honest cost, and a desk may not want to
+    # pay it every turn. A staged escalation takes several turns by
+    # construction and cannot finish inside a gap of two.
+    def judge_every
+      value = env['GUARDRAILS_TRAJECTORY_EVERY'].to_i
+      value.positive? ? value : 1
     end
 
     # The rail class follows what the endpoint can actually serve. A provider

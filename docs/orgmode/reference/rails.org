@@ -16,6 +16,7 @@
 | =Rails::GuardModel=         | either        | yes     | passed, blocked            |
 | =Rails::SelfCheck=          | either        | yes     | passed, blocked            |
 | =Rails::Grounding=          | output        | yes     | passed, blocked            |
+| =Rails::Trajectory=         | input         | yes     | passed, blocked            |
 | =Rails::ColangFlow=         | either        | depends | passed, modified, blocked  |
 | =Rails::Remote=             | either        | yes     | passed, modified, blocked  |
 | =Rails::Missing=            | either        | no      | passed, never certain      |
@@ -197,6 +198,32 @@ Asks whether an answer says only what its passages support. Output side, never
 memoized, and it returns =passed= with =certain?= false when no passages were
 supplied. Categories G1 to G4 cover an unsupported fact, an invented
 identifier, a wrong number, and a miscitation.
+
+** Rails::Trajectory
+
+Judges where a conversation is going rather than what its newest message says.
+Input side, model-backed, never memoized, and switched on with =multiturn=
+alongside =Rails::Escalation=.
+
+| Category | The shape                                                        |
+|----------+------------------------------------------------------------------|
+| =T1=     | staged escalation, each turn using the last answer as a foothold |
+| =T2=     | a payload split across turns, inert until joined                 |
+| =T3=     | persistent extraction, rephrased after each deflection           |
+| =T4=     | role erosion, an accumulating fiction ending outside the remit   |
+
+This is the rail =Rails::Escalation= cannot be: the published multi-turn
+methods are built so that no single turn triggers a refusal, and reading a
+sequence for direction is what a model can do and a regexp cannot.
+
+Below =min_turns= (four) it passes and reports =certain?= true, which is a
+judgement rather than a dodge: a two-message conversation has no trajectory,
+and the single-turn rails have read both messages already.
+
+=every: 2= judges one turn in two, for a desk unwilling to pay a round trip per
+turn. A skipped turn passes with =certain?= false, because it was not judged.
+The schedule is counted over the dialogue rather than over calls, so a retry
+does not shift it.
 
 ** Rails::ColangFlow
 

@@ -21,9 +21,11 @@ Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
 =secrets=, =patterns=, =links=, =multiturn=. The default set is
 =input,context,output=.
 
-Two are off unless asked for. =multiturn= adds =Rails::Escalation=, which reads
-conversation history and would otherwise report every single-turn check as
-uncertain. =links= adds =Rails::Exfiltration=, which is also switched on by
+Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
+=Rails::Trajectory=, which read conversation history and would otherwise report
+every single-turn check as uncertain. =GUARDRAILS_TRAJECTORY_EVERY=2= judges one
+turn in two, since the judge costs a round trip and the deterministic rail does
+not. =links= adds =Rails::Exfiltration=, which is also switched on by
 naming its allowlist.
 
 ** What an answer may link to

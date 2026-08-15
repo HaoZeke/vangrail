@@ -288,6 +288,7 @@ one when the local rails cover it.
 | `Rails::GuardModel` | either | yes | passed, blocked |
 | `Rails::SelfCheck` | either | yes | passed, blocked |
 | `Rails::Grounding` | output | yes | passed, blocked |
+| `Rails::Trajectory` | input | yes | passed, blocked |
 | `Rails::ColangFlow` | either | depends on its actions | passed, modified, blocked |
 | `Rails::Remote` | either | yes | passed, modified, blocked |
 | `Rails::Missing` | either | no | passed, never certain |
@@ -336,7 +337,7 @@ disable.
 rake test
 ```
 
-251 tests, stdlib minitest. Parsing and payload shape run against a recorded
+268 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.

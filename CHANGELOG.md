@@ -63,6 +63,10 @@ Nothing has been released yet. This section describes what exists.
   ways: 0 of 60 with patterns alone, 59 of 60 with the decoding pass.
 - `Rails::Escalation`, which reads conversation history and catches a refused
   question asked again, or repeated refusals in a short window.
+- `Rails::Trajectory`, a judge that reads the transcript and rules on where the
+  conversation is going. It is what `Rails::Escalation` cannot be, since the
+  published multi-turn methods are built so no single turn triggers a refusal.
+  `GUARDRAILS_TRAJECTORY_EVERY` trades round trips for coverage.
 - `Rails::Exfiltration`, an allowlist for the URLs an answer may emit. Images
   are held to a stricter list than links, because an image is fetched without a
   click, and a payload in the query is refused even on an allowlisted host.
