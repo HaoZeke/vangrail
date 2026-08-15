@@ -52,6 +52,14 @@ module Vangrail
         env['LLMLITE_MODEL'] || env['GROK_LLMLITE_MODEL'] || DEFAULT_MODEL
       end
 
+      # No default. Which embedding model a proxy serves, if any, is deployment
+      # knowledge, and a guessed name costs a 404 on every check while looking
+      # like a rail that ran.
+      def embed_model(env = ENV)
+        value = env['LLMLITE_EMBED_MODEL'] || env['GUARDRAILS_EMBED_MODEL']
+        value.to_s.strip.empty? ? nil : value.strip
+      end
+
       def key(env = ENV)
         env['LLMLITE_API_KEY'] || DEFAULT_KEY
       end
@@ -60,7 +68,7 @@ module Vangrail
         Provider.new(
           name: 'llmlite',
           base_url: base_url(env),
-          models: { judge: model(env), guard: nil },
+          models: { judge: model(env), guard: nil, embed: embed_model(env) },
           key_resolver: -> { key(env) },
           local: true,
           probe: -> { listening?(env) }

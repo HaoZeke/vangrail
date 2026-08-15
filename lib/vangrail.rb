@@ -4,6 +4,7 @@ require_relative 'vangrail/version'
 require_relative 'vangrail/errors'
 require_relative 'vangrail/http'
 require_relative 'vangrail/chat'
+require_relative 'vangrail/embeddings'
 require_relative 'vangrail/parsers'
 require_relative 'vangrail/prompt'
 require_relative 'vangrail/policies'
@@ -27,6 +28,7 @@ require_relative 'vangrail/rails/injected_instructions'
 require_relative 'vangrail/rails/paraphrase'
 require_relative 'vangrail/rails/language'
 require_relative 'vangrail/rails/similarity'
+require_relative 'vangrail/rails/semantic'
 require_relative 'vangrail/rails/missing'
 require_relative 'vangrail/rails/jailbreak'
 require_relative 'vangrail/rails/pattern'
@@ -78,6 +80,8 @@ module Vangrail
   #   GUARDRAILS_RAILS=input,context,output,grounding,secrets,patterns,links,multiturn
   #   GUARDRAILS_CANARY=<token>   a marker in your prompt that must not come back
   #   GUARDRAILS_PROMPT_FILE=<path>  the prompt text that must not come back out
+  #   GUARDRAILS_EMBED_MODEL=<model> an embedding model, for GUARDRAILS_RAILS=...,semantic
+  #   GUARDRAILS_SEMANTIC_THRESHOLD=<0..1>  calibrate it with script/embedding_probe.rb
   #   GUARDRAILS_RAILS=...,privacy  redact a reader's own details before sending
   #   GUARDRAILS_RAILS=...,markup   strip active markup from the answer
   #   GUARDRAILS_RAILS=...,budget   refuse text too large to be a question
@@ -115,7 +119,7 @@ module Vangrail
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
     ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
-                   markup budget].freeze
+                   markup budget semantic].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -208,6 +212,7 @@ module Vangrail
       # deployment's call rather than a default. Where the endpoint is a third
       # party it is close to obligatory, and where it is a local proxy it buys
       # little.
+      rails << semantic(:input) if on?(:semantic)
       rails << Rails::PersonalData.new if on?(:privacy)
       rails << Rails::Budget.new(sides: [:input]) if on?(:budget)
       # Off unless asked for: they read history, and a caller that threads none
@@ -243,6 +248,7 @@ module Vangrail
       # a page in neither has been passed by all of them without being read.
       # Reporting that costs a token count and keeps `certain?` honest.
       rails << Rails::Language.new
+      rails << semantic(:context) if on?(:semantic)
       rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
       rails
     end
@@ -363,6 +369,22 @@ module Vangrail
             raise ConfigError, "GUARDRAILS_PROMPT_FILE #{path.inspect} could not be read: #{e.message}"
           end
         end
+    end
+
+    # Asked for by name, because it costs a round trip per check and because
+    # every document embedded on a third-party endpoint is a document sent
+    # there. A provider serving no embedding model leaves the placeholder, so
+    # the pass stays uncertain rather than resting on the offline rails.
+    def semantic(side)
+      return missing('semantic', side) unless provider&.available? && provider.embed?
+
+      Rails::Semantic.new(embeddings: provider.embeddings, sides: [side],
+                          threshold: semantic_threshold)
+    end
+
+    def semantic_threshold
+      value = env['GUARDRAILS_SEMANTIC_THRESHOLD'].to_f
+      value.positive? ? value : Rails::Semantic::THRESHOLD
     end
 
     def prompt_leak

@@ -111,6 +111,35 @@ class TestBuilder < Minitest::Test
     end
   end
 
+  # It costs a round trip per check and sends every screened document to
+  # whatever endpoint is configured, so it is asked for by name.
+  def test_the_semantic_rail_is_opt_in_and_needs_an_embedding_model
+    refute_includes engine(gateway_env).rail_names(:context), 'semantic'
+
+    without = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'context,semantic'))
+
+    assert_includes without.rail_names(:context), 'semantic'
+    # Asked for and unbuildable: the placeholder keeps the pass uncertain
+    # instead of letting the offline rails answer for a check nobody ran.
+    refute without.check_context('Submit a batch job with sbatch.').certain?
+
+    with = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'context,semantic',
+                                    'GUARDRAILS_EMBED_MODEL' => 'some/embed'))
+    rail = with.context_rails.find { |r| r.name == 'semantic' }
+
+    assert_instance_of Vangrail::Rails::Semantic, rail
+    refute_predicate rail, :offline?
+  end
+
+  def test_the_semantic_threshold_comes_from_the_environment
+    e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'context,semantic',
+                                 'GUARDRAILS_EMBED_MODEL' => 'some/embed',
+                                 'GUARDRAILS_SEMANTIC_THRESHOLD' => '0.83'))
+    rail = e.context_rails.find { |r| r.name == 'semantic' }
+
+    assert_in_delta 0.83, rail.threshold, 1e-9
+  end
+
   # Naming the hosts is the opt-in. An application that never mentioned links
   # keeps the behaviour it had, because the empty allowlist means no links at
   # all and imposing that silently would break every answer with a reference
