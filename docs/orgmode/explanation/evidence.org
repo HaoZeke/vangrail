@@ -5,9 +5,9 @@
 * Blocked Is Not a Probability
 
 Every rail in this gem answers a yes-or-no question, and =check_input= combines
-those answers by taking the first yes. Every published defence does the same:
-detectors are compared against each other, thresholds are tuned per detector,
-and a stack of them is an OR gate.
+those answers by taking the first yes. The prompt-injection literature does the
+same: detectors are compared against each other, thresholds are tuned per
+detector, and a stack of them is an OR gate.
 
 That rule throws away almost everything the rails know. It cannot say how much a
 hit is worth, cannot add up three near misses, cannot use the fact that a
@@ -26,25 +26,36 @@ documentation, and divide.
 Measured over 270 attack texts and 48 benign ones, every rail against the same
 set (=script/measure_evidence.rb=):
 
-| Rail                    | Caught  | Flagged | If it fires | If it is silent |
-|-------------------------+---------+---------+-------------+-----------------|
-| =paraphrase=            | 204/270 | 0/48    | +6.2 bits   | -2.0 bits       |
-| =injected_instructions= | 90/270  | 0/48    | +5.0 bits   | -0.6 bits       |
-| =obfuscation=           | 60/270  | 0/48    | +4.5 bits   | -0.3 bits       |
-| =similarity=            | 48/270  | 0/48    | +4.1 bits   | -0.3 bits       |
-| =hidden=                | 27/270  | 0/48    | +3.3 bits   | -0.1 bits       |
-| =jailbreak=             | 16/270  | 0/48    | +2.6 bits   | -0.1 bits       |
-| =many_shot=             | 6/270   | 0/48    | +1.2 bits   | -0.0 bits       |
+| Rail                    | Caught  | Flagged | If it fires | Defensible at 95% | Capability at 1e-4 |
+|-------------------------+---------+---------+-------------+-------------------+--------------------|
+| =paraphrase=            | 204/270 | 0/48    | +6.2 bits   | +4.2 bits         | 0.284              |
+| =injected_instructions= | 90/270  | 0/48    | +5.0 bits   | +2.9 bits         | 0.088              |
+| =obfuscation=           | 60/270  | 0/48    | +4.5 bits   | +2.2 bits         | 0.049              |
+| =similarity=            | 48/270  | 0/48    | +4.1 bits   | +1.9 bits         | 0.035              |
+| =hidden=                | 27/270  | 0/48    | +3.3 bits   | +0.9 bits         | 0.014              |
+| =jailbreak=             | 16/270  | 0/48    | +2.6 bits   | -0.0 bits         | 0.006              |
+| =many_shot=             | 6/270   | 0/48    | +1.2 bits   | -1.8 bits         | 0.001              |
 
-A bit is a doubling of the odds. The right-hand column is the half an OR gate
-cannot express at all: a rail that catches three quarters of everything and says
-nothing about this page has told you something, and what it has told you is
-worth two bits in the other direction.
+A bit is a doubling of the odds. Silence is worth the other direction: a rail
+that catches three quarters of everything and says nothing about this page has
+told you something, and an OR gate cannot express it at all.
 
-Rates are smoothed with the Jeffreys prior, =(hits + 1/2) / (n + 1)=, which is
-not decoration. Unsmoothed, a rail that flagged 0 of 48 benign texts has a
-false-alarm rate of zero, a likelihood ratio of infinity, and would decide every
-judgement it appears in on the strength of 48 documents.
+The third column is the one to trust and the second is the one to be careful
+with. A rate is not a number, it is a posterior over a number, and with a Beta
+prior over a binomial count that posterior is a Beta whose pessimistic tail is
+what a corpus of this size can defend. Read that way, =jailbreak= and
+=many_shot= carry nothing: this corpus cannot show that a hit from either is
+evidence of anything at all, and the point estimate was spending confidence
+nobody measured. That is a fact about the corpus rather than about the rails,
+and it is the single thing a larger benign set would change.
+
+The last column is the information-theoretic reading of the same table: the
+share of the uncertainty about "is this an attack" that a rail's verdict
+actually removes at a given base rate, which is the measure the
+intrusion-detection literature settled on for exactly this comparison. It is the
+only number here that moves when the deployment does, and ranking rails by it
+rather than by detection rate is what stops a rail that catches a sliver of the
+corpus from looking useful.
 
 ** The base rate is the whole argument
 
@@ -67,6 +78,21 @@ almost certainly a false alarm.
 
 That is not a criticism of these rails. It is what the arithmetic says about any
 single detector, and it has a sharp consequence:
+
+*** This is Axelsson's result, in a new domain
+
+None of the above is new, and it is worth saying so plainly before the
+arithmetic is used for anything. Intrusion detection worked through it
+twenty-five years ago: Axelsson's base-rate fallacy paper is the same argument
+against the same mistake, made when the detectors were network sensors and the
+rare event was a network intrusion. Everything here that sounds like a finding
+is that finding, restated for a documentation desk and a wiki page.
+
+What this repository adds to it is not the argument but the measurement. The
+rails are scored on one shared corpus, the operating points ship as a generated
+table, and the arithmetic runs in the same process as the rails, so the base
+rate stops being a remark in a discussion section and becomes an argument the
+caller has to supply.
 
 *** No one rail can justify a block, and no corpus can show otherwise
 
@@ -197,6 +223,22 @@ leaves =certain?= true, because the claim is about the action and the action is
 unchanged by construction. A rail that could not run makes the judgement
 uncertain, because something that might have mattered did not happen.
 
+** The sequence, and Wald
+
+Sequential testing is older than any of this. Wald's ratio test accumulates the
+log-likelihood ratio and stops when it crosses a threshold fixed by the two
+error rates you are willing to accept, and network detection has used it in
+exactly this shape: Jung's portscan work decides whether a remote host is
+scanning by accumulating evidence across connection attempts, which is the same
+problem as deciding whether a reader is probing across turns.
+
+=Session= therefore reports both readings. The posterior answers "how likely is
+this"; =verdict= answers "have I seen enough to decide, at error rates chosen in
+advance", with thresholds =log((1 - beta) / alpha)= and =log(beta / (1 - alpha))=
+rather than a number somebody liked. They disagree usefully: a session the test
+calls undecided while the policy says review is one where the cost argument and
+the error-rate argument point different ways, and somebody should know that.
+
 ** The sequence nobody checks
 
 Staged probing is the attack family that gets past per-message detection: ask
@@ -226,6 +268,41 @@ per-turn bits divided by one minus the decay, rather than running away. An
 operator can therefore say in advance how far a determined prober can push a
 session, which is not a question a detector stack can be asked at all.
 
+** Where this comes from
+
+Almost every piece of machinery here is old, and the pieces that are not old are
+small. Naming the sources is not decoration: it is the difference between a
+design somebody can check against a literature and one that has to be taken on
+trust.
+
+- The base-rate argument is Axelsson's, for intrusion detection, in 2000.
+- Combining detector outputs Bayesianly rather than by thresholds is Kruegel and
+  colleagues, for intrusion detection, in 2003.
+- The capability measure is Gu and colleagues, 2006, who make the same point
+  about detection rates being the wrong summary when the event is rare.
+- Sequential accumulation with thresholds from error rates is Wald, 1945, and
+  the detection version is Jung and colleagues, 2004.
+- Adding evidence from correlated sources without double counting is the
+  subject of a whole literature on combining probability distributions; the
+  grouping rule here is the crudest thing that respects it.
+- Naive Bayes surviving violated independence has been studied directly, by
+  Domingos and Pazzani and by Hand and Yu, and the answer is that the ordering
+  of the classes survives much worse dependence than the probabilities do. This
+  is why the posterior here should be read as a ranking with a scale attached
+  rather than as a calibrated probability.
+- Estimating a rate from few observations, and what to do about the events you
+  have not seen, is Good's, and language modelling has a fifty-year literature
+  on it that this borrows a single idea from.
+
+What is left that this repository can claim is narrow: rails measured on one
+shared corpus so their evidence is commensurable, abstention wired to the
+=certain?= flag that the rails already carried, an early stop proved against the
+bound rather than a confidence heuristic, and the whole thing shipped as a
+generated table beside the rails it describes. Whether any of that is new I
+cannot say from one search; what I can say is that the sources above are where
+it came from, and that none of the prompt-injection work cited in the README
+does it.
+
 ** What this does not fix
 
 *** The numbers are this corpus
@@ -235,13 +312,13 @@ optimistic about attacks that hand did not think of. What the table is for is th
 ratio between rails, measured on the same texts; read as absolute detection rates
 they claim far more than they know.
 
-*** The false-alarm rates are floors, not measurements
+*** The false-alarm rates are bounds, not measurements
 
-No rail fired on any of the 48 benign texts, so every false-alarm rate in the
-table is the smoothing floor rather than a measured rate. The true rates are
-somewhere below about one in a hundred and this corpus cannot say where. That
-makes the evidence understated rather than overstated, which is the safe
-direction, and it is the single biggest thing a larger benign corpus would fix.
+No rail fired on any of the 48 benign texts, so no false-alarm rate in the table
+is a measurement. The Beta bound is the honest reading and it is why two rails
+fall to zero evidence at 95% confidence. A benign corpus in the thousands is the
+single biggest improvement available to this table, and it costs nothing but
+ordinary documentation.
 
 *** The threat mix is a modelling choice
 
@@ -251,6 +328,14 @@ arithmetic concludes a hit from it is evidence of innocence, which is exactly
 what happened here before the encoded and pasted families were added. A
 deployment whose traffic looks different should regenerate the table rather than
 inherit these numbers.
+
+*** The posterior is a ranking with a scale, not a calibrated probability
+
+Naive Bayes is famously good at ordering and famously bad at the numbers, and
+nothing here changes that. A judgement of 0.74 means "well above the ones that
+scored 0.003", not "74 of every 100 pages like this are attacks". Calibrating it
+properly needs held-out data with labels, which is a thing a deployment can
+build and this repository cannot ship.
 
 *** Independence is handled, not solved
 

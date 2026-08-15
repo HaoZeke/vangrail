@@ -216,6 +216,10 @@ does every published defence. That rule cannot say how much a hit is worth,
 cannot add up three near misses, cannot use a sensitive rail's silence, and
 hands you a word where a number was needed.
 
+This is not a new observation, and the honest framing matters: intrusion
+detection worked through it in 2000, and what follows is Axelsson's argument
+restated for a documentation desk, with the measurement attached.
+
 `Engine#assess` reads the same rails as evidence. Each one's likelihood ratio
 is measured on the shipped corpora, all rails against the same texts, and the
 verdict is a probability:
@@ -244,6 +248,24 @@ demonstrating the rate a lone rail would need at that base rate takes about six
 thousand clean documents, and this corpus has forty-eight. Several rails
 agreeing is the honest route to a verdict, and an OR gate cannot tell that apart
 from one rail firing.
+
+That cuts into the shipped numbers too, and the table says so. A rate is a
+posterior rather than a number, so `bits(fired, confidence: 0.95)` reports what
+the corpus can defend rather than what it happened to produce:
+
+| Rail | Point estimate | Defensible at 95% | Capability at 1e-4 |
+|---|---|---|---|
+| `paraphrase` | +6.2 bits | +4.2 bits | 0.284 |
+| `injected_instructions` | +5.0 | +2.9 | 0.088 |
+| `jailbreak` | +2.6 | −0.0 | 0.006 |
+| `many_shot` | +1.2 | −1.8 | 0.001 |
+
+Read honestly, this corpus cannot show that a `jailbreak` or `many_shot` hit is
+evidence of anything at all. That is a fact about 48 benign documents rather
+than about those rails, and it is the one thing a bigger benign corpus would
+fix. The last column is the information-theoretic reading — the share of the
+uncertainty a rail actually removes at that base rate — which is the only number
+here that moves when the deployment does.
 
 Three things follow that a yes-or-no stack cannot express:
 
@@ -287,6 +309,12 @@ decays between turns, so persistence converges on a ceiling of per-turn bits
 over one minus the decay rather than running away — a number an operator can
 set in advance.
 
+Sequential testing is older than any of this, so the session reports Wald's
+reading too: `verdict` is `:attack`, `:benign`, or `:undecided` against
+thresholds fixed by the error rates you chose, rather than by a threshold
+somebody liked. Network detection has used exactly this shape for portscans
+since 2004.
+
 ### Where the thresholds come from
 
 A threshold with no cost behind it is a preference. Give it the three costs and
@@ -312,8 +340,13 @@ triage.review    # [{document:, judgement:}]
 triage.dropped   # [{document:, judgement:}]
 ```
 
+Almost none of the machinery is new: the base-rate argument is Axelsson 2000,
+Bayesian combination of detector outputs is Kruegel 2003, the capability measure
+is Gu 2006, sequential accumulation is Wald 1945, and estimating a rate from few
+observations is Good 1953 and the smoothing literature after it.
 [`docs/orgmode/explanation/evidence.org`](docs/orgmode/explanation/evidence.org)
-carries the whole argument, including the four things it does not fix.
+carries the whole argument, what is borrowed from where, and the five things it
+does not fix.
 
 ## Streams and conversations
 
@@ -573,7 +606,7 @@ disable.
 rake test
 ```
 
-488 tests, stdlib minitest. Parsing and payload shape run against a recorded
+505 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.
@@ -782,6 +815,55 @@ in [explanation](docs/orgmode/explanation/three-statuses.org).
   [10.48550/arXiv.2410.05451](https://doi.org/10.48550/arXiv.2410.05451)
   — the defences that work at training time, which is where the residual this
   gem cannot reach has to be paid for.
+- Axelsson, *The base-rate fallacy and the difficulty of intrusion detection*,
+  ACM TISSEC 2000. [10.1145/357830.357849](https://doi.org/10.1145/357830.357849)
+  — the argument `Engine#assess` implements, made for network sensors a quarter
+  of a century ago and unchanged by the detectors being language models.
+- Kruegel, Mutz, Robertson, Valeur, *Bayesian event classification for intrusion
+  detection*, ACSAC 2003.
+  [10.1109/CSAC.2003.1254306](https://doi.org/10.1109/CSAC.2003.1254306)
+  — combining detector outputs as evidence rather than thresholding each one,
+  which is the same move as `Posterior`.
+- Gu, Fogla, Dagon, Lee, Skoric, *Measuring intrusion detection capability: an
+  information-theoretic approach*, ASIACCS 2006.
+  [10.1145/1128817.1128834](https://doi.org/10.1145/1128817.1128834)
+  — `Evidence#capability`, and why a detection rate is the wrong summary when
+  the event is rare.
+- Wald, *Sequential Tests of Statistical Hypotheses*, 1945.
+  [10.1214/aoms/1177731118](https://doi.org/10.1214/aoms/1177731118)
+  and Jung, Paxson, Berger, Balakrishnan, *Fast portscan detection using
+  sequential hypothesis testing*, IEEE S&P 2004.
+  [10.1109/SECPRI.2004.1301325](https://doi.org/10.1109/SECPRI.2004.1301325)
+  — `Session#verdict`: accumulate evidence across turns, decide at thresholds
+  fixed by the error rates rather than by taste.
+- Domingos, Pazzani, *On the Optimality of the Simple Bayesian Classifier under
+  Zero-One Loss*, Machine Learning 1997.
+  [10.1023/A:1007413511361](https://doi.org/10.1023/A:1007413511361)
+  and Hand, Yu, *Idiot's Bayes — Not So Stupid After All?*, ISR 2001.
+  [10.1111/j.1751-5823.2001.tb00465.x](https://doi.org/10.1111/j.1751-5823.2001.tb00465.x)
+  — why the ranking survives the independence assumption far better than the
+  probabilities do, which is exactly how the posterior here should be read.
+- Lewis, *Naive (Bayes) at forty: The independence assumption in information
+  retrieval*, ECML 1998.
+  [10.1007/BFb0026666](https://doi.org/10.1007/BFb0026666)
+  — the same assumption in the text-classification tradition this borrows from.
+- Good, *The population frequencies of species and the estimation of population
+  parameters*, Biometrika 1953.
+  [10.1093/biomet/40.3-4.237](https://doi.org/10.1093/biomet/40.3-4.237)
+  and Chen, Goodman, *An empirical study of smoothing techniques for language
+  modeling*, CSL 1999.
+  [10.1006/csla.1999.0128](https://doi.org/10.1006/csla.1999.0128)
+  — estimating a rate from few observations, which is what the Beta bound on a
+  rail that fired zero times is doing.
+- Genest, Zidek, *Combining Probability Distributions: A Critique and an
+  Annotated Bibliography*, Statistical Science 1986.
+  [10.1214/ss/1177013825](https://doi.org/10.1214/ss/1177013825)
+  — the literature the grouping rule is the crudest possible member of.
+- Zadrozny, Elkan, *Transforming classifier scores into accurate multiclass
+  probability estimates*, KDD 2002.
+  [10.1145/775047.775151](https://doi.org/10.1145/775047.775151)
+  — what calibrating these posteriors properly would take, and why the coverage
+  page calls them a ranking with a scale attached.
 - Debenedetti et al., *AgentDojo: A Dynamic Environment to Evaluate Prompt
   Injection Attacks and Defenses for LLM Agents*.
   [10.48550/arXiv.2406.13352](https://doi.org/10.48550/arXiv.2406.13352)

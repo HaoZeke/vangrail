@@ -60,6 +60,15 @@ Nothing has been released yet. This section describes what exists.
 - `Engine#triage`, which ranks a document set by posterior rather than
   partitioning it on the first objection: the doubtful page goes last in the
   passage list rather than away from the reader.
+- `Vangrail::Beta` and `Evidence#bits(confidence:)`: the regularised incomplete
+  beta in the standard library, so a rail's evidence is what the corpus can
+  defend rather than what it happened to produce. At 95% two shipped rails fall
+  to zero evidence, which is a fact about 48 benign documents.
+- `Evidence#capability`, the information-theoretic reading of an operating point
+  at a given base rate, which is the only number in the table that changes when
+  the deployment does.
+- `Session#verdict`, Wald's sequential test beside the posterior, with
+  thresholds fixed by the error rates rather than chosen.
 - `StreamGuard#take`, which hands out only the text not yet shown, so a
   mid-stream redaction does not reprint the prefix already on screen.
 - `Config#engine` runs `rails.retrieval` / `rails.context` flows as context
