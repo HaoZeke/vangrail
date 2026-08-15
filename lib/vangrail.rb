@@ -29,11 +29,13 @@ require_relative 'vangrail/colang/library'
 require_relative 'vangrail/confusables'
 require_relative 'vangrail/nlp'
 require_relative 'vangrail/known_attacks'
+require_relative 'vangrail/bayes_data'
 require_relative 'vangrail/spotlight'
 require_relative 'vangrail/rails/injected_instructions'
 require_relative 'vangrail/rails/paraphrase'
 require_relative 'vangrail/rails/language'
 require_relative 'vangrail/rails/similarity'
+require_relative 'vangrail/rails/bayes'
 require_relative 'vangrail/rails/semantic'
 require_relative 'vangrail/rails/perplexity'
 require_relative 'vangrail/rails/missing'
@@ -129,7 +131,7 @@ module Vangrail
   class Builder
     DEFAULT_RAILS = %i[input context output].freeze
     ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
-                   markup budget semantic perplexity].freeze
+                   markup budget semantic perplexity bayes].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -222,6 +224,7 @@ module Vangrail
       # deployment's call rather than a default. Where the endpoint is a third
       # party it is close to obligatory, and where it is a local proxy it buys
       # little.
+      rails << Rails::Bayes.new(sides: [:input]) if on?(:bayes)
       rails << semantic(:input) if on?(:semantic)
       rails << perplexity(:input) if on?(:perplexity)
       rails << Rails::PersonalData.new if on?(:privacy)
@@ -259,6 +262,7 @@ module Vangrail
       # a page in neither has been passed by all of them without being read.
       # Reporting that costs a token count and keeps `certain?` honest.
       rails << Rails::Language.new
+      rails << Rails::Bayes.new(sides: [:context]) if on?(:bayes)
       rails << semantic(:context) if on?(:semantic)
       rails << perplexity(:context) if on?(:perplexity)
       rails << Rails::Budget.new(sides: [:context]) if on?(:budget)

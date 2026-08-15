@@ -190,10 +190,14 @@ module Vangrail
     #
     # `observations` maps a rail name to true (fired), false (ran and did not
     # fire), or nil (did not run). The nils are the point.
-    def combine(prior:, observations:, evidence: EvidenceData::TABLE, confidence: nil)
+    # `direct` carries rails that computed their own log-likelihood ratio rather
+    # than answering yes or no. A rail that can say how sure it is should not be
+    # flattened to one bit on the way in, and nothing about the arithmetic
+    # changes: bits are bits, whoever produced them.
+    def combine(prior:, observations:, evidence: EvidenceData::TABLE, confidence: nil, direct: {})
       raise ArgumentError, 'prior must be strictly between 0 and 1' unless prior.positive? && prior < 1
 
-      contributions = weigh(observations, evidence, confidence)
+      contributions = weigh(observations, evidence, confidence) + quantified(direct)
       total = contributions.sum { |c| c[:bits] }
       [from_odds(to_odds(prior) * (2**total)), contributions]
     end
@@ -258,6 +262,13 @@ module Vangrail
     # and it is an argument about evidence rather than about taste.
     def false_alarm_needed(prior:, detection: 0.75, target: 0.5)
       detection / (to_odds(target) / to_odds(prior))
+    end
+
+    def quantified(direct)
+      direct.map do |rail, bits|
+        { group: rail.to_s, rail: rail.to_s, fired: bits.positive?, bits: bits.to_f,
+          spoke_for: [rail.to_s], quantified: true }
+      end
     end
 
     def to_odds(probability)

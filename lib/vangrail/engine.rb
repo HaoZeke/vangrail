@@ -129,10 +129,10 @@ module Vangrail
                escalate: false, **context)
       raise ArgumentError, prior_message if prior.nil?
 
-      observations, certain, skipped = observe(text, side, context, evidence,
-                                               escalate ? { prior: prior, policy: policy } : nil)
+      observed = observe(text, side, context, evidence, escalate ? { prior: prior, policy: policy } : nil)
+      observations, direct, certain, skipped = observed
       posterior, contributions = Posterior.combine(prior: prior, observations: observations,
-                                                   evidence: evidence)
+                                                   evidence: evidence, direct: direct)
       Judgement.new(posterior: posterior, prior: prior, bits: contributions.sum { |c| c[:bits] },
                     contributions: contributions, certain: certain, side: side.to_sym,
                     skipped: skipped, action: policy.action_for(posterior))
@@ -253,9 +253,15 @@ module Vangrail
       body = text.to_s
       certain = true
       observations = {}
+      direct = {}
       skipped = []
 
-      queue = rails(side).select { |rail| rail.applies_to?(side) && evidence[rail.name]&.measured? }
+      queue = rails(side).select do |rail|
+        next true if rail.respond_to?(:quantifies?) && rail.quantifies?
+
+        rail.applies_to?(side) && evidence[rail.name]&.measured?
+      end
+      queue = queue.select { |rail| rail.applies_to?(side) }
       # Cheap first when escalating, so the rails that cost a round trip are
       # the ones an early stop can save.
       queue = queue.partition(&:offline?).flatten if escalation
@@ -267,14 +273,22 @@ module Vangrail
         end
 
         result = invoke(rail, body, ctx)
-        if result.certain?
-          observations[rail.name] = result.blocked?
-        else
+        unless result.certain?
           certain = false
+          next
+        end
+
+        # A rail that computed a likelihood ratio reports it in `raw`, and is
+        # read that way rather than being flattened to whether it blocked.
+        bits = result.raw.is_a?(Hash) ? result.raw['bits'] : nil
+        if bits
+          direct[rail.name] = bits.to_f
+        else
+          observations[rail.name] = result.blocked?
         end
       end
 
-      [observations, certain, skipped]
+      [observations, direct, certain, skipped]
     end
 
     # Would running the rest change what happens?
@@ -297,6 +311,10 @@ module Vangrail
     # action is unchanged by construction.
     def settled?(observations, remaining, evidence, escalation)
       return false if remaining.empty?
+      # A rail that reports its own likelihood ratio has no bound to reason
+      # against: its contribution is whatever the text scores. Nothing is
+      # skipped while one of those is still to run.
+      return false if remaining.any? { |rail| rail.respond_to?(:quantifies?) && rail.quantifies? }
 
       posterior, = Posterior.combine(prior: escalation[:prior], observations: observations,
                                      evidence: evidence)
