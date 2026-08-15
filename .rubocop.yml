@@ -57,7 +57,7 @@ Metrics/CyclomaticComplexity:
 Metrics/PerceivedComplexity:
   Max: 24
 Metrics/ClassLength:
-  Max: 260
+  Max: 270
 Metrics/ModuleLength:
   # NLP holds the lexicons, the stemmer, the language profiles, and
   # anaphora. Those are tables, not branches.

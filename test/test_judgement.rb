@@ -92,6 +92,22 @@ class TestJudgement < Minitest::Test
     assert_operator judgement.posterior, :<, judgement.prior
   end
 
+  # The 95% bound is what 48 benign pages can defend. A jailbreak hit is
+  # +2.6 bits on the point estimate and nothing at 95%. At a prior where
+  # those two numbers sit on different sides of the review line, the
+  # action is not identified.
+  def test_a_confidence_bound_refuses_an_action_the_corpus_cannot_defend
+    hit = ScriptedRail.new(Vangrail::Result.blocked(rail: 'jailbreak'),
+                           name: 'jailbreak', sides: [:context])
+    isolated = Vangrail::Engine.new(context: [hit], cache: false)
+    point = isolated.assess('x', side: :context, prior: 0.02)
+    bound = isolated.assess('x', side: :context, prior: 0.02, confidence: 0.95)
+
+    assert_equal :review, point.action
+    assert_equal :allow, bound.action
+    refute_predicate bound, :certain?
+  end
+
   # A rail that could not decide contributes no term and is reported.
   def test_an_unreachable_rail_is_abstention_rather_than_innocence
     quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',

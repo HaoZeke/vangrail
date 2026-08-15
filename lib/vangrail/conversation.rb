@@ -72,7 +72,7 @@ module Vangrail
       seen = history
       result = engine.check_input(text, history: seen, **@base_context, **context)
       @turns << Turn.new(role: :user, text: text.to_s, result: result)
-      @session&.observe(text, side: :input, history: seen)
+      @session&.observe(text, side: :input, origin: :user, history: seen)
       result
     end
 

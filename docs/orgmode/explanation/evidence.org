@@ -49,6 +49,17 @@ what a corpus of this size can defend. Read that way, =jailbreak= and
 evidence of anything at all, and the point estimate was spending confidence
 nobody measured. That is a fact about the corpus rather than about the rails,
 and it is the single thing a larger benign set would change.
+=Engine#assess(confidence: 0.95)= uses that bound for the posterior.
+If the bound and the point estimate disagree about the action, the
+judgement is uncertain: the action was not identified.
+
+The origin of the span is a different question from what the rails
+saw. A retrieved page that trips =paraphrase= is contaminated data,
+not a user attack. =assess= labels the span (~input~ is user,
+~context~ is data); =Session= accumulates one channel and quarantines
+the other. =Admission= refuses a capability whose request is not
+privileged, or whose arguments are untrusted without an allowlist.
+Detection still runs. Promotion is what it no longer does.
 
 The last column is the information-theoretic reading of the same table: the
 share of the uncertainty about "is this an attack" that a rail's verdict

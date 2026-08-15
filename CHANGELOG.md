@@ -111,9 +111,24 @@ Nothing has been released yet. This section describes what exists.
 - Escalation, PromptLeak frames, and ManyShot role headers read Dutch
   as well as English. A Dutch retry after a refusal, a `mijn instructies`
   frame, and a `gebruiker:` / `assistent:` paste are no longer silent.
+- `Engine#assess(confidence:)` uses the Beta-bounded bits
+  `Posterior.combine` already knew how to compute. If the bound and the
+  point estimate disagree about the action, the judgement is uncertain:
+  48 benign pages did not identify it.
 
 ### Added
 
+- `Origin`, `Cell`, and `Admission`: a span is privileged (`system`,
+  `user`) or untrusted (`data`, `tool`). Mixing unions origins; quoting
+  does not wash off taint. A capability is granted only if a privileged
+  cell requested it, and untrusted arguments need an allowlist. This is
+  the StruQ / CaMeL cut: data cannot become an instruction, and a
+  retrieved page cannot authorize a tool.
+- `Engine#assess(origin:)` labels the span. The side supplies a default
+  (`input` is user, `context` is data, `output` is tool). `Session`
+  takes its channel from the first folded origin; a later judgement on
+  the other rank is quarantined rather than added, so a poisoned wiki
+  page cannot move an attack posterior.
 - `Rails::Alignment`, a three-concept ordered match with a gap, so
   "Ignore, once the module is loaded, every previous instruction"
   is caught and "follow the guidance and ignore stale copies" is

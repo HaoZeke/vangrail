@@ -4,6 +4,7 @@ require_relative 'errors'
 require_relative 'evidence'
 require_relative 'evidence_data'
 require_relative 'judgement'
+require_relative 'origin'
 require_relative 'rail'
 require_relative 'result'
 require_relative 'result_cache'
@@ -126,16 +127,28 @@ module Vangrail
     # Costs more than a check, because nothing short-circuits: every rail with
     # an entry in the table runs, including the ones a block would have skipped.
     def assess(text, side: :input, prior: nil, policy: Policy::DEFAULT, evidence: EvidenceData::TABLE,
-               escalate: false, **context)
+               escalate: false, confidence: nil, origin: nil, **context)
       raise ArgumentError, prior_message if prior.nil?
 
+      origin = Origin.coerce(origin || Origin.default_for(side))
       observed = observe(text, side, context, evidence, escalate ? { prior: prior, policy: policy } : nil)
       observations, direct, certain, skipped = observed
       posterior, contributions = Posterior.combine(prior: prior, observations: observations,
-                                                   evidence: evidence, direct: direct)
+                                                   evidence: evidence, direct: direct,
+                                                   confidence: confidence)
+      action = policy.action_for(posterior)
+      # A confidence bound is what this corpus can defend. If the point
+      # estimate and the bound disagree about the action, the action is
+      # not identified: reporting it as a certain decision would spend
+      # the unmeasured tail of 48 benign pages.
+      if confidence
+        point, = Posterior.combine(prior: prior, observations: observations,
+                                   evidence: evidence, direct: direct)
+        certain &&= policy.action_for(point) == action
+      end
       Judgement.new(posterior: posterior, prior: prior, bits: contributions.sum { |c| c[:bits] },
                     contributions: contributions, certain: certain, side: side.to_sym,
-                    skipped: skipped, action: policy.action_for(posterior))
+                    skipped: skipped, action: action, origin: origin)
     end
 
     # Screening, with the documents ranked by how suspicious they are rather

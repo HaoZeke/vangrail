@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'origin'
+
 module Vangrail
   # What to do with a posterior, and what the numbers were.
   #
@@ -8,7 +10,7 @@ module Vangrail
   # attack, and is that likely enough to act on. The two are not interchangeable
   # and the second is the one an operator can set a policy against.
   Judgement = Struct.new(:posterior, :prior, :bits, :contributions, :certain, :action, :side,
-                         :skipped, keyword_init: true) do
+                         :skipped, :origin, keyword_init: true) do
     def block?
       action == :block
     end
@@ -44,9 +46,15 @@ module Vangrail
       self[:skipped] || []
     end
 
+    def channel
+      origin&.channel
+    end
+
     def to_h
       {
         'side' => side.to_s,
+        'origin' => origin&.to_s,
+        'channel' => channel&.to_s,
         'prior' => prior,
         'posterior' => posterior.round(6),
         'bits' => bits.round(2),

@@ -3,6 +3,7 @@
 require_relative 'engine'
 require_relative 'evidence'
 require_relative 'judgement'
+require_relative 'origin'
 
 module Vangrail
   # The posterior over a session rather than over a message.
@@ -51,7 +52,8 @@ module Vangrail
     # handful of turns while a pattern of them does not.
     DEFAULT_DECAY = 0.6
 
-    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns, :alpha, :beta, :cusum
+    attr_reader :engine, :prior, :decay, :policy, :log_odds, :turns, :alpha, :beta, :cusum,
+                :channel, :quarantined
 
     # `alpha` and `beta` are the error rates a sequential test is allowed: how
     # often it may call an ordinary reader an attacker, and how often it may
@@ -72,6 +74,8 @@ module Vangrail
       @log_odds = Math.log2(Posterior.to_odds(prior))
       @turns = []
       @cusum = 0.0
+      @channel = nil
+      @quarantined = []
     end
 
     # Judges one turn and folds it into the session.
@@ -81,14 +85,29 @@ module Vangrail
     # running posterior back in as the prior would compound the same evidence
     # every turn and reach certainty on a reader who did nothing new; the
     # accumulation belongs in the session's state, not in each turn's premise.
-    def observe(text, side: :input, **context)
-      judgement = engine.assess(text, side: side, prior: prior, policy: policy, **context)
+    #
+    # `origin` defaults from the side: a question is a user span, a retrieved
+    # page is data. The first folded origin fixes the session's channel.
+    # A later judgement on the other rank is quarantined rather than added:
+    # data cannot move an attack posterior, and a reader cannot contaminate
+    # a document they did not write.
+    def observe(text, side: :input, origin: nil, **context)
+      origin = Origin.coerce(origin || Origin.default_for(side))
+      judgement = engine.assess(text, side: side, prior: prior, policy: policy,
+                                      origin: origin, **context)
       fold(judgement)
       judgement
     end
 
     # Folds a judgement computed elsewhere, for a caller that already ran one.
     def fold(judgement)
+      origin = judgement.origin || Origin.default_for(judgement.side || :input)
+      @channel ||= origin.channel
+      if origin.channel != @channel
+        @quarantined << judgement
+        return self
+      end
+
       decay_towards_prior
       @log_odds += judgement.bits
       # Page (1954). Reference value is 0: accumulate only excess toward
@@ -190,6 +209,8 @@ module Vangrail
         'bits' => bits.round(2),
         'decay' => decay,
         'turns' => turns.size,
+        'channel' => channel&.to_s,
+        'quarantined' => (quarantined.size unless quarantined.empty?),
         'action' => action.to_s,
         'verdict' => verdict.to_s,
         'cusum' => cusum.round(2),
