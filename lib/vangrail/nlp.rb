@@ -304,6 +304,55 @@ module Vangrail
       PHRASE_LEXICONS[key] || build_phrases(languages)
     end
 
+    # Function words, which is how a language is identified cheaply.
+    #
+    # Content words are the ones a page is about and the ones that differ from
+    # page to page. Function words are the skeleton: a text of any length in a
+    # language contains them at a stable rate, and they are short, closed, and
+    # few enough to list. Counting them is the oldest working language
+    # identifier there is, and it needs no model and no table on disk.
+    #
+    # Chosen to be distinctive rather than merely frequent. Dutch "de" is also
+    # French, and German "die" is also Dutch, so the pairs that would collide
+    # are left out and the rule below asks for several distinct hits rather
+    # than one common one.
+    FUNCTION_WORDS = {
+      en: %w[the and of to is are that with for this you it was were from have has not but they],
+      nl: %w[het een van niet zijn aan ook maar deze wordt worden je uw naar met dat als bij]
+    }.freeze
+
+    # A language needs this many distinct function words present before it is
+    # called, and this share of the text's tokens. Both, because a long page
+    # accumulates stray matches and a short one does not accumulate anything.
+    LANGUAGE_HITS = 3
+    LANGUAGE_SHARE = 0.04
+
+    # Under this many tokens, a text is too short to identify and says so. A
+    # question of six words is not evidence of anything, and guessing on it
+    # would make the answer noise rather than information.
+    LANGUAGE_FLOOR = 12
+
+    # The language of a text: :en, :nl, or :unknown.
+    #
+    # :unknown is a real answer rather than a failure. It is what a page in
+    # German returns, and a rail that reads it can then report that it did not
+    # check rather than reporting that it found nothing.
+    def language(text)
+      tokens = words(text)
+      return :unknown if tokens.size < LANGUAGE_FLOOR
+
+      seen = tokens.to_set
+      scored = FUNCTION_WORDS.map do |code, list|
+        hits = list.count { |word| seen.include?(word) }
+        share = tokens.count { |token| list.include?(token) }.fdiv(tokens.size)
+        [code, hits, share]
+      end
+      best = scored.max_by { |(_, hits, share)| [hits, share] }
+      return :unknown if best[1] < LANGUAGE_HITS || best[2] < LANGUAGE_SHARE
+
+      best[0]
+    end
+
     # Sentences, roughly, and clauses where the punctuation says so.
     #
     # Every rule over the concept stream is "these two concepts, close

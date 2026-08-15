@@ -25,6 +25,7 @@ require_relative 'vangrail/known_attacks'
 require_relative 'vangrail/spotlight'
 require_relative 'vangrail/rails/injected_instructions'
 require_relative 'vangrail/rails/paraphrase'
+require_relative 'vangrail/rails/language'
 require_relative 'vangrail/rails/similarity'
 require_relative 'vangrail/rails/missing'
 require_relative 'vangrail/rails/jailbreak'
@@ -235,6 +236,11 @@ module Vangrail
       # never sees.
       rails = deterministic + [Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
                                Rails::Hidden.new(rails: deterministic)]
+      # Outside the decoding pass, and last. It reads the page rather than
+      # judging it: every rail above is a rule about English or Dutch words, and
+      # a page in neither has been passed by all of them without being read.
+      # Reporting that costs a token count and keeps `certain?` honest.
+      rails << Rails::Language.new
       rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
       rails
     end
