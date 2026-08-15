@@ -70,6 +70,7 @@ The =API docs= workflow deploys that tree to GitHub Pages on every push to
 
 ** Releasing
 
-=cog bump= rewrites the version, writes the changelog, and tags. Pushing the tag
-builds and tests the gem; publishing to RubyGems is a separate manual dispatch,
-because a published version can be yanked but never replaced.
+=cog bump= rewrites the version, writes the changelog, and tags. Pushing the
+tag runs =.github/workflows/release.yml=, which tests, builds, and publishes
+through RubyGems trusted publishing (GitHub OIDC, environment =release=). A
+published version can be yanked but never replaced.

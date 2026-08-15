@@ -1,26 +1,26 @@
-# Builds the gem on a version tag, and publishes only when asked.
+# Builds the gem on a version tag and pushes it through RubyGems
+# trusted publishing (OIDC). No long-lived API token is stored here.
 #
-# Tagging is cheap and reversible; publishing to RubyGems is neither, since a
-# pushed version can be yanked but never replaced. So the tag produces an
-# artifact and stops, and the push is a deliberate manual dispatch.
+# The matching pending/trusted publisher on RubyGems.org is:
+#   owner HaoZeke, repo vangrail, workflow release.yml, environment release.
 name: Release
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
-    inputs:
-      publish:
-        description: 'Push the built gem to RubyGems'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
 
 jobs:
   build:
+    name: build and publish
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v7
 
@@ -32,8 +32,11 @@ jobs:
       - name: Install minitest
         run: gem install --no-document minitest
 
-      # A tag that fails its own tests is a tag worth catching before the
-      # artifact exists, not after it is on a package index.
+      # The gem promises to need nothing outside the standard library at
+      # runtime. This is where that promise is checked rather than asserted.
+      - name: Load the library with no bundle
+        run: ruby -Ilib -e 'require "vangrail"; puts Vangrail::VERSION'
+
       - name: Test
         run: rake test
 
@@ -46,8 +49,9 @@ jobs:
           path: '*.gem'
           if-no-files-found: error
 
+      # Short-lived token from GitHub OIDC, exchanged at RubyGems.org.
+      - name: Configure RubyGems credentials
+        uses: rubygems/configure-rubygems-credentials@v1.0.0
+
       - name: Publish
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
         run: gem push ./*.gem
