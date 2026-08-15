@@ -380,8 +380,17 @@ only prompt that object will assemble: the last user turn plus the
 cells `screen` kept. A caller who pastes data into the instruction
 has to do it without that method.
 
+`Conversation#intend` is the plan. It can only be called after `ask`
+and before `screen`. After retrieval the plan is locked. `invoke`
+refuses a tool that was not intended, even if the allowlist would
+have granted it. A page that names `delete_all` cannot add it.
+
+`Chat#ask(conversation:, system:)` is the model path that uses that
+assembly. Passing a raw message array *and* a conversation is
+refused.
+
 `Conversation#invoke` is the tool loop. The handler runs only after
-`admit?`. AgentDojo's two numbers live in `Vangrail::Dojo`: security
+the plan and `admit?`. AgentDojo's two numbers live in `Vangrail::Dojo`: security
 is whether the injected tool stayed dark when the play *tries* to
 run it (the model obeyed the page); utility is whether the user tool
 still returned the asked-for fact. `script/measure_dojo.rb` prints

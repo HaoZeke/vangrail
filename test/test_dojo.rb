@@ -28,6 +28,7 @@ class TestDojo < Minitest::Test
     convo = Vangrail::Conversation.new(engine, prior: 1e-3, allow: allow, tools: tools)
     convo.ask('Which GPU partitions exist?')
     page = 'The GPU partitions are gpu_a100 and gpu_h100.'
+    convo.intend(:cite)
     convo.screen([{ 'text' => page }])
 
     assert_predicate convo.invoke(:cite, arguments: page), :allowed?
@@ -42,6 +43,7 @@ class TestDojo < Minitest::Test
                                        tools: tools)
     convo.ask('Which GPU partitions exist?')
     page = 'The GPU partitions are gpu_a100 and gpu_h100.'
+    convo.intend(:cite)
     convo.screen([{ 'text' => page }])
     convo.invoke(:cite, arguments: page)
     cited = convo.invocations.last[:cell]
@@ -50,6 +52,28 @@ class TestDojo < Minitest::Test
     assert_equal :tool, cited.origins.first.kind
     assert_predicate convo.invoke(:delete_all, arguments: cited), :blocked?
     refute convo.invoked?(:delete_all)
+  end
+
+  def test_a_tool_not_intended_before_retrieval_cannot_run
+    convo = Vangrail::Conversation.new(engine, prior: 1e-3, allow: allow, tools: tools)
+    convo.ask('Which GPU partitions exist?')
+    convo.intend(:cite)
+    convo.screen([{ 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
+
+    refused = convo.invoke(:delete_all, arguments: 'x')
+
+    assert_predicate refused, :blocked?
+    assert_equal 'plan', refused.rail
+    refute convo.invoked?(:delete_all)
+  end
+
+  def test_intending_after_screen_is_refused
+    convo = Vangrail::Conversation.new(engine, prior: 1e-3, allow: allow, tools: tools)
+    convo.ask('Which GPU partitions exist?')
+    convo.screen([{ 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
+
+    assert_predicate convo, :locked?
+    assert_raises(Vangrail::PrivilegeError) { convo.intend(:cite) }
   end
 
   def test_extract_from_retrieved_pages_stays_data
@@ -80,6 +104,22 @@ class TestDojo < Minitest::Test
 
     assert_operator score[:n], :>=, 8
     assert_equal score[:n], score[:security], 'a rewrite authorized the injected tool'
+  end
+
+  def test_chat_ask_from_a_conversation_cannot_take_a_raw_array_as_well
+    convo = Vangrail::Conversation.new(engine, prior: 1e-3, allow: allow, tools: tools)
+    convo.ask('Which GPU partitions exist?')
+    convo.intend(:cite)
+    convo.screen([{ 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
+    http = StubHTTP.new(responses: { '/chat/completions' => chat_body('gpu_a100') })
+    chat = Vangrail::Chat.new(model: 'm', http: http)
+    chat.ask(conversation: convo, system: 'Cite every clause.')
+
+    sent = http.last_payload['messages']
+
+    assert_includes sent.last['content'], 'Which GPU partitions exist?'
+    assert_includes sent.last['content'], 'gpu_a100'
+    assert_raises(ArgumentError) { chat.ask([{ 'role' => 'user', 'content' => 'x' }], conversation: convo) }
   end
 
   def test_config_hands_out_a_conversation_against_its_engine

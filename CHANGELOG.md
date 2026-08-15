@@ -118,6 +118,11 @@ Nothing has been released yet. This section describes what exists.
 
 ### Added
 
+- `Conversation#intend` names the tools the question may use, before
+  any page is seen. `screen` locks the plan. `invoke` refuses a tool
+  that was not intended, even if Admission would have granted it.
+  That is the privileged planner: data cannot add a capability.
+  `Chat#ask(conversation:)` sends only `Conversation#messages`.
 - `Conversation#invoke` runs a named tool only after `admit?`.
   A refused call is a blocked turn; the handler does not run.
   `Dojo` scores AgentDojo's two numbers on handbook tasks: security

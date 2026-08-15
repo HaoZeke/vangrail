@@ -47,7 +47,17 @@ module Vangrail
       )
     end
 
-    def ask(messages, max_tokens: nil)
+    # `conversation:` is the application path: the messages are whatever
+    # Conversation#messages will assemble, so a retrieved page cannot be
+    # spliced into the instruction by handing this method a raw array.
+    def ask(messages = nil, conversation: nil, system: nil, max_tokens: nil)
+      if conversation
+        raise ArgumentError, 'pass conversation: or messages, not both' if messages
+
+        messages = conversation.messages(system: system.to_s)
+      end
+      raise ArgumentError, 'ask needs messages or conversation:' if messages.nil?
+
       payload = {
         'model' => model,
         'messages' => normalize(messages),

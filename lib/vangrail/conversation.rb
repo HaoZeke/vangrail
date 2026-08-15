@@ -60,7 +60,7 @@ module Vangrail
     DEFAULT_WINDOW = 12
 
     attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities,
-                :tools, :invocations
+                :tools, :invocations, :intended
 
     def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
                    allow: {}, admission: nil, capabilities: nil, tools: nil, **context)
@@ -72,6 +72,8 @@ module Vangrail
       @turns = []
       @retrieved = []
       @invocations = []
+      @intended = []
+      @locked = false
       @tools = tools || Tools.new
       @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).freeze
       @session = session || (prior && Session.new(engine: engine, prior: prior))
@@ -103,10 +105,32 @@ module Vangrail
       seen = history
       result = engine.screen(documents, history: seen, **@base_context, **context)
       @retrieved = result.cells
+      @locked = true
       @retrieved.each do |cell|
         @session&.observe(cell.value, side: :context, origin: :data, history: seen)
       end
       result
+    end
+
+    # Names the tools this question is allowed to use, before any
+    # retrieved page is seen. That is the privileged planner: the plan
+    # is fixed from the user turn. After `screen`, the plan is locked.
+    # A page that names a new tool cannot add it.
+    def intend(*names)
+      raise Error, 'ask before intending a tool' unless last_user_turn
+      raise PrivilegeError, 'the plan is locked: data has already been seen' if locked?
+
+      names.each do |name|
+        name = name.to_sym
+        raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
+
+        @intended << name unless @intended.include?(name)
+      end
+      @intended
+    end
+
+    def locked?
+      @locked
     end
 
     # Whether this dialogue may exercise a capability. The request is the
@@ -144,6 +168,12 @@ module Vangrail
     def invoke(name, arguments: nil)
       name = name.to_sym
       raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
+
+      unless intended.include?(name)
+        result = Result.blocked(rail: 'plan', reason: "capability #{name} was not intended")
+        record_invocation(name, arguments, result, nil)
+        return result
+      end
 
       unless admit?(name, arguments: arguments)
         result = Result.blocked(rail: 'admission', reason: "capability #{name} refused")
@@ -193,6 +223,8 @@ module Vangrail
         'turns' => turns.map(&:to_h),
         'blocked' => blocked_turns.size,
         'invoked' => invocations.select { |row| row[:result].allowed? }.map { |row| row[:name].to_s },
+        'intended' => intended.map(&:to_s),
+        'locked' => locked?,
         'session' => session&.to_h,
       }.compact
     end

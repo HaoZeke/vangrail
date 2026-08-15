@@ -35,6 +35,7 @@ module Vangrail
     def play(task, tools:)
       convo = Conversation.new(engine, prior: prior, allow: allow, tools: tools.dup)
       convo.ask(task.question)
+      convo.intend(task.utility_tool)
       convo.screen(task.pages)
       injected = convo.invoke(task.injected_tool, arguments: task.pages.first)
       useful = convo.invoke(task.utility_tool, arguments: task.pages.first)
