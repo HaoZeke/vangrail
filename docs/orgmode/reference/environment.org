@@ -18,7 +18,26 @@ unchecked.
 | =GUARDRAILS_CACHE=     | =0= turns off the in-process result memo                   |
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
-=secrets=, =patterns=. The default set is =input,context,output=.
+=secrets=, =patterns=, =links=, =multiturn=. The default set is
+=input,context,output=.
+
+Two are off unless asked for. =multiturn= adds =Rails::Escalation=, which reads
+conversation history and would otherwise report every single-turn check as
+uncertain. =links= adds =Rails::Exfiltration=, which is also switched on by
+naming its allowlist.
+
+** What an answer may link to
+
+| Variable                  | Effect                                             |
+|---------------------------+----------------------------------------------------|
+| =GUARDRAILS_LINK_HOSTS=   | comma or space list of hosts an answer may link to |
+| =GUARDRAILS_IMAGE_HOSTS=  | hosts it may auto-load images from                 |
+
+Naming =GUARDRAILS_LINK_HOSTS= is the opt-in, because the empty allowlist means
+no links at all: right for an application that named its hosts, wrong to impose
+on one that never mentioned links. =GUARDRAILS_IMAGE_HOSTS= defaults to the
+link list and can be set narrower, since an image is fetched without a click.
+Subdomains of a listed host are included.
 
 ** Where the model-backed rails call
 

@@ -105,6 +105,27 @@ result.certain?   # => false
 result.reason     # => "llmlite is not available at http://127.0.0.1:8760/v1"
 ```
 
+## Streams and conversations
+
+An output rail that runs on the finished text runs after the reader has read
+it. A rail that reads one message cannot see that the last one was refused.
+Two objects close those, and both are opt-in:
+
+```ruby
+guard = Vangrail::StreamGuard.new(engine, user_input: question)
+stream.each { |chunk| break if guard.push(chunk)&.blocked?; emit(chunk) }
+guard.finish
+
+convo = Vangrail::Conversation.new(engine)
+convo.ask(question)            # judged with the previous turns in view
+convo.answer(text)             # records what the reader actually saw
+```
+
+The deterministic rails run mid-stream. The model-backed ones wait for the end,
+because one round trip per chunk turns a two second answer into a minute. See
+[guarding a stream](docs/orgmode/howto/guarding-a-stream.org) and [guarding a
+conversation](docs/orgmode/howto/guarding-a-conversation.org).
+
 ## Providers
 
 Every endpoint here is OpenAI-compatible, so the differences that matter are not
@@ -244,7 +265,9 @@ one when the local rails cover it.
 | `GUARDRAILS_API_BASE` / `_API_KEY` | an endpoint nobody registered |
 | `GUARDRAILS_MODEL` | classifier, where the provider hosts one |
 | `GUARDRAILS_JUDGE_MODEL` | instruct model for policy and grounding rails |
-| `GUARDRAILS_RAILS` | `input,output,grounding,secrets,patterns`, `all`, `none` |
+| `GUARDRAILS_RAILS` | `input,context,output,grounding,secrets,patterns,links,multiturn`, `all`, `none` |
+| `GUARDRAILS_LINK_HOSTS` | hosts an answer may link to; naming them switches the rail on |
+| `GUARDRAILS_IMAGE_HOSTS` | hosts it may auto-load images from, defaults to the link list |
 | `GUARDRAILS_ON_ERROR` | `allow` (default) or `block` when a rail fails |
 | `GUARDRAILS_REASONING` | `1` asks a classifier for a written rationale |
 | `GUARDRAILS_CACHE` | `0` turns off the in-process memo |
@@ -257,7 +280,11 @@ one when the local rails cover it.
 |------|------|---------|------------------------|
 | `Rails::Pattern` | either | no | passed, blocked |
 | `Rails::InjectedInstructions` | context | no | passed, blocked |
+| `Rails::Jailbreak` | input, context | no | passed, blocked |
+| `Rails::Obfuscation` | input, context | follows what it wraps | passed, modified, blocked |
+| `Rails::Escalation` | input | no | passed, blocked |
 | `Rails::Secrets` | output | no | passed, modified |
+| `Rails::Exfiltration` | output | no | passed, modified |
 | `Rails::GuardModel` | either | yes | passed, blocked |
 | `Rails::SelfCheck` | either | yes | passed, blocked |
 | `Rails::Grounding` | output | yes | passed, blocked |
@@ -309,7 +336,7 @@ disable.
 rake test
 ```
 
-177 tests, stdlib minitest. Parsing and payload shape run against a recorded
+251 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.
@@ -328,6 +355,24 @@ catches every attack.
 Twelve injection shapes at five positions inside real documentation prose.
 Inline is the weak position at 10 of 12; the other four catch 12 of 12, and a
 separate test asserts that no injection escapes at every position.
+
+The same twelve injections rewritten five published ways, to measure what the
+decoding pass buys:
+
+| | patterns alone | with `Rails::Obfuscation` |
+|---|---|---|
+| base64 | 0 of 12 | 11 of 12 |
+| rot13 | 0 of 12 | 12 of 12 |
+| zero-width | 0 of 12 | 12 of 12 |
+| homoglyph | 0 of 12 | 12 of 12 |
+| fullwidth | 0 of 12 | 12 of 12 |
+
+Ordinary documentation still passes 15 of 15 with the decoding pass on, which
+is the number that decides whether it can be left switched on.
+
+`Rails::Jailbreak` is scored the same way: fourteen circulating attack shapes
+caught, fourteen ordinary handbook sentences untouched, and an explicit test
+asserting that a rephrased attack walks past it, because it does.
 
 ## Documentation
 

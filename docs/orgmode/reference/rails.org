@@ -8,7 +8,11 @@
 |-----------------------------+---------------+---------+----------------------------|
 | =Rails::Pattern=            | either        | no      | passed, blocked            |
 | =Rails::InjectedInstructions= | context     | no      | passed, blocked            |
+| =Rails::Jailbreak=          | input, context | no     | passed, blocked            |
+| =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
+| =Rails::Escalation=         | input         | no      | passed, blocked            |
 | =Rails::Secrets=            | output        | no      | passed, modified           |
+| =Rails::Exfiltration=       | output        | no      | passed, modified           |
 | =Rails::GuardModel=         | either        | yes     | passed, blocked            |
 | =Rails::SelfCheck=          | either        | yes     | passed, blocked            |
 | =Rails::Grounding=          | output        | yes     | passed, blocked            |
@@ -46,12 +50,123 @@ Categories:
 Deterministic on purpose: the text is written by whoever wants it believed, so
 a model asked to judge it is reading an argument composed to persuade it.
 
+** Rails::Jailbreak
+
+Fingerprints for the wrappers that circulate. Input and context sides,
+deterministic, offline, on by default.
+
+| Category                 | The shape                                            |
+|--------------------------+------------------------------------------------------|
+| =unrestricted_persona=   | a named persona whose defining trait is having no rules |
+| =restrictions_lifted=    | a claim that safety was disabled, or an instruction to enter a mode |
+| =dual_answer=            | two answers demanded, one of them unfiltered         |
+| =sentimental_wrapper=    | a relative, a bedtime story, a dying wish            |
+| =fiction_licence=        | fiction as licence, where the harm is what the character says |
+| =forged_authority=       | a claimed identity conferring permission             |
+
+A floor rather than a defence: rephrasing beats a pattern, and the suite says
+so with a test asserting that a rewritten attack passes. What it buys is that
+the copied-and-pasted majority never reaches a model, and that it keeps working
+when the model rail is unreachable.
+
+Measured at fourteen attack shapes caught against fourteen ordinary handbook
+sentences untouched. The second number is the one that decides whether it can
+be switched on at all, because a documentation desk discusses roles, modes, and
+restrictions daily.
+
+** Rails::Obfuscation
+
+Runs other rails again over the text an attacker meant rather than the text
+they wrote. Takes a rail list rather than patterns of its own:
+
+#+BEGIN_SRC ruby
+Vangrail::Rails::Obfuscation.new(
+  rails: [Vangrail::Rails::InjectedInstructions.new,
+          Vangrail::Rails::Jailbreak.new]
+)
+#+END_SRC
+
+| Transform      | What it undoes                                             |
+|----------------+------------------------------------------------------------|
+| =:invisible=   | zero-width joiners and bidi overrides, stripped and reported |
+| =:confusables= | Cyrillic and Greek lookalikes folded back to Latin         |
+| =:rot13=       | the rotation                                                |
+| =:base64=      | runs of 24 characters or more that decode to printable text |
+| =:nfkc=        | the fullwidth and mathematical alphabets                    |
+
+A block names both the rail and the encoding: =encoded:base64= alongside the
+inner rail's own categories. Invisible characters on their own are a =modified=
+result, not a block, because stripping them costs a reader nothing.
+
+=offline?= and =cache_key= follow whatever it wraps, so wrapping a model rail
+gives a rail that is not offline and not memoizable.
+
+Nothing here guesses. There is no entropy score and no "this looks encoded"
+heuristic, because a cluster handbook is full of base64: ssh keys, checksums,
+=base64 -d= examples. A run either decodes to text a rail objects to or
+contributes nothing.
+
+Measured on the injection corpus rewritten five ways: the pattern rail alone
+catches 0 of 60, with the decoding pass 59 of 60, and ordinary documentation is
+untouched.
+
+** Rails::Escalation
+
+Judges the sequence rather than the message, by reading =:history= from the
+context. Input side, deterministic, offline, never memoized. Off unless
+=GUARDRAILS_RAILS= names =multiturn=.
+
+| Category              | When                                                  |
+|-----------------------+-------------------------------------------------------|
+| =retry_after_refusal= | the previous question was refused and this one is it again |
+| =paraphrase=          | three fifths or more of the content words are shared  |
+| =reframed=            | a reframing opener over the same subject              |
+| =reference_back=      | a bare demand to answer it anyway                     |
+| =repeated_refusals=   | more than two refusals in the last six turns          |
+
+Given no history it returns =passed= with =certain?= false: a rail that reads
+history and was handed none has not checked anything. Pair it with
+=Conversation=, which fills the history in.
+
+The limit, stated because it matters: a genuine crescendo never triggers a
+refusal until the last turn, and this sees nothing until one happens. It raises
+the cost of the cheap version, where an attacker probes until something lands.
+
 ** Rails::Secrets
 
 Redacts credentials and returns =modified=. Output side by default. Recognises
 private key blocks, provider key prefixes, tokens, JWTs, bearer headers, and
 inline password assignments. An inline assignment keeps its key name and loses
 its value, so the reader still learns which setting was being discussed.
+
+** Rails::Exfiltration
+
+Strips outbound URLs an answer has no business emitting. Output side,
+deterministic, offline. Switched on by naming =GUARDRAILS_LINK_HOSTS=.
+
+#+BEGIN_SRC ruby
+Vangrail::Rails::Exfiltration.new(allow_hosts: %w[docs.example.org],
+                                  allow_images: [])
+#+END_SRC
+
+| Category        | What was removed                                          |
+|-----------------+-----------------------------------------------------------|
+| =foreign_link=  | a link to a host that is not on the list                  |
+| =foreign_image= | an image from a host that is not on the image list        |
+| =link_payload=  | a query carrying encoded text, allowlisted or not         |
+| =image_payload= | the same in an image, which is fetched without a click    |
+
+The allowlist defaults to empty, so an application that never named its hosts
+gets no links rather than all of them. Images are held to =allow_images=, which
+defaults to the link list and can be emptied on its own. A host worth linking
+to is not automatically a host worth auto-loading from.
+
+The payload check runs before the allowlist, so a permitted host cannot be used
+as a courier. Non-http schemes and protocol-relative URLs never resolve to a
+host, which covers =data:=, =file:=, =javascript:=, and =//collector=.
+
+Redacts rather than blocks, and the link text survives so the reader still
+learns what was being pointed at.
 
 ** Rails::GuardModel
 

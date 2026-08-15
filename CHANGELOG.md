@@ -48,6 +48,29 @@ Nothing has been released yet. This section describes what exists.
   uncertain result.
 - An injection corpus of 60 attacks across 12 shapes and 5 positions in real
   documentation prose, scored together with a benign pass rate.
+- `StreamGuard`, which runs the deterministic output rails while an answer is
+  still arriving. Model-backed rails still run once at the end, because a round
+  trip per chunk turns a two second answer into a minute.
+- `Conversation`, which holds the turns and threads them into the rail context
+  as `:history`, and remembers the verdicts. A refusal is the event the next
+  check needs most.
+- `Rails::Jailbreak`, fingerprints for the six wrappers that circulate: an
+  unrestricted persona, a claim that safety was disabled, a demand for two
+  answers, a sentimental wrapper, fiction as licence, and forged authority.
+- `Rails::Obfuscation`, which undoes an encoding and runs other rails over the
+  result: zero-width and bidi strips, homoglyph folding, rot13, base64, and
+  compatibility normalisation. Scored on the injection corpus rewritten five
+  ways: 0 of 60 with patterns alone, 59 of 60 with the decoding pass.
+- `Rails::Escalation`, which reads conversation history and catches a refused
+  question asked again, or repeated refusals in a short window.
+- `Rails::Exfiltration`, an allowlist for the URLs an answer may emit. Images
+  are held to a stricter list than links, because an image is fetched without a
+  click, and a payload in the query is refused even on an allowlisted host.
+- `Spotlight::HIERARCHY` and `Spotlight.preamble`, which state what outranks
+  what. Marking text as data says where it came from, not what to do when the
+  data argues with the instructions.
+- `GUARDRAILS_LINK_HOSTS` and `GUARDRAILS_IMAGE_HOSTS`, plus `links` and
+  `multiturn` as `GUARDRAILS_RAILS` names.
 
 ### Fixed
 
