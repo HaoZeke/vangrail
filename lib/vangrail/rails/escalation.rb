@@ -25,9 +25,11 @@ module Vangrail
     #   repeated_refusals     several refusals in a short window, whatever this
     #                         particular message says
     #
-    # Both are cheap and neither is clever. A caller with no history configured
-    # gets a pass and an honest `certain?` of false, because a rail that reads
-    # history and was given none has not checked anything.
+    # Both are cheap and neither is clever. A caller that never passes
+    # `:history` gets a pass with an honest `certain?` of false, because a rail
+    # that reads history and was handed none has not checked anything. A caller
+    # that passes an empty one gets a certain pass: an empty dialogue is an
+    # answer rather than a missing one.
     #
     # The limit is worth stating: a genuine crescendo never triggers a refusal
     # at all until the last turn, and this rail sees nothing until one happens.
@@ -87,8 +89,17 @@ module Vangrail
       end
 
       def call(text, context)
+        # A caller that never passes :history is not threading a dialogue, and
+        # this rail has not checked anything: say so. A caller that passes an
+        # empty one is threading a dialogue that has just started, which is a
+        # real answer rather than a missing one. The distinction matters
+        # because an uncertain pass here would otherwise be the first uncertain
+        # result in every single-turn engine, and would mask the reason a
+        # model rail actually failed.
+        return unchecked('no history was provided, so nothing was compared') unless context.key?(:history)
+
         history = Array(context[:history])
-        return unchecked('no history was provided, so nothing was compared') if history.empty?
+        return pass if history.empty?
 
         refused = history.select { |t| user?(t) && t[:blocked] }
         return pass if refused.empty?

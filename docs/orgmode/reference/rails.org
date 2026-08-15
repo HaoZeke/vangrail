@@ -209,9 +209,13 @@ context. Input side, deterministic, offline, never memoized. Off unless
 | =reference_back=      | a bare demand to answer it anyway                     |
 | =repeated_refusals=   | more than two refusals in the last six turns          |
 
-Given no history it returns =passed= with =certain?= false: a rail that reads
-history and was handed none has not checked anything. Pair it with
-=Conversation=, which fills the history in.
+A caller that never passes =:history= gets =passed= with =certain?= false: a
+rail that reads history and was handed none has not checked anything. A caller
+that passes an empty one gets a certain pass, because an empty dialogue is an
+answer rather than a missing one, and without that distinction this rail would
+be the first uncertain result in every single-turn engine and would mask the
+reason a model rail actually failed. Pair it with =Conversation=, which fills
+the history in.
 
 The limit, stated because it matters: a genuine crescendo never triggers a
 refusal until the last turn, and this sees nothing until one happens. It raises

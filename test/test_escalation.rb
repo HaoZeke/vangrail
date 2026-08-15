@@ -26,12 +26,22 @@ class TestEscalation < Minitest::Test
     { role: :user, text: text, blocked: true }
   end
 
-  # A rail that reads history and was given none has not checked anything, and
-  # must not report a clean pass.
-  def test_no_history_is_not_a_clean_pass
+  # A rail that reads history and was never handed the key has not checked
+  # anything, and must not report a clean pass.
+  def test_a_caller_that_threads_no_history_gets_an_uncertain_pass
     result = rail.call('anything', side: :input)
     assert result.passed?
     refute result.certain?
+  end
+
+  # An empty history is an answer rather than a missing one: the dialogue has
+  # just started. Without this distinction the rail would be the first
+  # uncertain result in every single-turn engine and would mask the reason a
+  # model rail actually failed.
+  def test_an_empty_history_is_a_certain_pass
+    result = rail.call('the first question', side: :input, history: [])
+    assert result.passed?
+    assert result.certain?
   end
 
   def test_a_dialogue_with_no_refusal_in_it_passes
