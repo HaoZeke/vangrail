@@ -103,6 +103,49 @@ module Vangrail
       )
     end
 
+    # The whole safe shape in one call: the hierarchy, the marking rule, the
+    # fenced passages, and the question, as messages ready to send.
+    #
+    #   messages = Spotlight.messages(system: SYSTEM, question: q, passages: hits)
+    #   chat.ask(messages)
+    #
+    # This exists because the parts are easy to assemble wrongly. A caller who
+    # marks the passages but omits the hierarchy has told the model where the
+    # text came from and not what to do when it argues; one who states the rule
+    # in the system message and pastes the passages unfenced has described a
+    # fence that is not there. Measured on a live model, the difference between
+    # the plain shape and this one is the difference the prompt side is worth,
+    # and script/spotlight_probe.rb is that measurement.
+    #
+    # Passages may be strings or hashes carrying 'text' with an optional
+    # 'title'; a title stays outside the fence so citation instructions can
+    # still refer to it.
+    def messages(system:, question:, passages:, mode: :delimit, mark: DEFAULT_MARK)
+      bodies = Array(passages).map { |p| passage_text(p) }
+      marked, rule = apply_all(bodies, mode: mode, mark: mark)
+      numbered = Array(passages).each_with_index.map do |p, i|
+        head = passage_title(p)
+        ["[#{i + 1}]#{" #{head}" if head}", marked[i].to_s].join("\n")
+      end.join("\n\n---\n\n")
+
+      [{ 'role' => 'system', 'content' => [HIERARCHY, system].join("\n\n") },
+       { 'role' => 'user',
+         'content' => "Question: #{question}\n\n#{rule}\n\nPassages:\n#{numbered}" }]
+    end
+
+    def passage_text(passage)
+      return passage.to_s unless passage.is_a?(Hash)
+
+      (passage['text'] || passage[:text]).to_s
+    end
+
+    def passage_title(passage)
+      return nil unless passage.is_a?(Hash)
+
+      title = passage['title'] || passage[:title]
+      title.to_s.empty? ? nil : title.to_s
+    end
+
     # Marks a set of passages and returns them with one shared instruction, so a
     # prompt builder can state the rule once rather than per passage.
     def apply_all(passages, mode: :delimit, mark: DEFAULT_MARK)

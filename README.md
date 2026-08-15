@@ -321,8 +321,16 @@ instruction. Three modes, in increasing strength and cost: `:delimit`
 marker between every word, `:encode` base64s it.
 
 ```ruby
-marked, instruction = Vangrail::Spotlight.apply_all(passages)
+messages = Vangrail::Spotlight.messages(system: SYSTEM, question: q, passages: hits)
+chat.ask(messages)
 ```
+
+That is the whole safe shape in one call: the instruction hierarchy, the
+marking rule, the fenced passages, and the question. The parts are available
+separately as `HIERARCHY` and `apply_all`, and they are easy to assemble
+wrongly — marked passages with no hierarchy tell the model where text came from
+and not what to do when it argues, and a rule stated over unfenced passages
+describes a fence that is not there.
 
 The tag is random per request because a fixed one is a tag an attacker writes
 into the page to close the block early. `:encode` uses `pack('m0')` rather
@@ -344,7 +352,7 @@ disable.
 rake test
 ```
 
-327 tests, stdlib minitest. Parsing and payload shape run against a recorded
+344 tests, stdlib minitest. Parsing and payload shape run against a recorded
 double; transport, status handling, the `/v1/checks` fallback, and a genuinely
 refused connection run against a loopback server the suite starts itself. No
 outbound network, no keys, nothing outside the standard library.

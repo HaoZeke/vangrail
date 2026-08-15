@@ -95,6 +95,8 @@ Nothing has been released yet. This section describes what exists.
 - `Rails::Exfiltration`, an allowlist for the URLs an answer may emit. Images
   are held to a stricter list than links, because an image is fetched without a
   click, and a payload in the query is refused even on an allowlisted host.
+- `Spotlight.messages`, the whole safe prompt shape in one call: hierarchy,
+  marking rule, fenced passages, question.
 - `Spotlight::HIERARCHY` and `Spotlight.preamble`, which state what outranks
   what. Marking text as data says where it came from, not what to do when the
   data argues with the instructions.
