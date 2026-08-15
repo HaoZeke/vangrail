@@ -25,11 +25,18 @@ module Vangrail
     # follows it. All three are in the corpus, because a rail that eats login
     # examples is worse for a handbook than no rail at all.
     #
-    # Deliberately not included: national identity numbers. The Dutch BSN is
-    # nine digits with a checksum, a Slurm job id is six to eight digits, and
-    # one in eleven job ids passes the checksum by accident. A rail that
-    # redacts job ids from a cluster support question is unusable, and the
-    # trade is not close.
+    # National identity numbers are matched only beside their own name, and the
+    # reason is the same false-positive budget. The Dutch BSN is nine digits
+    # with a checksum that one number in eleven passes by accident, so a rail
+    # reading bare nine-digit runs redacts job ids and project numbers out of
+    # cluster questions, which makes it unusable.
+    #
+    # A label changes that trade completely. "Mijn BSN is 123456782" carries
+    # the word and the checksum, and nothing on a cluster desk writes both by
+    # accident; a bare 123456782 keeps passing through untouched. It is the
+    # same pair-of-signals rule the rest of this gem uses, and it is what makes
+    # the most sensitive identifier a Dutch reader can paste into a support
+    # question something this rail can actually catch.
     class PersonalData < Rail
       PLACEHOLDER = '[redacted]'
 
@@ -55,7 +62,13 @@ module Vangrail
         'phone' => /(?:\+|\b00)[1-9]\d{0,2}[\s.-]?(?:\(?\d{1,4}\)?[\s.-]?){2,5}\d{2,4}\b
                     |\b0\d{1,3}[\s.-]\d{3}[\s.-]?\d{3,4}\b/x,
         'iban' => /\b[A-Z]{2}\d{2}\s?(?:[A-Z0-9]{4}\s?){2,7}[A-Z0-9]{1,4}\b/,
-        'card' => /\b(?:\d[ -]?){13,19}\b/
+        # Separators between the digits rather than after them: the trailing
+        # form eats the space before the next word and redacts it away.
+        'card' => /\b\d(?:[ -]?\d){12,18}\b/,
+        # The number beside its own name, in the words a Dutch reader uses for
+        # it. The digits may carry the dots or spaces a form prints them with.
+        'bsn' => /\b(?:bsn|burgerservicenummer|sofinummer|sofi[\s-]?nummer)\b
+                  [^\n]{0,24}?((?:\d[\s.-]?){8}\d)\b/xi
       }.freeze
 
       attr_reader :patterns, :placeholder
@@ -95,7 +108,10 @@ module Vangrail
           next match unless redact?(label, match, m.pre_match, m.post_match)
 
           found << label
-          placeholder
+          # Where the pattern had to read a label to be sure, only the value
+          # goes. The reader still sees what the desk was told about, the same
+          # way the secrets rail keeps the setting name and loses the key.
+          m[1] ? match.sub(m[1], placeholder) : placeholder
         end
       end
 
@@ -105,6 +121,7 @@ module Vangrail
         case label
         when 'email' then mailbox?(match, before, after)
         when 'card' then card?(match)
+        when 'bsn' then bsn?(match)
         else true
         end
       end
@@ -125,6 +142,21 @@ module Vangrail
         return false unless digits.length.between?(13, 19)
 
         luhn?(digits)
+      end
+
+      # The elfproef, which is the check the Dutch government applies: the nine
+      # digits weighted 9 down to 2, with the last subtracted rather than
+      # added, and the total divisible by eleven. Nine identical digits pass it
+      # arithmetically and are a placeholder rather than a person, so they do
+      # not count.
+      def bsn?(match)
+        digits = match.gsub(/\D/, '')
+        return false unless digits.length == 9
+        return false if digits.chars.uniq.size == 1
+
+        weights = [9, 8, 7, 6, 5, 4, 3, 2, -1]
+        total = digits.chars.each_with_index.sum { |c, i| c.to_i * weights[i] }
+        (total % 11).zero?
       end
 
       def luhn?(digits)
