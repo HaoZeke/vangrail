@@ -107,4 +107,5 @@ puts "attacks #{attacks.size}  benign #{benign.size}  prior #{PRIOR}"
 end
 
 # Corpus helpers live in test files that autorun. The table is the product.
+$stdout.flush
 exit! 0
