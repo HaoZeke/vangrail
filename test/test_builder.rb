@@ -84,7 +84,8 @@ class TestBuilder < Minitest::Test
   # pattern list with a published bypass.
   def test_rails_can_be_selected_by_name
     e = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'patterns,secrets'))
-    assert_equal %w[injection_patterns jailbreak paraphrase many_shot obfuscation], e.rail_names(:input)
+    assert_equal %w[injection_patterns jailbreak paraphrase similarity many_shot obfuscation],
+                 e.rail_names(:input)
     assert_equal ['secrets'], e.rail_names(:output)
     assert e.offline?
   end

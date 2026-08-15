@@ -47,6 +47,12 @@ module Vangrail
       normalize(text).split
     end
 
+    # Stemming is the hot path: every rule reads every token of every clause,
+    # and real prose repeats its words. The memo turns six regexp attempts per
+    # token into a hash hit for everything after the first sighting.
+    STEM_CACHE = 8192
+    STEMS = {}
+
     # An English suffix stripper, not Porter, and not applied per language.
     #
     # It exists so the lexicon can list one form of a word instead of five, and
@@ -64,6 +70,19 @@ module Vangrail
       w = word.to_s
       return w if w.length <= 3
 
+      cached = STEMS[w]
+      return cached if cached
+
+      stemmed = strip_suffix(w)
+      # Bounded, and bounded because the input is hostile. A memo that grows
+      # with whatever arrives is a memory leak an attacker can drive; a
+      # dictionary's worth of ordinary words fits well inside this, and past it
+      # the cost falls back to what it was without the memo.
+      STEMS[w] = stemmed if STEMS.size < STEM_CACHE
+      stemmed
+    end
+
+    def strip_suffix(w)
       case w
       when /\A(.+)ies\z/ then "#{Regexp.last_match(1)}y"
       when /\A(.+ss)es\z/ then Regexp.last_match(1)
