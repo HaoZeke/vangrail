@@ -1,0 +1,90 @@
+# RuboCop for vangrail (https://docs.rubocop.org)
+# Run locally: `rubocop` (autocorrect: `rubocop -a`)
+# CI: the `rubocop` job in .github/workflows/ci.yml, and the prek hook.
+
+#
+# Thresholds are adjusted rather than departments switched off. A disabled
+# metric tells you nothing; a metric set to an honest number tells you when a
+# method has grown past what this codebase accepts.
+
+AllCops:
+  TargetRubyVersion: 3.1
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    # Generated from the Unicode confusables data by
+    # script/generate_confusables.rb. Style rules on a machine-written table
+    # of 1645 codepoints report on the generator's formatting choices, which
+    # nobody edits and nobody reads.
+    - 'lib/vangrail/confusables_data.rb'
+
+# Nothing outside the standard library is needed at runtime, so there is no
+# lockfile to police.
+Bundler:
+  Enabled: false
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+Layout/LineLength:
+  # 120 rather than 110: what sits between the two is a regexp alternation, a
+  # ternary choosing a parser, and a JSON fixture, each of which reads worse
+  # broken across lines. Anything past 120 is genuinely runaway.
+  Max: 120
+
+Style/Documentation:
+  # Every class and module here already carries a comment saying why it exists.
+  # This cop wants a particular shape that would make several of them worse.
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 30
+Metrics/AbcSize:
+  # 34 rather than the default 17. Ten methods sit between the two, and they are
+  # all the same shape: a parser dispatching on a token, or a request builder
+  # assembling a payload from optional fields. Branch density is what those are;
+  # splitting them scatters one decision across three methods. A method past 34
+  # in this codebase has genuinely grown too big.
+  Max: 34
+Metrics/CyclomaticComplexity:
+  Max: 13
+Metrics/PerceivedComplexity:
+  Max: 13
+Metrics/ClassLength:
+  Max: 220
+Metrics/ModuleLength:
+  Max: 240
+  Exclude:
+    - 'test/**/*'
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+    # A gemspec is one block by construction and its length counts metadata
+    # fields, not branches. Capping it means deleting a declaration or a
+    # comment explaining one, which is not what the metric is for.
+    - '*.gemspec'
+Metrics/ParameterLists:
+  # Rails and providers are configured through keywords, which is the readable
+  # way to do it. Positional arguments stay capped.
+  Max: 6
+  CountKeywordArgs: false
+
+Style/RegexpLiteral:
+  # The detection rails are mostly regexps, and slashes read better than %r
+  # there even with an inner slash.
+  EnforcedStyle: slashes
+  AllowInnerSlashes: true
+
+Style/SpecialGlobalVars:
+  # `$?` after IO.popen is the idiom for a child's exit status; requiring
+  # English to spell it differently buys nothing.
+  Enabled: false
+
+Naming/PredicateMethod:
+  # `screen` and `apply` answer with a value rather than a fact about the
+  # receiver, so the question-mark rule does not apply to them.
+  Enabled: false
+
+Lint/DuplicateBranch:
+  # Parsers legitimately return the same shape for different reasons, and
+  # collapsing the branches would hide which case was taken.
+  Enabled: false

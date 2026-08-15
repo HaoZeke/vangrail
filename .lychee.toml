@@ -1,0 +1,41 @@
+# Link checker config for vangrail (lycheeverse/lychee)
+# Docs: https://lychee.cli.rs/
+
+#############################  Runtime  ############################
+
+# Accept rate-limited upstreams as non-fatal for CI noise reduction.
+accept = [200, 204, 206, 429]
+
+max_redirects = 5
+timeout = 30
+max_retries = 3
+max_concurrency = 8
+
+#############################  Requests  ###########################
+
+user_agent = "vangrail-lychee/1.0 (+https://github.com/HaoZeke/vangrail)"
+
+#############################  Exclusions  #########################
+
+exclude_path = [
+  "coverage",
+  "pkg",
+]
+
+# Substring / regex patterns matched against the URL.
+exclude = [
+  # Endpoints the rails talk to in examples and tests, never reachable from CI.
+  "localhost",
+  "127.0.0.1",
+  "0.0.0.0",
+  "example.com",
+  "api.example",
+  # Internal gateway hosts named in provider docs and defaults.
+  "willma.ai.surf.nl",
+  # Forward-looking release anchors (valid only after a tag is cut).
+  "github.com/HaoZeke/vangrail/releases/tag/",
+  "github.com/HaoZeke/vangrail/tree/",
+]
+
+include_mail = false
+method = "head"
