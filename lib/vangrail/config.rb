@@ -86,7 +86,7 @@ module Vangrail
     def program
       @program ||= flows.reduce(Colang::Library.program) do |acc, (file, source)|
         acc.merge(Colang::Parser.parse(source, filename: "#{file}.co"))
-      end
+      end.tap(&:check!)
     end
 
     def flow_names(side)

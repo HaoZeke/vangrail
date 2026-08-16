@@ -20,6 +20,8 @@ module Vangrail
       def initialize(flow_name:, program:, actions:, name: nil, sides: Rail::SIDES)
         super(name: name || flow_name, sides: sides)
         @flow_name = flow_name
+        raise ColangError, "no flow named #{flow_name.inspect}" unless program.flow(flow_name)
+
         @interpreter = Colang::Interpreter.new(program: program, actions: actions)
       end
 

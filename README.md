@@ -591,16 +591,23 @@ engine = config.engine(actions: { 'has_ticket' => ->(_args, ctx) { ctx[:text] =~
 
 The supported subset is `define flow` / `define subflow`, `define bot` /
 `define user`, `$var = …`, `execute action(k=v)` (keyword arguments only),
-`if` / `else` / `not` / `==` / `!=`, `bot <name>`, and `stop`. A line that
-begins with a tab is refused. `define user` is stored and never matched.
-`self check input`, `self check output`, and `self check facts` are the
-only built-in flows. This is not NeMo parity.
+`if` / `else` / `not` / `==` / `!=`, `bot <name>`, and `stop`. Assignments,
+conditions, and action arguments share one value grammar (string, int, bool,
+`$var`, `execute`, `not`, `==` / `!=`). A tab in the indent run is refused.
+`define user` is stored and never matched. `self check input`, `self check
+output`, and `self check facts` are the only built-in flows. This is not
+NeMo parity.
 
-A `user` statement inside a flow raises at parse. A missing action fails
-when the flow runs, not when the folder is read.
+A `user` statement inside a flow raises at parse. A missing flow or
+`define bot` is a load-time `ColangError` rather than a run-time
+`UnknownAction`. `stop` is a return tag, not an exception. A missing
+action fails when the flow runs, not when the folder is read.
 
-Assigning to `$bot_message` or `$user_message` is how a flow rewrites instead of
-refusing, which is how Colang reaches the `modified` status.
+On the input and context sides, `$user_message` and `$user_input` are
+seeded from the turn text; on output, `$bot_message` and `$bot_response`
+are. `$user_input` and `$bot_response` are rewrite aliases of the
+message bindings. Changing any of those four is how a flow rewrites
+instead of refusing, which is how Colang reaches the `modified` status.
 
 Writing a folder back out:
 

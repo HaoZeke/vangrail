@@ -40,7 +40,7 @@ module Vangrail
   # report checks it is not performing.
   class ColangError < Error; end
 
-  # A flow referred to an action or a bot message that nothing defines.
+  # A flow called an action that is not in the registry. Raised at execute.
   class UnknownAction < ColangError; end
 
   # The configuration folder is missing something the rails it declares need.

@@ -125,6 +125,8 @@ Nothing has been released yet. This section describes what exists.
 
 ### Changed
 
+- Colang `stop` is a return tag, and a missing `define bot` or flow raises
+  `ColangError` at load instead of `UnknownAction` at run.
 - A page carrying bytes that are not valid UTF-8 now comes back `modified`
   rather than `passed`: the byte is stripped from what the reader and the model
   are handed, which is the contract zero-width characters have always had.
