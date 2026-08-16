@@ -21,15 +21,11 @@ module Vangrail
         @reason = reason
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         text
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         hit = patterns.detect { |_label, pattern| pattern.match?(text.to_s) }
         return pass unless hit
 

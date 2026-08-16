@@ -44,10 +44,6 @@ module Vangrail
         raise ArgumentError, 'a canary rail needs at least one token' if @tokens.empty?
       end
 
-      def offline?
-        true
-      end
-
       def language_agnostic?
         true
       end
@@ -56,7 +52,7 @@ module Vangrail
         text
       end
 
-      def call(text, context)
+      def decide(text, context)
         body = text.to_s
         # Formatting is not concealment, but a model that writes the token with
         # a line break or a backtick in it has still leaked it, so the

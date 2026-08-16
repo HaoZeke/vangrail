@@ -46,10 +46,6 @@ module Vangrail
 
       attr_reader :weights, :threshold, :calibration
 
-      def offline?
-        true
-      end
-
       def quantifies?
         true
       end
@@ -58,7 +54,7 @@ module Vangrail
         "#{threshold}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         score = score_for(text)
         evidence = bits(text)
         payload = { 'bits' => evidence, 'score' => score }

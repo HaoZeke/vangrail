@@ -17,9 +17,7 @@ into this library is privileged over one you write this afternoon.
 
 #+begin_src ruby
 class TicketRail < Vangrail::Rail
-  def offline? = true
-
-  def call(text, _context)
+  def decide(text, _context)
     return pass if text.match?(/EINF-\d+/)
 
     block(reason: 'no ticket id')
@@ -65,9 +63,7 @@ reports the turn as modified unless something later blocks it.
 
 #+begin_src ruby
 class NoTrailingWhitespace < Vangrail::Rail
-  def offline? = true
-
-  def call(text, _context)
+  def decide(text, _context)
     cleaned = text.gsub(/[ \t]+$/, '')
     return pass if cleaned == text
 
@@ -96,7 +92,7 @@ A rail that cannot reach a decision must not look like one that cleared the
 text.
 
 #+begin_src ruby
-def call(text, _context)
+def decide(text, _context)
   return unchecked('scorer unavailable') unless scorer.up?
 
   scorer.score(text) > 0.9 ? block(reason: 'scored high') : pass

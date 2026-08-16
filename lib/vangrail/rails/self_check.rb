@@ -35,13 +35,17 @@ module Vangrail
         end
       end
 
+      def offline?
+        false
+      end
+
       def cache_key(text, context)
         return text if context[:side] == :input
 
         "#{context[:user_input]} #{text}"
       end
 
-      def call(text, context)
+      def decide(text, context)
         rendered = Prompt.render(policy, template_context(text, context))
         answer = chat.ask([
                             { 'role' => 'system', 'content' => rendered },

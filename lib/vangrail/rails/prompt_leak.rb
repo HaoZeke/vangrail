@@ -85,15 +85,11 @@ module Vangrail
         raise ArgumentError, 'a prompt_leak rail needs protected text' if @protected.empty?
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         "#{threshold}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         leaked = sentences(body).select { |sentence| leak?(sentence) }
         return pass if leaked.empty?

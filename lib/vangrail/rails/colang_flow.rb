@@ -27,7 +27,7 @@ module Vangrail
         nil
       end
 
-      def call(text, context)
+      def decide(text, context)
         outcome = interpreter.run(flow_name, context.merge(text: text))
         case outcome.status
         when :blocked then block(content: outcome.content, reason: outcome.reason || flow_name)

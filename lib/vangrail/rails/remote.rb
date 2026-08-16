@@ -20,13 +20,17 @@ module Vangrail
         @client = client || Client.new(base_url: base_url, config_id: config_id, api_key: api_key)
       end
 
+      def offline?
+        false
+      end
+
       def cache_key(text, context)
         return text if context[:side] == :input
 
         "#{context[:user_input]} #{text}"
       end
 
-      def call(text, context)
+      def decide(text, context)
         result =
           if context[:side] == :output
             client.check_output(text, user_input: context[:user_input])

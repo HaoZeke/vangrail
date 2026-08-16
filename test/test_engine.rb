@@ -136,6 +136,13 @@ class TestEngine < Minitest::Test
     assert_raises(ArgumentError) { Vangrail::Engine.new(on_error: :shrug) }
   end
 
+  def test_rejects_an_unknown_side
+    engine = Vangrail::Engine.new(input: [scripted(R.passed(rail: 'a'))])
+
+    error = assert_raises(ArgumentError) { engine.rails(:sideways) }
+    assert_includes error.message, 'unknown side'
+  end
+
   # --- reporting ---
 
   def test_offline_is_true_only_when_every_rail_is_offline
@@ -181,7 +188,7 @@ class TestEngine < Minitest::Test
     unbuilt = Vangrail::Rails::Missing.new(reason: 'no endpoint resolved', name: 'trajectory',
                                            sides: [:input])
     tried = Class.new(Vangrail::Rail) do
-      def call(_text, _context) = unchecked('policy_input failed: connection refused')
+      def decide(_text, _context) = unchecked('policy_input failed: connection refused')
     end.new(name: 'policy_input', sides: [:input])
 
     result = Vangrail::Engine.new(input: [unbuilt, tried]).check_input('a question')

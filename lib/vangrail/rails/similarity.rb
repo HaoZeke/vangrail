@@ -64,15 +64,11 @@ module Vangrail
         @floor = (threshold * @seeds.map { |(_, shingles)| shingles.size }.min).ceil
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         "#{threshold}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         score, seed = nearest(text)
         return pass if score < threshold
 

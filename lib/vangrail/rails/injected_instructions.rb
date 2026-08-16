@@ -90,15 +90,11 @@ module Vangrail
         @patterns = patterns
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         text
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         hits = patterns.select { |_label, pattern| pattern.match?(body) }.keys
         return pass if hits.empty?

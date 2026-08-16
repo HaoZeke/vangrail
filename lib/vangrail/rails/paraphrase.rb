@@ -86,15 +86,11 @@ module Vangrail
         raise ArgumentError, "unknown language(s): #{unknown.join(', ')}" unless unknown.empty?
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         "#{languages.join('+')}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         # Clause by clause: a rule that reaches across a full stop is reading
         # two statements as one, and a long page has a full stop every line.
         # Anaphora is applied across that cut: "Ignore them" after a clause

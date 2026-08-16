@@ -16,9 +16,7 @@ An object with one method, returning one of three statuses.
 
 ```ruby
 class TicketRail < Vangrail::Rail
-  def offline? = true
-
-  def call(text, _context)
+  def decide(text, _context)
     return pass if text.match?(/EINF-\d+/)
 
     block(reason: 'no ticket id')

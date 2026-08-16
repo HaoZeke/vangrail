@@ -33,10 +33,6 @@ module Vangrail
 
       attr_reader :supported, :floor
 
-      def offline?
-        true
-      end
-
       def posture?
         true
       end
@@ -45,7 +41,7 @@ module Vangrail
         "#{supported.join('+')}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         reason = unread_reason(text)
         return unchecked(reason) if reason
 

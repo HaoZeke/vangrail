@@ -40,7 +40,7 @@ module GuardrailsTest
       @offline
     end
 
-    def call(text, context)
+    def decide(text, context)
       @seen << { text: text, context: context }
       @result.respond_to?(:call) ? @result.call(text, context) : @result
     end
@@ -53,7 +53,7 @@ module GuardrailsTest
       @error = error
     end
 
-    def call(_text, _context)
+    def decide(_text, _context)
       raise @error
     end
   end

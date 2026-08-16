@@ -66,7 +66,7 @@ module Vangrail
         "#{completion.model}\n#{threshold}\n#{window}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         return pass if body.strip.empty?
 

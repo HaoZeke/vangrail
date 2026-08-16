@@ -76,13 +76,17 @@ module Vangrail
         end
       end
 
+      def offline?
+        false
+      end
+
       # Never memoizable in the useful sense: the token changes per check, and
       # a cached verdict would be a verdict about a different question.
       def cache_key(_text, _context)
         nil
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         return pass if body.strip.empty?
 

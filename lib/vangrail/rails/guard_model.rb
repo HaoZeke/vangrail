@@ -44,6 +44,10 @@ module Vangrail
         @chat = chat || build_chat(provider, max_tokens, chat_options)
       end
 
+      def offline?
+        false
+      end
+
       # The verdict depends on the text and, on the output side, on the user
       # turn sent with it.
       def cache_key(text, context)
@@ -52,7 +56,7 @@ module Vangrail
         "#{context[:user_input]} #{text}"
       end
 
-      def call(text, context)
+      def decide(text, context)
         answer = chat.ask(messages_for(text, context))
         parsed = preset == :apriel_guard ? Parsers.apriel_guard(answer.text) : Parsers.llama_guard(answer.text)
         unless parsed[:decided]
