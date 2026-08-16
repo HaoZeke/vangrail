@@ -36,6 +36,23 @@ class TestNLP < Minitest::Test
     assert_equal 'one two', N.normalize(tagged)
   end
 
+  def test_the_stem_cache_evicts_the_oldest_key_once_full
+    snapshot = N::STEM_CACHE.dup
+    N::STEM_CACHE.clear
+    N::STEM_LIMIT.times { |i| N.stem(format('tok%05dxxxx', i)) }
+
+    assert_equal N::STEM_LIMIT, N::STEM_CACHE.size
+
+    N.stem('zzzzzzzz')
+
+    assert_equal N::STEM_LIMIT, N::STEM_CACHE.size
+    assert N::STEM_CACHE.key?('zzzzzzzz')
+    refute N::STEM_CACHE.key?('tok00000xxxx')
+  ensure
+    N::STEM_CACHE.clear
+    snapshot.each { |key, value| N::STEM_CACHE[key] = value }
+  end
+
   def test_stem_collapses_the_inflections_the_lexicon_would_otherwise_list
     assert_equal 'instruction', N.stem('instructions')
     assert_equal 'policy', N.stem('policies')

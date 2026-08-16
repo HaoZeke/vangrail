@@ -66,8 +66,8 @@ module Vangrail
     # here lose an entry and recompute it, which costs one string comparison
     # and cannot produce a wrong answer, because the value is a pure function
     # of the key.
-    STEM_CACHE = 8192
-    STEMS = {} # rubocop:disable Style/MutableConstant
+    STEM_LIMIT = 8192
+    STEM_CACHE = {} # rubocop:disable Style/MutableConstant
 
     # An English suffix stripper, not Porter, and not applied per language.
     #
@@ -86,15 +86,15 @@ module Vangrail
       text = word.to_s
       return text if text.length <= 3
 
-      cached = STEMS[text]
+      cached = STEM_CACHE[text]
       return cached if cached
 
       stemmed = strip_suffix(text)
-      # Bounded, and bounded because the input is hostile. A memo that grows
-      # with whatever arrives is a memory leak an attacker can drive; a
-      # dictionary's worth of ordinary words fits well inside this, and past it
-      # the cost falls back to what it was without the memo.
-      STEMS[text] = stemmed if STEMS.size < STEM_CACHE
+      # Bounded because the input is hostile. A memo that keeps the first
+      # writers forever is a cache an attacker fills with unique tokens; once
+      # full, the oldest key is evicted so ordinary words can still land.
+      STEM_CACHE.shift if STEM_CACHE.size >= STEM_LIMIT
+      STEM_CACHE[text] = stemmed
       stemmed
     end
 
