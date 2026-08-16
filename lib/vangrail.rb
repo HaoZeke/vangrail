@@ -69,6 +69,9 @@ require_relative 'vangrail/rails/remote'
 require_relative 'vangrail/client'
 require_relative 'vangrail/config'
 require_relative 'vangrail/builder'
+require_relative 'vangrail/front'
+require_relative 'vangrail/server'
+require_relative 'vangrail/cli'
 
 # Guardrails for Ruby applications: input and output rails that run in the
 # calling process, with no Python service anywhere in the path.

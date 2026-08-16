@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'vangrail'
+
+exit Vangrail::CLI.run(ARGV)

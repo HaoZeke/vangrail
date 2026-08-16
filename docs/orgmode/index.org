@@ -28,6 +28,7 @@ Start here if you have not used this before.
 Task-shaped, for when you know what you want.
 
 - [[file:howto/writing-a-rail.org][Write your own rail]]
+- [[file:howto/calling-from-another-language.org][Call vangrail from another language]]
 - [[file:howto/screening-documents.org][Screen retrieved documents]]
 - [[file:howto/choosing-an-endpoint.org][Point the model-backed rails somewhere]]
 - [[file:howto/guarding-a-stream.org][Guard an answer while it streams]]

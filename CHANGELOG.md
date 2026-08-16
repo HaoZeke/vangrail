@@ -75,6 +75,10 @@ below `Unreleased` is written by hand until it is released.
 
 ### Added
 
+- `vangrail` CLI and `Vangrail::Server` speak the same JSON envelope as
+  `Engine#check_*`, `#screen`, and `#assess`. Other languages call this
+  process; they do not embed MRI.
+
 ### Fixed
 
 ## v0.2.0 - 2026-08-16

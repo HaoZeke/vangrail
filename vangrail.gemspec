@@ -22,7 +22,9 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 3.1'
   spec.homepage = 'https://github.com/HaoZeke/vangrail'
 
-  spec.files = Dir['lib/**/*.rb'] + %w[README.md LICENSE]
+  spec.files = Dir['lib/**/*.rb'] + %w[README.md LICENSE] + Dir['exe/*']
+  spec.bindir = 'exe'
+  spec.executables = ['vangrail']
   spec.require_paths = ['lib']
 
   spec.metadata['homepage_uri'] = spec.homepage
