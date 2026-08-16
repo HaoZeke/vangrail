@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # A privacy rail, and the login examples it must not eat.
 class TestPersonalData < Minitest::Test
-  include GuardrailsTest
-
   def rail
     @rail ||= Vangrail::Rails::PersonalData.new
   end

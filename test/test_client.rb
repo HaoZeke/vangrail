@@ -7,8 +7,6 @@ require_relative 'fake_server'
 # the one where a wrong guess about the wire format is invisible until it is in
 # front of a live service.
 class TestClient < Minitest::Test
-  include GuardrailsTest
-
   CONFIGS = [{ 'id' => 'handbook' }].freeze
 
   def completion(content, extra = {})

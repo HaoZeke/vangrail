@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # A fake conversation pasted into a real one, in both of its published forms.
 class TestManyShot < Minitest::Test
-  include GuardrailsTest
-
   def rail(**kwargs)
     Vangrail::Rails::ManyShot.new(**kwargs)
   end

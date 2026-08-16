@@ -5,8 +5,6 @@ require_relative 'helper'
 # The template slice, which exists to be small: the text it substitutes is
 # attacker-influenced by construction.
 class TestPrompt < Minitest::Test
-  include GuardrailsTest
-
   P = Vangrail::Prompt
 
   def test_variables_substitute

@@ -25,10 +25,30 @@ class TestDocumentation < Minitest::Test
 
   ROOT = File.expand_path('..', __dir__)
 
-  # Blocks that cannot run here and say so in the document itself: they need an
-  # endpoint, a key, or a server. Skipping them silently would be the wrong
-  # trade, so each is listed with the reason.
-  NEEDS_NETWORK = /Vangrail\.provider|provider:|base_url:|Client\.new|GUARDRAILS_API|chat:|Chat\.new/
+  # Blocks that cannot run here and say so: they need an endpoint, a key, or a
+  # server. A regex would skip a new snippet without naming it. Each entry is
+  # [path relative to the repo root, a line unique to the block, reason].
+  #
+  # The line is not always the first. Three tutorial blocks start with
+  # `require 'vangrail'`, and only the README one calls from_env. Matching on
+  # the first line would skip the two that never open a socket.
+  #
+  # register_gateway and Provider.register are not listed: they install a
+  # struct. No socket opens until something later asks the registry to
+  # resolve.
+  NEEDS_NETWORK = [
+    ['README.md',
+     'engine = Vangrail.from_env',
+     'resolves a provider and may call a live model'],
+  ].freeze
+
+  def setup
+    isolate_env!
+  end
+
+  def teardown
+    restore_env!
+  end
 
   def documents
     Dir[File.join(ROOT, 'docs', '**', '*.org')] + [File.join(ROOT, 'README.md')]
@@ -42,6 +62,24 @@ class TestDocumentation < Minitest::Test
     (org + md).flatten.map(&:strip).reject(&:empty?)
   end
 
+  def rel(path)
+    path.sub(%r{\A#{Regexp.escape(ROOT)}/?}, '')
+  end
+
+  def first_line(source)
+    source.lines.first.to_s.strip
+  end
+
+  def network_reason(path, source)
+    name = rel(path)
+    NEEDS_NETWORK.detect { |listed, marker, _reason| listed == name && source.include?(marker) }&.last
+  end
+
+  def live_call?(source)
+    source.include?('Vangrail.from_env') ||
+      source.match?(/Vangrail(?:\.client|::Client\.new)\b/)
+  end
+
   def parses?(source)
     RubyVM::InstructionSequence.compile(source)
     true
@@ -52,17 +90,37 @@ class TestDocumentation < Minitest::Test
   def test_every_documented_ruby_block_parses
     broken = documents.flat_map do |path|
       ruby_blocks(path).reject { |src| parses?(src) }
-                       .map { |src| "#{File.basename(path)}: #{src.lines.first.to_s.strip}" }
+                       .map { |src| "#{rel(path)}: #{first_line(src)}" }
     end
 
     assert_empty broken, "these blocks do not parse:\n  #{broken.join("\n  ")}"
   end
 
+  def test_the_network_list_names_real_blocks
+    missing = NEEDS_NETWORK.reject do |listed, marker, _reason|
+      path = File.join(ROOT, listed)
+      File.file?(path) && ruby_blocks(path).any? { |src| src.include?(marker) }
+    end
+
+    assert_empty missing, "NEEDS_NETWORK names blocks that are not in the documents:\n  #{missing.inspect}"
+  end
+
+  def test_every_self_contained_live_example_is_named
+    unnamed = documents.flat_map do |path|
+      ruby_blocks(path).select { |src| src.include?("require 'vangrail'") && live_call?(src) }
+                       .reject { |src| network_reason(path, src) }
+                       .map { |src| "#{rel(path)}: #{first_line(src)}" }
+    end
+
+    assert_empty unnamed,
+                 "these self-contained examples call from_env or Client and are not in NEEDS_NETWORK:\n  #{unnamed.join("\n  ")}"
+  end
+
   def self_contained
     documents.flat_map do |path|
       ruby_blocks(path).select { |src| src.include?("require 'vangrail'") }
-                       .grep_v(NEEDS_NETWORK)
-                       .map { |src| [File.basename(path), src] }
+                       .reject { |src| network_reason(path, src) }
+                       .map { |src| [rel(path), src] }
     end
   end
 

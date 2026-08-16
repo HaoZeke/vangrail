@@ -6,8 +6,6 @@ require_relative 'helper'
 # perform, and a page in German is a page none of the deterministic rails can
 # read.
 class TestLanguage < Minitest::Test
-  include GuardrailsTest
-
   GERMAN = TestCorpus::GERMAN
   FRENCH = TestCorpus::FRENCH
 

@@ -5,8 +5,6 @@ require_relative 'helper'
 # AgentDojo's two numbers on this runtime: the user tool may fire, the
 # injected tool may not, even when the page is rewritten with the lexicon.
 class TestDojo < Minitest::Test
-  include GuardrailsTest
-
   def engine
     Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input),
                          context: Vangrail::Builder.deterministic(:context))

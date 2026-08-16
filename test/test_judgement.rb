@@ -23,6 +23,16 @@ class TestJudgement < Minitest::Test
     engine.assess(text, side: :context, prior: prior)
   end
 
+  # Records the call and returns a Result. `array << x or Result` never
+  # evaluates the Result, so the engine saw an Array and treated the rail
+  # as a protocol error.
+  def record(order, label, rail)
+    lambda { |_text, _context|
+      order << label
+      Vangrail::Result.passed(rail: rail)
+    }
+  end
+
   # The prior is the deployment's and there is no sensible default. Guessing on
   # its behalf would be the exact error this method exists to expose.
   def test_the_prior_is_required_and_the_message_says_why
@@ -199,11 +209,9 @@ class TestJudgement < Minitest::Test
 
   def test_escalation_runs_the_free_rails_before_the_paid_ones
     order = []
-    paid = ScriptedRail.new(->(_t, _c) { order << 'paid' or Vangrail::Result.passed(rail: 'paraphrase') },
+    paid = ScriptedRail.new(record(order, 'paid', 'paraphrase'),
                             name: 'paraphrase', sides: [:context], offline: false)
-    free = ScriptedRail.new(lambda { |_t, _c|
-                              order << 'free' or Vangrail::Result.passed(rail: 'injected_instructions')
-                            },
+    free = ScriptedRail.new(record(order, 'free', 'injected_instructions'),
                             name: 'injected_instructions', sides: [:context], offline: true)
     reduced = Vangrail::Engine.new(context: [paid, free], cache: false)
     reduced.assess(CLEAN, side: :context, prior: 1e-2, escalate: true)
@@ -216,7 +224,7 @@ class TestJudgement < Minitest::Test
   # called, because the free evidence already put the answer out of its reach.
   def test_a_networked_rail_is_never_reached_on_an_ordinary_page
     called = []
-    networked = ScriptedRail.new(->(_t, _c) { called << 'semantic' or Vangrail::Result.passed(rail: 'semantic') },
+    networked = ScriptedRail.new(record(called, 'semantic', 'semantic'),
                                  name: 'semantic', sides: [:context], offline: false)
     table = Vangrail::EvidenceData::TABLE.merge(
       'semantic' => Vangrail::Evidence.new(rail: 'semantic', group: 'semantic',

@@ -74,6 +74,11 @@ module GuardrailsTest
   end
 
   def restore_env!
+    # Wipe every watched key first, including ones a test added after
+    # isolate_env!, then put the snapshot back. Restoring only the snapshot
+    # would leave GUARDRAILS_LINEAR_MODEL (and any other key the test set)
+    # in the process for the next file in the suite.
+    ENV.select { |key, _| key.match?(WATCHED_ENV) }.each_key { |key| ENV.delete(key) }
     @saved_env&.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
     Vangrail::Providers.reset!
   end

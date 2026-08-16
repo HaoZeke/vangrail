@@ -5,8 +5,6 @@ require_relative 'helper'
 # The side most stacks are missing: the document between the question and the
 # answer, which is the part an attacker can usually edit.
 class TestContextRails < Minitest::Test
-  include GuardrailsTest
-
   def rail
     Vangrail::Rails::InjectedInstructions.new
   end
@@ -209,8 +207,6 @@ end
 # what to do when it argues, and a rule stated over unfenced passages describes
 # a fence that is not there.
 class TestSpotlightMessages < Minitest::Test
-  include GuardrailsTest
-
   PASSAGES = [{ 'title' => 'GPU partitions', 'text' => 'gpu_h100 allows five days.' },
               'A passage with no title at all.'].freeze
 

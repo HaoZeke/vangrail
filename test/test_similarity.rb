@@ -10,8 +10,6 @@ require_relative 'helper'
 # of them defeats a regexp for the same word and none of them changes what the
 # sentence asks for.
 class TestSimilarity < Minitest::Test
-  include GuardrailsTest
-
   EDITED = TestCorpus::EDITED
 
   BENIGN = (TestCorpus::ENGLISH_BENIGN + TestCorpus::DUTCH_BENIGN).freeze

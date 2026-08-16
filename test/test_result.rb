@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # The three statuses, and the memo's two refusals.
 class TestResult < Minitest::Test
-  include GuardrailsTest
-
   R = Vangrail::Result
 
   def test_the_three_statuses_answer_consistently

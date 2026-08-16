@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # The one check in the gem that cannot produce a false positive.
 class TestCanary < Minitest::Test
-  include GuardrailsTest
-
   TOKEN = 'canary-Ab12Cd34Ef56Gh78'
 
   def rail(tokens = TOKEN, **kwargs)

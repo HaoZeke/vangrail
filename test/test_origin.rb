@@ -5,8 +5,6 @@ require_relative 'helper'
 # The cut that is not a detector: data cannot become an instruction, and
 # a retrieved page cannot authorize a tool.
 class TestOrigin < Minitest::Test
-  include GuardrailsTest
-
   def test_input_is_a_user_span_and_context_is_data
     assert_equal :user, Vangrail::Origin.default_for(:input).kind
     assert_equal :data, Vangrail::Origin.default_for(:context).kind

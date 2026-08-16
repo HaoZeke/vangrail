@@ -222,6 +222,22 @@ class TestProvider < Minitest::Test
     assert_equal 8760, Vangrail::Providers::Llmlite.port({})
   end
 
+  def test_isolate_env_forgets_the_llmlite_aliases
+    snapshot = @saved_env
+    ENV['GROK_SHIM_PORT'] = '9999'
+    ENV['GROK_LLMLITE_MODEL'] = 'not-the-default'
+    isolate_env!
+
+    refute ENV.key?('GROK_SHIM_PORT')
+    refute ENV.key?('GROK_LLMLITE_MODEL')
+    assert_equal 8760, Vangrail::Providers::Llmlite.port
+    assert_equal Vangrail::Providers::Llmlite::DEFAULT_MODEL, Vangrail::Providers::Llmlite.model
+  ensure
+    ENV.delete('GROK_SHIM_PORT')
+    ENV.delete('GROK_LLMLITE_MODEL')
+    @saved_env = snapshot
+  end
+
   def test_llmlite_probe_is_false_for_a_closed_port
     probe = TCPServer.new('127.0.0.1', 0)
     port = probe.addr[1]

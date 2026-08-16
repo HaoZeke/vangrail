@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # Last-in-order within a span: the pair window's gap.
 class TestAlignment < Minitest::Test
-  include GuardrailsTest
-
   def rail
     @rail ||= Vangrail::Rails::Alignment.new(sides: [:context])
   end
