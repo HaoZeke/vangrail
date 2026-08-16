@@ -1,14 +1,18 @@
-#+TITLE: Guarding a Streamed Answer
+#+TITLE: Guard a Streamed Answer
 #+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
 #+STARTUP: content
 
-* Guarding a Streamed Answer
+* Guard a Streamed Answer
 
-An output rail that runs on the finished text runs after the reader has read
-it. Streaming makes that worse. The tokens are on screen as they arrive, so the
-most a caller can do at the end is withdraw text somebody has already seen.
+Run the deterministic output rails while the answer is still arriving, so a
+credential or a refused line never reaches the screen at all.
 
-=StreamGuard= runs the deterministic output rails as the buffer grows.
+Use this when you stream tokens to a reader. If you hand over a finished
+answer, =Engine#check_output= is all you need and this page does not apply.
+
+(The reason it exists: an output rail on the finished text runs after the
+reader has read it, so the most a caller can do at the end is withdraw text
+somebody has already seen.)
 
 ** Wrap the stream
 

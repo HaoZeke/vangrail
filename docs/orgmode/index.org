@@ -31,10 +31,14 @@ Task-shaped, for when you know what you want.
 - [[file:howto/screening-documents.org][Screen retrieved documents]]
 - [[file:howto/choosing-an-endpoint.org][Point the model-backed rails somewhere]]
 - [[file:howto/guarding-a-stream.org][Guard an answer while it streams]]
-- [[file:howto/guarding-a-conversation.org][Guard a conversation rather than a message]]
+- [[file:howto/guarding-a-conversation.org][Guard a conversation rather than a
+  message]]
 - [[file:howto/calibrating-a-model-rail.org][Calibrate a model-backed threshold]]
 
 ** Reference
+
+Look things up here. Dry by design: what each rail returns, what each variable
+does, no argument for any of it.
 
 - [[file:reference/environment.org][Environment variables]]
 - [[file:reference/rails.org][The built-in rails]]

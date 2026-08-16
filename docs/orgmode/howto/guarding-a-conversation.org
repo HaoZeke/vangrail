@@ -1,16 +1,18 @@
-#+TITLE: Guarding a Conversation
+#+TITLE: Guard a Conversation
 #+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
 #+STARTUP: content
 
-* Guarding a Conversation
+* Guard a Conversation
 
-Every rail in this gem reads one string. That is enough for the attacks that
-fit in one string, and the multi-turn ones do not. A question is refused. The
-next message is that question with the objectionable word removed, and a rail
-that sees one message at a time reads it as a fresh question. Repeat until
-something lands.
+Judge a question against the turns that came before it, so a refused request
+asked again in different words is caught rather than read as a fresh question.
 
-=Conversation= holds the turns and threads them into the rail context.
+Use this when your application has a dialogue. A single-turn desk needs none of
+it, and switching the multi-turn rails on without threading history makes every
+check report uncertain.
+
+(The reason it exists: every other rail here reads one string, which is enough
+for the attacks that fit in one string. The multi-turn ones do not.)
 
 ** Replace the bare engine calls
 

@@ -4,9 +4,14 @@
 
 * Write Your Own Rail
 
-A rail is an object with one method. Nothing built into this library is
-privileged over one you write this afternoon, and the built-in rails are
-written against the same protocol you are about to use.
+Write a check of your own and put it in the same ordered list as the built-in
+rails, so it runs on the same text, returns the same =Result=, and is reported
+the same way.
+
+Use this when the rule you need is specific to your application: a ticket
+reference your desk requires, a filename shape only your data has, a policy
+nobody else would want. A rail is an object with one method, and nothing built
+into this library is privileged over one you write this afternoon.
 
 ** The smallest useful rail
 
