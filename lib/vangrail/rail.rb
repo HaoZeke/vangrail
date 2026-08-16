@@ -47,6 +47,41 @@ module Vangrail
       raise NotImplementedError, "#{self.class} must implement #call"
     end
 
+    # Bytes a rail can read, applied to every subclass's `call` before it runs.
+    #
+    # The engine scrubs at its own boundary, but `rail.call(page, side:
+    # :context)` is the shape the README and the tutorial teach, and a caller
+    # composing rails themselves got the original crash: ArgumentError out of
+    # Regexp#match?, or Encoding::CompatibilityError out of unicode_normalize
+    # on a body still tagged binary. Defending the path the tests take and not
+    # the path the docs teach is the wrong half.
+    #
+    # Prepended rather than asked for, so the invariant belongs to a rail
+    # instead of to whoever calls one. A rail written this afternoon gets it by
+    # inheriting, which is the only way a promise like this survives contact
+    # with rails nobody here wrote.
+    module Readable
+      def call(text, context = {})
+        super(Rail.usable(text), context)
+      end
+    end
+
+    def self.inherited(subclass)
+      super
+      subclass.prepend(Readable)
+    end
+
+    # UTF-8 or something that can be read as it. A body off a socket arrives
+    # tagged ASCII-8BIT whatever is in it, so the tag is corrected before the
+    # bytes are judged; only genuinely broken sequences are scrubbed, and the
+    # scrub leaves a replacement character where the byte was, which
+    # Rails::Obfuscation then treats as the evasion it is.
+    def self.usable(text)
+      body = text.to_s
+      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
+      body.valid_encoding? ? body : body.scrub
+    end
+
     # Does this rail need the network. Used to report a posture and to let a
     # caller build a model-free engine on purpose.
     def offline?

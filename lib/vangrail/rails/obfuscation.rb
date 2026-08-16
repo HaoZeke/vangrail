@@ -41,7 +41,12 @@ module Vangrail
       # Zero-width and bidi control characters. The first four are the invisible
       # separators; the bidi set is the trojan-source family, where the rendered
       # order and the stored order disagree.
-      INVISIBLE = /[​-‍⁠﻿᠎‪-‮⁦-⁩]/
+      # The last one is the replacement character, which is what a scrub leaves
+      # where an invalid byte was. Garbage bytes inside a keyword are the same
+      # move as a zero-width joiner with a cruder tool: they break a pattern
+      # without changing what a model reads, and scrubbing restores validity
+      # rather than the phrase. Legitimate text does not carry them.
+      INVISIBLE = /[​-‍⁠﻿᠎‪-‮⁦-⁩�]/
 
       # A base64 run long enough to hold a sentence. Below this the decode is
       # noise, and a handbook is full of short tokens that happen to be in the
