@@ -135,7 +135,7 @@ module Vangrail
             # an instruction and a secret at the same index, and a page that
             # says it once has not said anything twice.
             next if i == j
-            next if template[:ordered] && j < i && !verb_final_object?(i, length)
+            next if template[:ordered] && j < i && !verb_final_object?(i, length, left_word)
             next if (i - j).abs > template[:window]
 
             return { label: template[:label], words: [left_word, right_word] }
@@ -148,8 +148,21 @@ module Vangrail
       # sits to its left: "dat je de richtlijnen negeert". English "follow
       # the guidance and ignore stale copies" has the override mid-clause
       # with its own object after it, and stays unflagged.
-      def verb_final_object?(verb_index, length)
-        verb_index == length - 1
+      #
+      # The verb has to be a Dutch one, because the rule is Dutch grammar and
+      # English ends clauses with these verbs constantly. Measured over 699
+      # installed manual pages, the position test alone took this rail from
+      # 1.6% of documents to 5.2%, and every added flag was a documentation URL
+      # whose last token happened to be "overrides":
+      #
+      #   <https://doc.rust-lang.org/cargo/reference/config.html#command-line-overrides>
+      #
+      # The two override lexicons are disjoint, so asking which language the
+      # verb came from costs one lookup and gives the rule back its subject.
+      DUTCH_OVERRIDES = NLP::CONCEPTS[:nl][:override].map { |word| NLP.stem(word) }.to_set.freeze
+
+      def verb_final_object?(verb_index, length, word)
+        verb_index == length - 1 && DUTCH_OVERRIDES.include?(NLP.stem(NLP.normalize(word)))
       end
 
       def describe(hit)
