@@ -53,9 +53,8 @@ module Vangrail
                           ])
         parsed = Parsers.policy(answer.text)
         unless parsed[:decided]
-          return Result.new(status: :passed, rail: name, certain: false, model: model,
-                            latency_ms: answer.latency_ms, raw: answer.raw,
-                            reason: "unparsed judge response: #{parsed[:reason]}")
+          return unchecked("unparsed judge response: #{parsed[:reason]}",
+                           model: model, latency_ms: answer.latency_ms, raw: answer.raw)
         end
 
         return pass(model: model, latency_ms: answer.latency_ms, raw: answer.raw) unless parsed[:violated]
