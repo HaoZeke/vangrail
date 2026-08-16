@@ -10,14 +10,23 @@ module Vangrail
     # The mapping onto rail statuses is the whole design:
     #
     #   `bot <message>` then `stop`     -> blocked, with the message as content
-    #   a change to the seeded
-    #   $user_message / $bot_message    -> modified, with the new value
+    #   a change to a content binding   -> modified, with the new value
     #   falls off the end               -> passed
+    #
+    # `$user_input` is a rewrite alias of `$user_message`; `$bot_response` is
+    # a rewrite alias of `$bot_message`. Input and context seed the user pair
+    # from the turn text; output seeds the bot pair. The other pair is left
+    # unset so an output flow that reads `$user_message` is not reading the
+    # answer unless the caller put it there.
     #
     # A `stop` without a preceding `bot` still blocks; it just has no refusal
     # text to show. Actions are plain Ruby callables, so the flow decides the
     # control shape and Ruby does the work.
     class Interpreter
+      # The four names a flow assigns to when it rewrites the turn. Order is
+      # the last-write winner when more than one of them changed.
+      CONTENT_VARS = %w[user_message bot_message user_input bot_response].freeze
+
       Outcome = Struct.new(:status, :content, :reason, :variables, keyword_init: true)
 
       attr_reader :program, :actions
@@ -31,12 +40,12 @@ module Vangrail
         flow = program.flow(flow_name)
         raise ColangError, "no flow named #{flow_name.inspect}" unless flow
 
-        seed = context[:text]
-        state = { 'context' => context, 'user_message' => seed, 'bot_message' => seed }
+        seeds = seed_bindings(context)
+        state = { 'context' => context }.merge(seeds)
         result = execute(flow.body, state, context)
         return stop_outcome(result.last, flow_name, state) if stop_tag?(result)
 
-        rewrite = rewritten_content(state, seed)
+        rewrite = rewritten_content(state, seeds)
         if rewrite
           return Outcome.new(status: :modified, content: rewrite.to_s, reason: flow_name,
                              variables: state)
@@ -77,10 +86,22 @@ module Vangrail
         Outcome.new(status: :blocked, content: content, reason: flow_name, variables: state)
       end
 
-      def rewritten_content(state, seed)
-        rewritten = []
-        rewritten << state['user_message'] if state['user_message'] != seed
-        rewritten << state['bot_message'] if state['bot_message'] != seed
+      def seed_bindings(context)
+        text = context[:text]
+        if context[:side] == :output
+          { 'bot_message' => text, 'bot_response' => text }
+        else
+          { 'user_message' => text, 'user_input' => text }
+        end
+      end
+
+      def rewritten_content(state, seeds)
+        rewritten = CONTENT_VARS.filter_map do |name|
+          next unless state.key?(name)
+          next if seeds.key?(name) && state[name] == seeds[name]
+
+          state[name]
+        end
         rewritten.last
       end
 

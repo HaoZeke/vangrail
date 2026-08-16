@@ -599,12 +599,15 @@ output`, and `self check facts` are the only built-in flows. This is not
 NeMo parity.
 
 A `user` statement inside a flow raises at parse. A missing flow or
-`define bot` fails when the program is loaded. A missing action fails when
-the flow runs, not when the folder is read.
+`define bot` is a load-time `ColangError` rather than a run-time
+`UnknownAction`. `stop` is a return tag, not an exception. A missing
+action fails when the flow runs, not when the folder is read.
 
-`$user_message` and `$bot_message` are seeded from the turn text. Changing
-either binding is how a flow rewrites instead of refusing, which is how
-Colang reaches the `modified` status.
+On the input and context sides, `$user_message` and `$user_input` are
+seeded from the turn text; on output, `$bot_message` and `$bot_response`
+are. `$user_input` and `$bot_response` are rewrite aliases of the
+message bindings. Changing any of those four is how a flow rewrites
+instead of refusing, which is how Colang reaches the `modified` status.
 
 Writing a folder back out:
 

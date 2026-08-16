@@ -226,7 +226,7 @@ class TestColang < Minitest::Test
     assert_equal :blocked, outcome.status
   end
 
-  def test_the_turn_text_is_bound_as_user_and_bot_message
+  def test_the_turn_text_is_bound_as_user_message
     seen = nil
     source = "define flow check\n  $ok = execute probe(msg=$user_message)\n"
     interpret(source, { 'probe' => lambda { |args, _ctx|
@@ -236,10 +236,94 @@ class TestColang < Minitest::Test
     assert_equal 'hello', seen
   end
 
-  # Rewrite is a change to the seeded $user_message / $bot_message bindings,
-  # not a scan of whatever names a flow happened to assign.
-  def test_assigning_another_name_is_not_a_rewrite
+  # Input and context seed the user pair; output seeds the bot pair. Seeding
+  # both pairs from the same text would make an output flow that reads
+  # $user_message judge the answer.
+  def test_input_seeds_the_user_bindings
+    seen = nil
+    source = <<~CO
+      define flow check
+        $ok = execute probe(user=$user_message, alias=$user_input, bot=$bot_message)
+    CO
+    interpret(source, { 'probe' => ->(args, _) { seen = args } }, flow: 'check',
+                                                                 context: { text: 'hello', side: :input })
+
+    assert_equal 'hello', seen['user']
+    assert_equal 'hello', seen['alias']
+    assert_nil seen['bot']
+  end
+
+  def test_context_seeds_the_user_bindings
+    seen = nil
+    source = <<~CO
+      define flow check
+        $ok = execute probe(user=$user_message, alias=$user_input, bot=$bot_message)
+    CO
+    interpret(source, { 'probe' => ->(args, _) { seen = args } }, flow: 'check',
+                                                                 context: { text: 'a page', side: :context })
+
+    assert_equal 'a page', seen['user']
+    assert_equal 'a page', seen['alias']
+    assert_nil seen['bot']
+  end
+
+  def test_output_seeds_the_bot_bindings
+    seen = nil
+    source = <<~CO
+      define flow check
+        $ok = execute probe(bot=$bot_message, alias=$bot_response, user=$user_message)
+    CO
+    interpret(source, { 'probe' => ->(args, _) { seen = args } }, flow: 'check',
+                                                                 context: { text: 'the answer', side: :output })
+
+    assert_equal 'the answer', seen['bot']
+    assert_equal 'the answer', seen['alias']
+    assert_nil seen['user']
+  end
+
+  def test_an_output_rail_does_not_bind_user_message_to_the_answer
+    seen = nil
+    source = <<~CO
+      define flow check
+        $ok = execute probe(user=$user_message, bot=$bot_message)
+    CO
+    program = Parser.parse(source)
+    actions = Vangrail::Actions.new('probe' => lambda { |args, _|
+      seen = args
+      true
+    })
+    rail = Vangrail::Rails::ColangFlow.new(
+      flow_name: 'check', program: program, actions: actions, sides: [:output],
+    )
+    Vangrail::Engine.new(output: [rail]).check_output('the answer', user_input: 'the question')
+
+    assert_nil seen['user']
+    assert_equal 'the answer', seen['bot']
+  end
+
+  # $user_input and $bot_response are rewrite aliases of the message bindings.
+  def test_assigning_user_input_is_a_rewrite
     source = "define flow mask\n  $user_input = execute redact\n"
+    outcome = interpret(source, { 'redact' => ->(_a, _c) { 'other' } }, flow: 'mask',
+                                                                        context: { text: 'hello', side: :input })
+
+    assert_equal :modified, outcome.status
+    assert_equal 'other', outcome.content
+  end
+
+  def test_assigning_bot_response_is_a_rewrite
+    source = "define flow mask\n  $bot_response = execute redact\n"
+    outcome = interpret(source, { 'redact' => ->(_a, _c) { 'masked answer' } }, flow: 'mask',
+                                                                               context: { side: :output })
+
+    assert_equal :modified, outcome.status
+    assert_equal 'masked answer', outcome.content
+  end
+
+  # Rewrite is a change to a content binding, not a scan of whatever names a
+  # flow happened to assign.
+  def test_assigning_another_name_is_not_a_rewrite
+    source = "define flow mask\n  $scratch = execute redact\n"
     outcome = interpret(source, { 'redact' => ->(_a, _c) { 'other' } }, flow: 'mask',
                                                                         context: { text: 'hello' })
 

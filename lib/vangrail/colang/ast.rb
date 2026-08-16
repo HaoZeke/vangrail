@@ -29,9 +29,11 @@ module Vangrail
         )
       end
 
-      # Every `bot <name>` in every flow has a `define bot`. Called after
-      # parse/merge, not during parse, so a bot defined in another file is
-      # visible once the programs are joined.
+      # Every `bot <name>` in every flow has a `define bot`. The walk covers
+      # unreached `if` branches and flows no config names: a half-loaded
+      # guardrail must not load, so a dead-branch bot in a merged `.co` file
+      # fails the folder. Called after parse/merge, not during parse, so a
+      # bot defined in another file is visible once the programs are joined.
       def check!
         flows.each { |name, flow| check_body(flow.body, name) }
         self
