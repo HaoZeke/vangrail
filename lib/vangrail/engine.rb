@@ -276,7 +276,7 @@ module Vangrail
     # innocence.
     def observe(text, side, context, evidence, escalation = nil)
       ctx = context.merge(side: side)
-      body = text.to_s
+      body = usable(text)
       certain = true
       observations = {}
       direct = {}
@@ -380,6 +380,31 @@ module Vangrail
         'an editable wiki is nearer 1e-4. The answer changes the verdict, and only you know it.'
     end
 
+    # Text a rail can actually read.
+    #
+    # Every pattern rail runs a regexp at this string and every lexicon rail
+    # normalises it, and both raise on bytes that are not valid UTF-8:
+    # ArgumentError from String#match?, Encoding::CompatibilityError from
+    # unicode_normalize on a body still tagged binary. Neither is a
+    # Vangrail::Error, so neither reached the on_error path -- the exception
+    # went straight through the engine and out of the application's screening
+    # call, taking the turn with it.
+    #
+    # That is an ordinary event rather than an attack. A model's answer is
+    # reassembled from network chunks, so a split multi-byte character is
+    # normal; a wiki page in a legacy encoding is normal; a body read off a
+    # socket arrives tagged ASCII-8BIT whatever is in it.
+    #
+    # So the bytes are made usable once, here, at the boundary. Everything
+    # downstream measures the same scrubbed string, so a rewrite handed back to
+    # the caller and the offsets inside it stay consistent with what was
+    # judged.
+    def usable(text)
+      body = text.to_s
+      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
+      body.valid_encoding? ? body : body.scrub
+    end
+
     def text_of(document)
       Cell.text_of(document)
     end
@@ -397,7 +422,7 @@ module Vangrail
       return Result.unchecked(rail: side, reason: "no #{side} rails configured") if rails.empty?
 
       ctx = context.merge(side: side)
-      current = text.to_s
+      current = usable(text)
       modified_by = nil
       uncertain = nil
       unbuilt = nil
@@ -448,6 +473,11 @@ module Vangrail
 
       raise ProtocolError, "#{rail.name} returned #{result.class}, expected Vangrail::Result"
     rescue Error => e
+      failed(rail, e)
+    rescue ArgumentError, EncodingError => e
+      # A rail that could not read the bytes is a rail that did not answer.
+      # The boundary scrub should make this unreachable; a rail doing its own
+      # decoding can still get here, and it must not take the turn with it.
       failed(rail, e)
     end
 

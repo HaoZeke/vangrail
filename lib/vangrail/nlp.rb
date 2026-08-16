@@ -40,7 +40,14 @@ module Vangrail
     # Diacritics survive, because \p{Alnum} is not ASCII: "beëindig" is one
     # token and stays one.
     def normalize(text)
-      text.to_s.scrub.unicode_normalize(:nfkc).downcase.gsub(/[^\p{Alnum}]+/, ' ').strip
+      body = text.to_s
+      # Tagged binary is how a body read off a socket arrives, and
+      # unicode_normalize refuses it whatever the bytes are. Retag first, scrub
+      # second: the order matters, because scrub on ASCII-8BIT does nothing
+      # useful and normalising it raises.
+      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
+      body = body.scrub unless body.valid_encoding?
+      body.unicode_normalize(:nfkc).downcase.gsub(/[^\p{Alnum}]+/, ' ').strip
     end
 
     def words(text)
