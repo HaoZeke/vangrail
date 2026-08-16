@@ -53,7 +53,9 @@ all are.
 
 It needs a model in the process or an endpoint in front of one, which is the
 dependency this gem's whole design refuses. The measurement below is what it
-buys.
+buys: scored on a laptop-class GPU, 15,140 prompts in about ninety seconds once
+the batches are sorted by length, which is cheap enough that the dependency
+rather than the compute is the reason to hesitate.
 
 *** The model as its own judge
 
@@ -124,12 +126,48 @@ them, 1,405 against 13,735, everything cross-validated where it was fitted:
 | hand-written rules | 39.5% | 12.67% |
 | naive Bayes over n-grams | 67.0% | 12.66% |
 | linear model over hashed n-grams | 73.7% | 12.67% |
+| =deberta-v3-base-prompt-injection-v2= | 75.3% | 12.67% |
+| the same detector at its own shipped threshold | 73.9% | 11.67% |
 | linear model, held to one false alarm in a hundred | 27.0% | 1.00% |
+| the detector, held to the same | 21.1% | 1.00% |
 
-The last row is the one the rules cannot answer at all. A scored model has a
-curve and a rule stack has a point, so only the model can be asked what it
-catches when the desk will accept one false alarm in a hundred rather than one
-in eight.
+Three things in that table are worth more than the ordering.
+
+A published detector, a DeBERTa fine-tuned for this exact task by people who do
+this for a living, beats thirty lines of Ruby fitted on the deployment's own
+corpus by *1.6 points*. That is not an argument that transformers are
+overrated. It is an argument about which corpus you fit to: the transformer is
+being asked about traffic it was not trained on, the linear model was fitted on
+this traffic and cross-validated, and that difference is worth almost as much as
+the difference between a bag of n-grams and a pre-trained encoder.
+
+Below one false alarm in a hundred the ordering *reverses*: 27.0% for the linear
+model against 21.1% for the detector. The regime PromptShield exists for is the
+regime where the expensive model's advantage disappears here, and neither number
+is good.
+
+And the row nobody quotes: at the threshold it ships with, the published
+detector flags *11.67% of ordinary user prompts*. One in nine. That is
+over-defense measured on somebody else's benign corpus rather than on a curated
+one, and it is what a deployment gets if it installs the model and believes the
+default.
+
+The rules cannot appear in the bottom rows at all. A scored model has a curve
+and a rule stack has a point, so only the model can be asked what it catches
+when the desk will accept one false alarm in a hundred rather than one in eight.
+
+*** What the comparison does not show
+
+The jailbreak corpus is public and old enough that the detector's training set
+may contain it, which would flatter the detector rather than this repository.
+The linear model is fitted in-distribution and the detector is not, which is the
+comparison a deployment actually faces -- take a pretrained detector, or fit
+something small to your own traffic -- but it is not a statement about the two
+architectures. Give the transformer this corpus to fine-tune on and it should
+win properly.
+
+Both were scored on the same 15,140 prompts, on the same folds where folds
+apply, at the same operating points.
 
 ** What to use
 

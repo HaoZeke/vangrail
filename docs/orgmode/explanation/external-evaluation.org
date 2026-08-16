@@ -295,16 +295,19 @@ and it is the pair to watch as either rail changes.
 
 ** What this does not settle
 
-*** No model baseline was run
+*** The model baseline has since been run
 
-A cross-validated naive Bayes is a floor, not a rival.
+This section used to say no model baseline existed. One does now, on a remote
+GPU rather than this laptop: =protectai/deberta-v3-base-prompt-injection-v2=,
+a published detector, over the same 15,140 prompts.
 
-Llama Guard, PromptGuard, and the fine-tuned classifiers are the published state
-of the art on this task. Scoring them needs an endpoint serving them and this
-machine has none, so the comparison here is against a learned classifier trained
-on the same data, which is a floor rather than a rival. The rails being better
-or worse than a naive Bayes model says little about whether they are better or
-worse than the thing a deployment would otherwise use.
+At the rails' false-alarm rate it catches 75.3% against their 39.5%. At its own
+shipped threshold it flags 11.67% of ordinary user prompts. Below one false
+alarm in a hundred a thirty-line linear model fitted on this corpus beats it,
+27.0% against 21.1%.
+
+[[file:detector-models.org][The survey]] carries the whole table and what it does
+and does not show.
 
 *** The literature search was verification, not discovery
 
