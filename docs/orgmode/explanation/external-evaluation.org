@@ -246,8 +246,15 @@ false-alarm budget the rails already spend.
 
 | Detector | Caught | Detection | False alarm |
 |----------+--------+-----------+-------------|
-| the rails, hand-written | 558 | 39.7% | 12.61% |
-| naive Bayes, matched false-alarm rate | 941 | *67.0%* | 12.61% |
+| the rails, hand-written | 555 | 39.5% | 12.67% |
+| naive Bayes, matched false-alarm rate | 941 | *67.0%* | 12.66% |
+
+Re-scored after the alignment rail joined the input side, and the rails' number
+did not move: 555 against 558 without it. Alignment catches 160 prompts on its
+own, and they are prompts something else already caught. A stack of rules
+written by one person against one idea of an attack overlaps with itself, which
+is the same reason the correlation table matters and the same reason a
+seventh rail buys less than the first.
 
 At identical cost to the reader, ten lines of counting catch sixty-nine percent
 more attacks than every hand-written lexicon in this gem put together. The rails

@@ -745,8 +745,8 @@ is the number that decides whether it can be left switched on.
 
 **Read the external evaluation before any number in this section.** At an
 identical false-alarm rate on in-the-wild jailbreak prompts, a cross-validated
-naive Bayes catches 67% where every hand-written lexicon here together catches
-40%. Everything
+naive Bayes catches 67.0% where every hand-written lexicon here together catches
+39.5%. Everything
 below is measured on corpora written here, which is the first item on every list
 of evaluation mistakes in security machine learning. Scored against published
 attacks and 18,258 real documents, the context rails catch 0 of 125 BIPIA
