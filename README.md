@@ -526,8 +526,10 @@ Vangrail::Provider.register(
 
 ## Colang, executed here
 
-A configuration folder written for the Python toolkit runs in this process. The
-YAML is read, the Colang is parsed, and the flows execute in Ruby.
+A configuration folder in the NeMo layout (`config.yml`, `prompts.yml`,
+`rails/*.co`) can be loaded here. Only the documented Colang 1.0 rail-flow
+subset is parsed and executed in Ruby. A folder written for the Python
+toolkit is not drop-in.
 
 ```ruby
 config = Vangrail::Config.load('config/handbook')
@@ -550,14 +552,15 @@ define bot ask for ticket
 engine = config.engine(actions: { 'has_ticket' => ->(_args, ctx) { ctx[:text] =~ /EINF-\d+/ } })
 ```
 
-The supported subset is flow definitions, `$var = execute action(k=v)`, `if` /
-`else` / `not` / `==`, `bot <message>`, `stop`, and `define bot` message blocks.
-`self check input`, `self check output`, and `self check facts` are built in, so
-a folder naming them without shipping a `.co` file works.
+The supported subset is `define flow` / `define subflow`, `define bot` /
+`define user`, `$var = …`, `execute action(k=v)` (keyword arguments only),
+`if` / `else` / `not` / `==` / `!=`, `bot <name>`, and `stop`. A line that
+begins with a tab is refused. `define user` is stored and never matched.
+`self check input`, `self check output`, and `self check facts` are the
+only built-in flows. This is not NeMo parity.
 
-Anything outside that subset raises at load. A configuration that comes up with
-half its rails missing is worse than one that refuses to come up, and the same
-goes for a flow naming an action nothing registered.
+A `user` statement inside a flow raises at parse. A missing action fails
+when the flow runs, not when the folder is read.
 
 Assigning to `$bot_message` or `$user_message` is how a flow rewrites instead of
 refusing, which is how Colang reaches the `modified` status.
@@ -568,8 +571,8 @@ Writing a folder back out:
 Vangrail::Config.for_provider(Vangrail.provider, name: 'handbook').write!('config')
 ```
 
-One description of a policy, two runtimes: the same folder can be handed to the
-Python service if a team already runs one.
+A folder that stays inside this subset can be handed to a NeMo server,
+because NeMo accepts a larger language. The converse is false.
 
 ## Talking to a server you already run
 

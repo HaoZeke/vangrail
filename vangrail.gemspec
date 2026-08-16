@@ -11,9 +11,10 @@ Gem::Specification.new do |spec|
     or blocked, and reporting whether a rail actually reached the decision.
     Deterministic rails need no network at all; model-backed ones call any
     OpenAI-compatible endpoint through a provider abstraction that prefers a
-    local proxy. Reads and writes NeMo Guardrails configuration folders and
-    executes their Colang flows in process, with an optional client for teams
-    who already run the Python server. Standard library only.
+    local proxy. Reads folders in the NeMo layout and executes a documented
+    Colang 1.0 rail-flow subset in process. A NeMo folder is not drop-in.
+    Optional client for teams who already run the Python server. Standard
+    library only.
   TEXT
   spec.authors = ['Rohit Goswami']
   spec.email = ['rohit.goswami@surf.nl']
