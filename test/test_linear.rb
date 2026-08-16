@@ -61,6 +61,28 @@ class TestLinear < Minitest::Test
     assert_equal Vangrail::LinearModel.bucket('ignore all previous').to_s, actual
   end
 
+  def test_a_weight_past_the_table_is_refused
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'model.json')
+      File.write(path, JSON.generate('buckets' => 8, 'bias' => 0.0, 'weights' => { '8' => 1.0 }))
+
+      error = assert_raises(ArgumentError) { Vangrail::LinearModel.load(path) }
+
+      assert_match(/outside 8 buckets/, error.message)
+    end
+  end
+
+  def test_a_loaded_table_is_exactly_the_bucket_count
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'model.json')
+      File.write(path, JSON.generate('buckets' => 8, 'bias' => -1.0, 'weights' => { '0' => 1.0, '7' => -0.5 }))
+      loaded = Vangrail::LinearModel.load(path)
+
+      assert_equal 8, loaded.buckets
+      loaded.to_h.fetch('weights').each_key { |index| assert_operator index.to_i, :<, 8 }
+    end
+  end
+
   def test_a_model_survives_a_round_trip_through_a_file
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'model.json')

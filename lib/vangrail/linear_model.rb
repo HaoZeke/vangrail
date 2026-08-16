@@ -39,13 +39,23 @@ module Vangrail
 
     def self.load(path)
       data = JSON.parse(File.read(path))
-      weights = Array.new(data['buckets'] || BUCKETS, 0.0)
-      data.fetch('weights').each { |index, value| weights[index.to_i] = value }
-      new(weights: weights, bias: data['bias'].to_f, buckets: data['buckets'] || BUCKETS,
+      buckets = data['buckets'] || BUCKETS
+      weights = Array.new(buckets, 0.0)
+      data.fetch('weights').each do |index, value|
+        i = index.to_i
+        raise ArgumentError, "weight index #{i} is outside #{buckets} buckets" if i.negative? || i >= buckets
+
+        weights[i] = value
+      end
+      raise ArgumentError, "loaded #{weights.size} weights for #{buckets} buckets" unless weights.size == buckets
+
+      new(weights: weights, bias: data['bias'].to_f, buckets: buckets,
           threshold: data['threshold'], trained_on: data['trained_on'])
     end
 
     def initialize(weights:, bias: 0.0, buckets: BUCKETS, threshold: nil, trained_on: nil)
+      raise ArgumentError, "weights.size (#{weights.size}) != buckets (#{buckets})" unless weights.size == buckets
+
       @weights = weights
       @bias = bias
       @buckets = buckets
