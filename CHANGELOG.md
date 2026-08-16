@@ -77,6 +77,13 @@ Nothing has been released yet. This section describes what exists.
 
 ### Fixed
 
+- `LinearModel.load` refuses a bucket count that is not a positive integer
+  at most `2**20`, so a hostile file cannot grow the weight table.
+- The four-gram stride is written into the model file and read back
+  (default 2, so older files still load).
+- Stem-cache lookup is membership by key, so a falsey cached stem cannot
+  evict a different word. An evicted lexicon form still stems correctly.
+- `NLP.clauses` on invalid UTF-8 does not raise.
 - `Engine#assess` no longer treats an unread language as a clean page.
   When `Rails::Language` reports that the text is outside the lexicons,
   silence from the word rails is abstention rather than innocence, and

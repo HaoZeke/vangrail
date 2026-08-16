@@ -18,10 +18,11 @@ public, so an application can build its own.
 
 | Call                                     | Answers                                                     |
 |------------------------------------------+-------------------------------------------------------------|
+| =NLP.usable(text)=                       | UTF-8 retag and scrub; socket-tagged ASCII-8BIT is the case |
 | =NLP.normalize(text)=                    | NFKC, downcased, punctuation folded to single spaces        |
 | =NLP.words(text)=                        | the normalised tokens                                       |
 | =NLP.stem(word)=                         | the word with an English suffix stripped                    |
-| =NLP.clauses(text)=                      | the text split at =. ! ? ; := and newlines                  |
+| =NLP.clauses(text)=                      | the text split at =. ! ? ; := and newlines, after =usable=  |
 | =NLP.concepts(text, languages:)=         | =[position, concept, surface word]= triples                 |
 | =NLP.language(text)=                     | =:en=, =:nl=, or =:unknown=, from function words            |
 | =NLP.shingles(text, size: 4)=            | the set of character n-grams                                |
@@ -76,7 +77,9 @@ Two rules come from the shape of the sentence rather than from a word.
   handbook and is worth nothing.
 - A =prior= word behind a determiner at the end of its clause is also an
   =instruction=. "Ignore the above" and "negeer het bovenstaande" name the
-  instruction they cancel without using a word for it.
+  instruction they cancel without using a word for it. The =prior= lookup
+  uses the caller language lexicon, so an English-only rail does not treat
+  /bovenstaande/ as a backward reference.
 
 ** Languages
 

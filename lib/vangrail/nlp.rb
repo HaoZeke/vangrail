@@ -30,6 +30,17 @@ module Vangrail
   module NLP
     module_function
 
+    # UTF-8 or something that can be read as it. A body off a socket arrives
+    # tagged ASCII-8BIT whatever is in it, so the tag is corrected before
+    # anything else reads the bytes. Retag first, scrub second: the order
+    # matters, because scrub on ASCII-8BIT does nothing useful and
+    # unicode_normalize refuses a binary-tagged body whatever the bytes are.
+    def usable(text)
+      body = text.to_s
+      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
+      body.valid_encoding? ? body : body.scrub
+    end
+
     # Fold to a comparable form: NFKC so fullwidth and compatibility forms
     # collapse onto ASCII, downcase, and every run of non-alphanumerics to a
     # single space. Punctuation is separator rather than signal here, which is
@@ -40,14 +51,7 @@ module Vangrail
     # Diacritics survive, because \p{Alnum} is not ASCII: "beëindig" is one
     # token and stays one.
     def normalize(text)
-      body = text.to_s
-      # Tagged binary is how a body read off a socket arrives, and
-      # unicode_normalize refuses it whatever the bytes are. Retag first, scrub
-      # second: the order matters, because scrub on ASCII-8BIT does nothing
-      # useful and normalising it raises.
-      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
-      body = body.scrub unless body.valid_encoding?
-      body.unicode_normalize(:nfkc).downcase.gsub(/[^\p{Alnum}]+/, ' ').strip
+      usable(text).unicode_normalize(:nfkc).downcase.gsub(/[^\p{Alnum}]+/, ' ').strip
     end
 
     def words(text)
@@ -62,8 +66,8 @@ module Vangrail
     # here lose an entry and recompute it, which costs one string comparison
     # and cannot produce a wrong answer, because the value is a pure function
     # of the key.
-    STEM_CACHE = 8192
-    STEMS = {} # rubocop:disable Style/MutableConstant
+    STEM_LIMIT = 8192
+    STEM_CACHE = {} # rubocop:disable Style/MutableConstant
 
     # An English suffix stripper, not Porter, and not applied per language.
     #
@@ -82,15 +86,14 @@ module Vangrail
       text = word.to_s
       return text if text.length <= 3
 
-      cached = STEMS[text]
-      return cached if cached
+      return STEM_CACHE[text] if STEM_CACHE.key?(text)
 
       stemmed = strip_suffix(text)
-      # Bounded, and bounded because the input is hostile. A memo that grows
-      # with whatever arrives is a memory leak an attacker can drive; a
-      # dictionary's worth of ordinary words fits well inside this, and past it
-      # the cost falls back to what it was without the memo.
-      STEMS[text] = stemmed if STEMS.size < STEM_CACHE
+      # Bounded because the input is hostile. A memo that keeps the first
+      # writers forever is a cache an attacker fills with unique tokens; once
+      # full, the oldest key is evicted so ordinary words can still land.
+      STEM_CACHE.shift if STEM_CACHE.size >= STEM_LIMIT
+      STEM_CACHE[text] = stemmed
       stemmed
     end
 
@@ -457,7 +460,7 @@ module Vangrail
     # colon separate statements too, and over-splitting only makes the rules
     # stricter, which is the safe direction for something that blocks.
     def clauses(text)
-      text.to_s.scrub.split(/(?<=[.!?;:])\s+|\n+|\r+/).map(&:strip).reject(&:empty?)
+      usable(text).split(/(?<=[.!?;:])\s+|\n+|\r+/).map(&:strip).reject(&:empty?)
     end
 
     # The text as [position, concept, surface word] triples.
@@ -471,7 +474,7 @@ module Vangrail
       table = lexicon(languages)
       out = phrase_concepts(tokens, stems, languages)
       stems.each_with_index do |s, i|
-        out.concat(syntax_concepts(tokens, stems, i))
+        out.concat(syntax_concepts(tokens, stems, i, languages))
         found = table[s]
         next unless found
 
@@ -538,10 +541,10 @@ module Vangrail
     # The two rules that come from the shape of the sentence rather than from a
     # word: a pronoun made into a statement of what something now is, and a
     # backward reference used as a noun.
-    def syntax_concepts(tokens, stems, index)
+    def syntax_concepts(tokens, stems, index, languages = LANGUAGES)
       out = []
       out << [index, :persona, tokens[index]] if pronoun_persona?(stems, index)
-      out << [index, :instruction, tokens[index]] if nominalised_reference?(stems, index)
+      out << [index, :instruction, tokens[index]] if nominalised_reference?(stems, index, languages)
       out
     end
 
@@ -549,9 +552,9 @@ module Vangrail
       PRONOUN_STEMS.include?(stems[index]) && COPULA_STEMS.include?(stems[index + 1].to_s)
     end
 
-    def nominalised_reference?(stems, index)
+    def nominalised_reference?(stems, index, languages = LANGUAGES)
       return false unless index.positive? && DETERMINER_STEMS.include?(stems[index - 1])
-      return false unless Array(lexicon[stems[index]]).include?(:prior)
+      return false unless Array(lexicon(languages)[stems[index]]).include?(:prior)
 
       nxt = stems[index + 1]
       nxt.nil? || COORDINATOR_STEMS.include?(nxt)
