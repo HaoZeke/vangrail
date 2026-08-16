@@ -41,6 +41,13 @@ module Vangrail
   #   session.posterior                  # => the session's, not the turn's
   #   session.action                     # => :allow, :review, :block
   #
+  # After a retrieved page or an answer, both tracks have turns. Unnamed
+  # `posterior` and `action` raise then. Name the channel:
+  #
+  #   session.posterior(:attack)
+  #   session.posterior(:contamination)
+  #   session.block?                     # true if either track would block
+  #
   # The per-turn judgement is still returned, because both numbers are real and
   # they answer different questions. "Is this message an attack" is what a
   # request path routes on. "Is this session an attack" is what a desk wants
@@ -123,24 +130,27 @@ module Vangrail
       judgement
     end
 
-    # Folds a judgement computed elsewhere, for a caller that already ran one.
-    def fold(judgement)
+    # Folds a judgement, or a Result from a walk that already ran.
+    # `origin` and `side` name the span when the event is a Result; a
+    # Judgement already carries both.
+    def fold(event, origin: nil, side: nil)
+      judgement = coerce(event, origin: origin, side: side)
       origin = judgement.origin || Origin.default_for(judgement.side || :input)
       @channel ||= origin.channel
       apply(track_for(origin.channel), judgement)
       self
     end
 
-    def log_odds
-      primary.log_odds
+    def log_odds(channel = nil)
+      named_track(channel).log_odds
     end
 
-    def turns
-      primary.turns
+    def turns(channel = nil)
+      named_track(channel).turns
     end
 
-    def cusum
-      primary.cusum
+    def cusum(channel = nil)
+      named_track(channel).cusum
     end
 
     # Turns that landed on the other rank. They still moved that rank's
@@ -149,31 +159,35 @@ module Vangrail
       other.turns
     end
 
-    def posterior
-      Posterior.from_odds(2**log_odds)
+    def posterior(channel = nil)
+      named_track(channel).posterior
     end
 
     # How far the session sits from where it started, in bits. The readable
     # summary: zero is an ordinary session, and positive is a reader who keeps
     # doing things that ordinary readers do not.
-    def bits
-      log_odds - Math.log2(Posterior.to_odds(prior))
+    def bits(channel = nil)
+      named_track(channel).bits(prior)
     end
 
-    def action
-      policy.action_for(posterior)
+    def action(channel = nil)
+      policy.action_for(posterior(channel))
     end
 
-    def block?
-      action == :block
+    # Without a name this is true if either populated track would block.
+    # Unnamed posterior and action raise once both tracks have turns.
+    def block?(channel = nil)
+      return action(channel) == :block if channel
+
+      tracks_for_block.any? { |track| policy.action_for(track.posterior) == :block }
     end
 
-    def review?
-      action == :review
+    def review?(channel = nil)
+      action(channel) == :review
     end
 
-    def allow?
-      action == :allow
+    def allow?(channel = nil)
+      action(channel) == :allow
     end
 
     # Wald's sequential test over the same accumulated evidence.
@@ -195,9 +209,10 @@ module Vangrail
     # test calls undecided while the policy says review is a session where the
     # cost argument and the error-rate argument point different ways, and
     # somebody should know that.
-    def verdict
-      return :attack if bits >= upper_threshold
-      return :benign if bits <= lower_threshold
+    def verdict(channel = nil)
+      score = bits(channel)
+      return :attack if score >= upper_threshold
+      return :benign if score <= lower_threshold
 
       :undecided
     end
@@ -211,17 +226,18 @@ module Vangrail
     end
 
     # How much more evidence the test needs before it can decide, in bits.
-    def bits_to_decide
-      return 0.0 unless verdict == :undecided
+    def bits_to_decide(channel = nil)
+      return 0.0 unless verdict(channel) == :undecided
 
-      [upper_threshold - bits, bits - lower_threshold].min
+      score = bits(channel)
+      [upper_threshold - score, score - lower_threshold].min
     end
 
     # True when the recent burst of attack-direction evidence has reached
     # the same bar Wald uses for the accumulated total. A change of
     # behaviour, not a lifetime score.
-    def shift?
-      cusum >= upper_threshold
+    def shift?(channel = nil)
+      cusum(channel) >= upper_threshold
     end
 
     # False as soon as any turn was judged without every rail reaching a
@@ -232,25 +248,31 @@ module Vangrail
     end
 
     def to_h
+      single = !ambiguous?
       {
         'prior' => prior,
-        'posterior' => posterior.round(6),
-        'bits' => bits.round(2),
+        'posterior' => (posterior.round(6) if single),
+        'bits' => (bits.round(2) if single),
         'decay' => decay,
-        'turns' => turns.size,
+        'turns' => single ? turns.size : attack.turns.size + contamination.turns.size,
         'channel' => channel&.to_s,
         'quarantined' => (quarantined.size unless quarantined.empty?),
         'attack' => track_h(attack),
         'contamination' => track_h(contamination),
-        'action' => action.to_s,
-        'verdict' => verdict.to_s,
-        'cusum' => cusum.round(2),
-        'shift' => shift?,
+        'action' => (action.to_s if single),
+        'verdict' => (verdict.to_s if single),
+        'cusum' => (cusum.round(2) if single),
+        'shift' => (shift? if single),
         'certain' => certain?,
       }.compact
     end
 
     def to_s
+      if ambiguous?
+        return format('session attack p=%<attack>.4f contamination p=%<data>.4f',
+                      attack: attack.posterior, data: contamination.posterior)
+      end
+
       format('session %<action>s p=%<posterior>.4f over %<turns>d turn(s), %<bits>+.1f bits',
              action: action, posterior: posterior, turns: turns.size, bits: bits)
     end
@@ -266,17 +288,61 @@ module Vangrail
     end
 
     def track_for(name)
-      name == :attack ? @attack : @contamination
+      key = name.to_sym
+      raise ArgumentError, "unknown channel #{name.inspect}" unless %i[attack contamination].include?(key)
+
+      key == :attack ? @attack : @contamination
+    end
+
+    def named_track(channel = nil)
+      return track_for(channel) if channel
+      raise ArgumentError, 'name the channel: :attack or :contamination' if ambiguous?
+
+      contamination.turns.empty? ? attack : contamination
+    end
+
+    def ambiguous?
+      !attack.turns.empty? && !contamination.turns.empty?
+    end
+
+    def tracks_for_block
+      populated = [attack, contamination].reject { |track| track.turns.empty? }
+      populated.empty? ? [attack] : populated
+    end
+
+    def coerce(event, origin:, side:)
+      return event if event.is_a?(Judgement)
+
+      origin = Origin.coerce(origin || Origin.default_for(side || :output))
+      side = (side || :output).to_sym
+      fired = event.blocked? || event.modified?
+      bits = bits_from_result(event, side, fired)
+      posterior = Posterior.from_odds(Posterior.to_odds(prior) * (2**bits))
+      Judgement.new(posterior: posterior, prior: prior, bits: bits,
+                    contributions: [{ rail: event.rail.to_s, bits: bits, fired: fired }],
+                    certain: event.certain?, action: policy.action_for(posterior),
+                    side: side, origin: origin)
+    end
+
+    def bits_from_result(event, side, fired)
+      return 0.0 unless event.certain?
+
+      table = evidence || EvidenceData.for_side(side)
+      entry = table[event.rail.to_s] if table && event.rail
+      # No operating point is zero bits. Unmeasured is not a leak.
+      entry&.measured? ? entry.bits(fired) : 0.0
     end
 
     def apply(track, judgement)
       decay_track(track)
-      track.log_odds += judgement.bits
-      # Page (1954). Reference value is 0: accumulate only excess toward
-      # attack. An uncertain turn contributes nothing, the same rule
-      # assess uses for abstention. The threshold is Wald's upper bar,
-      # so the error rate is the one the caller already chose.
+      # Uncertain is not evidence: the same increment updates the odds
+      # and the CUSUM. Bits already exclude abstaining rails; a turn
+      # that did not finish every rail still does not move the session.
       increment = judgement.certain? ? judgement.bits : 0.0
+      track.log_odds += increment
+      # Page (1954). Reference value is 0: accumulate only excess toward
+      # attack. The threshold is Wald's upper bar, so the error rate is
+      # the one the caller already chose.
       track.cusum = [0.0, (track.cusum * decay) + increment].max
       track.turns << judgement
     end

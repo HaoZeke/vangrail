@@ -68,8 +68,10 @@ whatever your application tells its readers.
 
 ** After a block
 
-=guard.content= is the text that was actually shown. The guard stops consuming
-once blocked, so pushing more chunks changes nothing and returns the block
-again. What to do with the partial text is an application decision. Leaving it
-on screen with a note is honest, and removing it is defensible. Pretending the
-answer completed is neither.
+=guard.content= is the checked prefix: text a rail has read, including any
+suffix =take= has not emitted yet, and excluding the unread tail and the
+chunk that just blocked. It is not everything shown, and it is not the
+unread tail. The guard stops consuming once blocked, so pushing more chunks
+changes nothing and returns the block again. What to do with the partial
+text is an application decision. Leaving it on screen with a note is honest,
+and removing it is defensible. Pretending the answer completed is neither.

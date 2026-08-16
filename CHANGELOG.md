@@ -122,6 +122,11 @@ Nothing has been released yet. This section describes what exists.
   `Posterior.combine` already knew how to compute. If the bound and the
   point estimate disagree about the action, the judgement is uncertain:
   48 benign pages did not identify it.
+- `Session#fold` of a Result with no measured operating point is 0
+  bits. An unmeasured rewrite is not a leak.
+- `Profile.resolve` raises when a named profile is given extra `allow:`
+  or `deny:`. Deny-wins merge is only for composing from hashes. Extra
+  allow on `:off` does not silently grant a tool.
 
 ### Changed
 
@@ -157,10 +162,11 @@ Nothing has been released yet. This section describes what exists.
 - `Profile` (`workspace`, `strict`, `read_only`, `off`): named
   postures pinned for the conversation, copied from Grok Build's
   sandbox and permission model. Deny globs always win over allow and
-  over the plan. `strict` and `read_only` refuse a mutating tool.
-  `child_env` drops KEY/SECRET/TOKEN. A `pre_invoke` hook can still
-  block, the same way Grok Build hooks still apply under
-  always-approve.
+  over the plan when composing from hashes. A named profile plus extra
+  `allow:` / `deny:` is refused. `strict` and `read_only` refuse a
+  mutating tool. `child_env` drops KEY/SECRET/TOKEN. A `pre_invoke`
+  hook can still block, the same way Grok Build hooks still apply
+  under always-approve.
 - `Conversation#intend` names the tools the question may use, before
   any page is seen. `screen` locks the plan. `invoke` refuses a tool
   that was not intended, even if Admission would have granted it.
@@ -205,9 +211,11 @@ Nothing has been released yet. This section describes what exists.
   refuses to call an unread language a clean pass. Off by default so
   the same folder still describes one set of rails on either runtime.
 - `Builder.deterministic`, the shared list those two paths install.
-- `Conversation` takes `prior:` or `session:`, so the turns Escalation
-  already sees also feed a Session. The two objects stay distinct; they
-  share one history.
+- `Conversation` takes `prior:` or `session:`. `ask` with a session
+  walks `assess` and folds the judgement; Escalation is not an assess
+  term and does not run on that path. A retry after a refusal is still
+  `check_input` when there is no session. The two objects stay
+  distinct; they share one history.
 
 - A house Ruby style, parented on thoughtbot's guide, with the deviations
   this gem has to make written down. `rubocop-performance` and

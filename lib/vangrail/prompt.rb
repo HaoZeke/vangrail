@@ -63,9 +63,20 @@ module Vangrail
 
     def lookup(vars, name)
       name.split('.').reduce(vars) do |acc, part|
-        break nil unless acc.respond_to?(:[])
+        break nil unless acc
 
-        acc[part] || (acc.respond_to?(:key?) ? acc[part.to_sym] : nil)
+        fetch_key(acc, part)
+      end
+    end
+
+    def fetch_key(acc, part)
+      if acc.respond_to?(:key?)
+        return acc[part] if acc.key?(part)
+        return acc[part.to_sym] if acc.key?(part.to_sym)
+
+        nil
+      elsif acc.respond_to?(:[])
+        acc[part]
       end
     end
 

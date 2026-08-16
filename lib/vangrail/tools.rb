@@ -32,8 +32,7 @@ module Vangrail
     end
 
     def readonly?(name)
-      entry = @handlers[name.to_sym]
-      entry&.readonly
+      !!@handlers[name.to_sym]&.readonly
     end
 
     def names

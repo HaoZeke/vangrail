@@ -42,6 +42,17 @@ class TestPrompt < Minitest::Test
     assert_equal 'deep', P.render('{{ a.b }}', 'a' => { 'b' => 'deep' })
   end
 
+  def test_false_zero_and_empty_are_not_treated_as_missing
+    assert_equal '0', P.render('{{ n }}', 'n' => 0)
+    assert_equal 'false', P.render('{{ n }}', 'n' => false)
+    assert_equal '', P.render('{{ n }}', 'n' => '')
+    assert_equal '0', P.render('{{ n }}', n: 0)
+    assert_equal '0', P.render('{{ a.b }}', 'a' => { 'b' => 0 })
+    assert_equal 'false', P.render('{{ a.b }}', 'a' => { 'b' => false })
+    assert_equal 'yes', P.render('{% if n %}yes{% endif %}', 'n' => 0)
+    assert_equal '', P.render('{% if n %}yes{% endif %}', 'n' => false)
+  end
+
   # A prompt that silently drops the rule someone wrote is worse than one that
   # refuses to load.
   def test_an_unknown_filter_raises

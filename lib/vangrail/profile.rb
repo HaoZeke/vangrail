@@ -18,6 +18,9 @@ module Vangrail
   #
   # The profile is chosen at Conversation construction and cannot be
   # widened later. Deny always wins over allow and over the plan.
+  # Extra `allow:` / `deny:` on a named profile is a conflict, not a
+  # merge: `resolve` raises. Deny-wins merge applies when composing
+  # from hashes alone.
   class Profile
     NAMES = %i[off read_only workspace strict].freeze
     SECRET = /key|secret|token|password|passwd|authorization/i
@@ -70,9 +73,15 @@ module Vangrail
     end
 
     def self.resolve(value, allow: {}, deny: [])
-      return value if value.is_a?(self)
+      extra = !allow.empty? || !Array(deny).empty?
       return from_allow(allow, deny: deny) if value.nil?
+      raise ArgumentError, 'pass profile: or allow:/deny:, not both' if extra
+      return value if value.is_a?(self)
 
+      named(value)
+    end
+
+    def self.named(value)
       case value.to_sym
       when :off then off
       when :read_only then read_only
@@ -82,8 +91,16 @@ module Vangrail
       end
     end
 
+    def self.glob_denied?(name, rules)
+      needle = name.to_s
+      rules.any? { |rule| File.fnmatch?(rule, needle, File::FNM_EXTGLOB) }
+    end
+
     def self.from_allow(allow, deny: [])
-      new(name: :custom, allow: allow, deny: deny, readonly: false, strip_secrets: true)
+      deny_list = Array(deny).map(&:to_s)
+      cleaned = allow.transform_keys(&:to_sym)
+                     .reject { |name, _| glob_denied?(name, deny_list) }
+      new(name: :custom, allow: cleaned, deny: deny, readonly: false, strip_secrets: true)
     end
 
     def self.strip_secrets(env)

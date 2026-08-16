@@ -174,7 +174,16 @@ class TestStreamGuard < Minitest::Test
     guard.push('b' * 5)
 
     assert_equal '', guard.take
-    assert_operator guard.content.length - guard.checked, :<=, 20
+    assert_equal guard.checked, guard.content.length
+  end
+
+  def test_content_is_the_checked_prefix
+    guard = Vangrail::StreamGuard.new(engine, interval: 10_000)
+    guard.push("Put api_key=#{SECRET} in the file.")
+
+    assert_equal '', guard.content
+    assert_equal 0, guard.checked
+    refute_respond_to guard, :buffer
   end
 
   def test_take_after_a_redaction_does_not_reprint_the_clean_prefix

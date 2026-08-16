@@ -367,7 +367,16 @@ the odds by two bits have moved them by six.
 ```ruby
 session = Vangrail::Session.new(engine: engine, prior: 1e-3)
 session.observe(question)   # => the turn's judgement
-session.posterior           # => the session's
+session.posterior           # => the session's, while only one track has turns
+```
+
+After a retrieved page or an answer, both tracks have turns. Name the
+channel; `block?` is true if either would block:
+
+```ruby
+session.posterior(:attack)
+session.posterior(:contamination)
+session.block?
 ```
 
 Measured: three probes that are each individually allowed take a session to
@@ -420,7 +429,9 @@ has to do it without that method.
 `Profile` is Grok Build's session-pinned sandbox, in this process.
 `workspace` grants cite and search and denies `delete_*` / `dump_*` /
 `shell`. `strict` is cite-only and read-only. Deny always wins, even
-if the plan named the tool. `Conversation#child_env` drops names
+if the plan named the tool. Extra `allow:` / `deny:` on a named
+profile is refused, not merged; compose those hashes without a name.
+`Conversation#child_env` drops names
 matching KEY/SECRET/TOKEN. A `pre_invoke` hook can still refuse a
 granted call.
 
@@ -489,8 +500,12 @@ guard = Vangrail::StreamGuard.new(engine, user_input: question)
 stream.each { |chunk| break if guard.push(chunk)&.blocked?; emit(guard.take) }
 guard.finish
 
-convo = Vangrail::Conversation.new(engine)
+convo = Vangrail::Conversation.new(engine, prior: 1e-3)
 convo.ask(question)            # judged with the previous turns in view
+convo.screen(documents)
+convo.session.posterior(:attack)
+convo.session.posterior(:contamination)
+convo.session.block?           # true if either track would block
 convo.answer(text)             # records what the reader actually saw
 ```
 

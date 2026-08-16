@@ -72,4 +72,36 @@ class TestProfile < Minitest::Test
     assert Vangrail::Profile.workspace.denied?(:delete_all)
     refute Vangrail::Profile.workspace.denied?(:cite)
   end
+
+  def test_a_named_profile_refuses_extra_allow_or_deny
+    assert_raises(ArgumentError) { Vangrail::Profile.resolve(:workspace, allow: { search: [] }) }
+    assert_raises(ArgumentError) { Vangrail::Profile.resolve(:strict, deny: ['cite']) }
+    assert_raises(ArgumentError) { Vangrail::Profile.resolve(:off, allow: { cite: %i[data] }) }
+    assert_equal :workspace, Vangrail::Profile.resolve(:workspace).name
+  end
+
+  def test_hash_composition_is_deny_wins
+    custom = Vangrail::Profile.resolve(nil, allow: { cite: %i[data], search: [] }, deny: ['cite'])
+
+    assert custom.denied?(:cite)
+    refute custom.allow.key?(:cite)
+    assert_equal [], custom.allow[:search]
+    assert_equal :custom, custom.name
+  end
+
+  def test_readonly_is_false_for_a_missing_tool
+    set = tools
+
+    assert_equal true, set.readonly?(:cite)
+    assert_equal false, set.readonly?(:delete_all)
+    assert_equal false, set.readonly?(:unknown)
+  end
+
+  def test_from_rails_predicates_are_booleans
+    actions = Vangrail::Actions.from_rails
+
+    assert_equal false, actions['self_check_input'].call({}, { text: 'x' })
+    assert_equal false, actions['self_check_output'].call({}, { text: 'x' })
+    assert_equal false, actions['self_check_facts'].call({}, { text: 'x' })
+  end
 end
