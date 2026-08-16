@@ -8,8 +8,6 @@ require_relative 'helper'
 # needs a reader to click it; an image is fetched by the renderer with nobody's
 # consent, so the same host can be fine for one and wrong for the other.
 class TestExfiltration < Minitest::Test
-  include GuardrailsTest
-
   HANDBOOK = 'docs.example.org'
 
   def rail(**kwargs)

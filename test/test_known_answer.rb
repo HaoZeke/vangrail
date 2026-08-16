@@ -9,8 +9,6 @@ require_relative 'helper'
 # model complies is measured against a live endpoint by
 # script/known_answer_probe.rb, because that is a fact about the model.
 class TestKnownAnswer < Minitest::Test
-  include GuardrailsTest
-
   # Replies with whatever the script says, and records the prompt.
   def stub(reply)
     StubHTTP.new(responses: { '/chat/completions' => ->(payload, _n) { chat_body(reply.call(payload)) } })

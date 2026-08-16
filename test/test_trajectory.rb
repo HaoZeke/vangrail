@@ -8,8 +8,6 @@ require_relative 'helper'
 # what it sends, and which kind of pass it reports when it does not ask. The
 # verdict itself belongs to whatever model an application points it at.
 class TestTrajectory < Minitest::Test
-  include GuardrailsTest
-
   def http(verdict = '{"violation": 0}')
     StubHTTP.new(responses: { '/chat/completions' => chat_body(verdict) })
   end

@@ -9,8 +9,6 @@ require_relative 'helper'
 # three unlikely turns are unlikely three times over, and the arithmetic that
 # says so is the same one a single turn uses, carried across turns.
 class TestSession < Minitest::Test
-  include GuardrailsTest
-
   # Each of these trips exactly one measured rail (paraphrase: conceal +
   # audience). On its own, at this base rate, not one of them justifies
   # anything. Override wording is also injected_instructions, and a

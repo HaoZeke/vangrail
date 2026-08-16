@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # The Colang subset: what parses, what is refused, and what a flow decides.
 class TestColang < Minitest::Test
-  include GuardrailsTest
-
   Parser = Vangrail::Colang::Parser
   Interpreter = Vangrail::Colang::Interpreter
 

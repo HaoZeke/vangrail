@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # Smith-Waterman over the concept stream: the pair window's gap.
 class TestAlignment < Minitest::Test
-  include GuardrailsTest
-
   def rail
     @rail ||= Vangrail::Rails::Alignment.new(sides: [:context])
   end

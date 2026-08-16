@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # The rails that decide without a network: the floor under everything else.
 class TestOfflineRails < Minitest::Test
-  include GuardrailsTest
-
   PATTERNS = Vangrail::Builder::INJECTION_PATTERNS
 
   def pattern_rail(patterns = PATTERNS)

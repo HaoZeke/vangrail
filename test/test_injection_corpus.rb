@@ -16,8 +16,6 @@ require_relative 'helper'
 # in it, and a rail that only catches the bare instruction is measuring itself
 # against an attacker who is not trying.
 class TestInjectionCorpus < Minitest::Test
-  include GuardrailsTest
-
   # Ordinary handbook prose. Every one of these must survive: this half of the
   # score is what decides whether the rail can be left on.
   BENIGN = [

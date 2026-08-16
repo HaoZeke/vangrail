@@ -6,8 +6,6 @@ require_relative 'helper'
 # stream that is wrong here is wrong in every rule built on top of it, and the
 # rules are much harder to read than the stream.
 class TestNLP < Minitest::Test
-  include GuardrailsTest
-
   N = Vangrail::NLP
 
   def test_normalize_folds_case_punctuation_and_compatibility_forms

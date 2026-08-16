@@ -7,8 +7,6 @@ require_relative 'helper'
 # evidence adds up, silence counts, and a rail that did not run counts for
 # nothing.
 class TestEvidence < Minitest::Test
-  include GuardrailsTest
-
   # A strong rail and a weak one, with round numbers so every expectation below
   # is arithmetic rather than a fixture.
   STRONG = Vangrail::Evidence.new(rail: 'strong', group: 'strong',

@@ -24,8 +24,6 @@ require_relative 'helper'
 # sort: a page that says to ignore a stale warning, one that tells a reader not
 # to disclose a token, one that tells them to print a configuration.
 class TestParaphrase < Minitest::Test
-  include GuardrailsTest
-
   BENIGN = TestCorpus::ENGLISH_BENIGN
   PARAPHRASED = TestCorpus::ENGLISH_PARAPHRASED
 

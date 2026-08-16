@@ -18,8 +18,6 @@ require_relative 'helper'
 # reader's own pronoun in it, and the negator that makes it harmless sits five
 # tokens after the verb where an English negator never goes.
 class TestMultilingual < Minitest::Test
-  include GuardrailsTest
-
   BENIGN = TestCorpus::DUTCH_BENIGN
   ATTACKS = TestCorpus::DUTCH_ATTACKS
 

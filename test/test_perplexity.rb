@@ -11,8 +11,6 @@ require_relative 'helper'
 # a short span from being averaged away, and every path where the endpoint
 # cannot answer.
 class TestPerplexity < Minitest::Test
-  include GuardrailsTest
-
   # An endpoint that scores each word by its length, which makes a test's
   # expectations arithmetic rather than a guess about a language model.
   def scoring_stub(&scorer)

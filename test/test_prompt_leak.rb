@@ -11,8 +11,6 @@ require_relative 'helper'
 # and an assistant that cannot say "the documentation does not cover that" is
 # an assistant nobody can use.
 class TestPromptLeak < Minitest::Test
-  include GuardrailsTest
-
   PROMPT = <<~TEXT
     You are the documentation assistant for the national supercomputing service.
     Answer only from the passages provided below, and say so when they do not

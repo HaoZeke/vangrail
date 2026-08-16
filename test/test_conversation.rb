@@ -5,8 +5,6 @@ require_relative 'helper'
 # The dialogue object, and the thing it exists for: rails that can see a refusal
 # that already happened.
 class TestConversation < Minitest::Test
-  include GuardrailsTest
-
   def engine(input: [Vangrail::Rails::Escalation.new])
     Vangrail::Engine.new(input: input, output: [Vangrail::Rails::Secrets.new])
   end

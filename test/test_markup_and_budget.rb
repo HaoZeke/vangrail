@@ -4,8 +4,6 @@ require_relative 'helper'
 
 # Markup that does something when rendered, and text too large to be a question.
 class TestMarkup < Minitest::Test
-  include GuardrailsTest
-
   def rail
     @rail ||= Vangrail::Rails::Markup.new
   end
@@ -80,8 +78,6 @@ end
 
 # Size, which is the one attack that costs the operator directly.
 class TestBudget < Minitest::Test
-  include GuardrailsTest
-
   def rail(**kwargs)
     Vangrail::Rails::Budget.new(**kwargs)
   end

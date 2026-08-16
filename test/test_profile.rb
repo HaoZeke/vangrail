@@ -5,8 +5,6 @@ require_relative 'helper'
 # Grok Build's session-pinned profile: deny wins, secrets do not
 # inherit, a read-only posture cannot invoke a mutating tool.
 class TestProfile < Minitest::Test
-  include GuardrailsTest
-
   def engine
     Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input),
                          context: Vangrail::Builder.deterministic(:context))

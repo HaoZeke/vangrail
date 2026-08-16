@@ -8,8 +8,6 @@ require_relative 'helper'
 # functions, and a continued fraction that is subtly wrong is a continued
 # fraction that reports plausible numbers for years.
 class TestBeta < Minitest::Test
-  include GuardrailsTest
-
   B = Vangrail::Beta
   QUANTILES = [0.05, 0.5, 0.95].freeze
 
