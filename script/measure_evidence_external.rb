@@ -23,6 +23,7 @@
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'json'
 require 'vangrail'
+require_relative 'handbook_corpus'
 
 EXTERNAL = ARGV[0] || File.expand_path('../tmp/external_results.json', __dir__)
 FALSE_ALARMS = ARGV[1] || File.expand_path('../tmp/false_alarms.json', __dir__)
@@ -47,12 +48,9 @@ alarms = JSON.parse(File.read(FALSE_ALARMS))
 # So the population is both, mixed at whatever ratio the two corpora happen to
 # have, and the ratio is stated here rather than buried: a deployment whose
 # traffic is mostly one family should reweight it and rerun.
-$LOAD_PATH.unshift(File.expand_path('../test', __dir__))
-require 'test_injection_corpus'
 
 def local_attacks
-  corpus = TestInjectionCorpus.new('x')
-  corpus.corpus.map { |c| c[:text] } + corpus.encoded_corpus.map { |c| c[:text] }
+  HandbookCorpus.local_attacks
 end
 
 CONTEXT_RAILS = (Vangrail::Builder.deterministic(:context).reject { |rail| rail.name == 'language' } +

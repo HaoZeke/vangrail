@@ -19,11 +19,8 @@
 # comparison is against the same text the deterministic rails are scored on.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-$LOAD_PATH.unshift(File.expand_path('../test', __dir__))
 require 'vangrail'
-require 'test_paraphrase'
-require 'test_multilingual'
-require 'test_similarity'
+require_relative 'handbook_corpus'
 
 provider = Vangrail.provider
 abort 'no endpoint resolved: set GUARDRAILS_API_BASE, or start a local proxy' unless provider&.available?
@@ -38,8 +35,8 @@ puts "model:    #{provider.model(:embed)}"
 puts "seeds:    #{Vangrail::KnownAttacks::ALL.size}"
 puts
 
-BENIGN = (TestParaphrase::BENIGN + TestMultilingual::BENIGN).freeze
-ATTACKS = (TestParaphrase::PARAPHRASED + TestMultilingual::ATTACKS + TestSimilarity::EDITED).freeze
+BENIGN = (HandbookCorpus::ENGLISH_BENIGN + HandbookCorpus::DUTCH_BENIGN).freeze
+ATTACKS = (HandbookCorpus::PARAPHRASED + HandbookCorpus::ATTACKS_NL + HandbookCorpus::EDITED).freeze
 
 def scored(rail, texts)
   texts.map do |text|

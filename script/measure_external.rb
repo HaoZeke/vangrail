@@ -26,6 +26,7 @@ $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'json'
 require 'vangrail'
 require_relative 'local_corpus'
+require_relative 'external_corpus'
 
 DATA = ARGV[0] || File.expand_path('../tmp/external', __dir__)
 OUTPUT = ARGV[1] || File.expand_path('../tmp/external_results.json', __dir__)
@@ -34,76 +35,6 @@ PROMPTS = (ENV['PROMPTS'] || 13_735).to_i
 
 unless File.exist?(File.join(DATA, 'bipia_text_attack_test.json'))
   abort "no corpora in #{DATA}; run: ruby script/fetch_external.rb"
-end
-
-def bipia_injections(dir)
-  %w[bipia_text_attack_test.json bipia_code_attack_test.json].flat_map do |name|
-    JSON.parse(File.read(File.join(dir, name))).flat_map { |_category, attacks| attacks }
-  end.map(&:to_s).reject(&:empty?)
-end
-
-# A CSV reader, because csv stopped being a default gem in Ruby 3.4 and this
-# repository promises to need nothing outside the standard library. The fields
-# that matter carry embedded newlines, commas, and doubled quotes -- they are
-# jailbreak prompts, so of course they do -- which rules out splitting on
-# commas and leaves the ordinary state machine.
-def each_row(path)
-  field = +''
-  row = []
-  quoted = false
-  pending_quote = false
-
-  # each_char rather than indexing: String#[] on UTF-8 walks from the start, so
-  # an index loop over a twenty-megabyte file is quadratic and never finishes.
-  File.read(path, encoding: 'UTF-8').scrub.each_char do |char|
-    if pending_quote
-      pending_quote = false
-      if char == '"'
-        field << '"'
-        next
-      end
-      quoted = false
-    end
-
-    if quoted
-      char == '"' ? pending_quote = true : field << char
-      next
-    end
-
-    case char
-    when '"' then quoted = true
-    when ',' then row << field and field = +''
-    when "\n"
-      row << field
-      yield(row)
-      row = []
-      field = +''
-    when "\r" then nil
-    else field << char
-    end
-  end
-  row << field unless field.empty? && row.empty?
-  yield(row) unless row.empty?
-end
-
-def prompts(dir, name, limit)
-  header = nil
-  column = nil
-  out = []
-  each_row(File.join(dir, name)) do |row|
-    if header.nil?
-      header = row
-      column = header.index('prompt')
-      raise "no prompt column in #{name}: #{header.inspect}" unless column
-
-      next
-    end
-    next if out.size >= limit
-
-    value = row[column].to_s
-    out << value unless value.empty?
-  end
-  out
 end
 
 # Whatever the builder ships for each side, so a rail added upstream is scored
@@ -134,7 +65,7 @@ report = {}
 warn 'reading local documentation for the context side'
 pages = []
 LocalCorpus.each_document(limit: PAGES, quiet: true, truncate: 6000) { |text, _p| pages << text }
-injections = bipia_injections(DATA)
+injections = ExternalCorpus.bipia_injections(DATA)
 warn "#{pages.size} pages, #{injections.size} BIPIA injections"
 
 poisoned = injections.each_with_index.map do |injection, i|
@@ -162,8 +93,8 @@ report['context'] = {
 
 # --- input side: in-the-wild jailbreaks against ordinary prompts ---
 
-jailbreaks = prompts(DATA, 'jailbreak_prompts_2023_12_25.csv', PROMPTS)
-regular = prompts(DATA, 'regular_prompts_2023_12_25.csv', PROMPTS)
+jailbreaks = ExternalCorpus.jailbreak_prompts(DATA, PROMPTS)
+regular = ExternalCorpus.regular_prompts(DATA, PROMPTS)
 warn "#{jailbreaks.size} jailbreak prompts, #{regular.size} ordinary prompts"
 
 rails = rails_for(:input)

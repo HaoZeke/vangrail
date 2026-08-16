@@ -28,12 +28,8 @@
 # number in the README is that somebody can believe it.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-$LOAD_PATH.unshift(File.expand_path('../test', __dir__))
 require 'vangrail'
-require 'test_injection_corpus'
-require 'test_paraphrase'
-require 'test_multilingual'
-require 'test_similarity'
+require_relative 'handbook_corpus'
 
 OUT = File.expand_path('../lib/vangrail/bayes_data.rb', __dir__)
 
@@ -53,28 +49,24 @@ FOLDS = 5
 # what is actually being classified, and a document takes the score of its worst
 # clause.
 def attack_clauses
-  (TestInjectionCorpus::INJECTIONS +
-   TestParaphrase::PARAPHRASED +
-   TestMultilingual::ATTACKS +
-   TestSimilarity::EDITED).uniq
+  HandbookCorpus.attack_clauses
 end
 
 def benign_clauses
-  documents = (TestInjectionCorpus::BENIGN + TestParaphrase::BENIGN + TestMultilingual::BENIGN).uniq
-  documents.flat_map { |text| Vangrail::NLP.clauses(text) }.uniq
+  HandbookCorpus.benign_texts.flat_map { |text| Vangrail::NLP.clauses(text) }.uniq
 end
 
 # Documents built the way the threat arrives, from injections the fold under
 # test never trained on.
 def attack_documents(injections)
-  prose = TestParaphrase::BENIGN
+  prose = HandbookCorpus::ENGLISH_BENIGN
   injections.each_with_index.map do |injection, i|
     "#{prose[i % prose.size]}\n\n#{injection}\n\nSee the reference pages for the full table."
   end
 end
 
 def benign_documents
-  (TestInjectionCorpus::BENIGN + TestParaphrase::BENIGN + TestMultilingual::BENIGN).uniq
+  HandbookCorpus.benign_texts
 end
 
 # Words and adjacent word pairs, stemmed through the same function the lexicon

@@ -22,17 +22,10 @@ class TestMultilingual < Minitest::Test
 
   BENIGN = TestCorpus::DUTCH_BENIGN
   ATTACKS = TestCorpus::DUTCH_ATTACKS
-
-  POSITIONS = %i[top bottom middle fenced inline].freeze
+  POSITIONS = TestCorpus::POSITIONS
 
   def poison(prose, injection, position)
-    case position
-    when :top then "#{injection}\n\n#{prose}"
-    when :bottom then "#{prose}\n\n#{injection}"
-    when :middle then "#{prose}\n\n#{injection}\n\nZie de referentiepagina's voor de volledige tabel."
-    when :fenced then "#{prose}\n\n```\n#{injection}\n```"
-    else "#{prose} #{injection}"
-    end
+    TestCorpus.poison(prose, injection, position, filler: TestCorpus::DUTCH_FILLER)
   end
 
   def rail

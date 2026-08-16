@@ -17,32 +17,15 @@
 # Numbers are printed. They are this corpus. They are not AgentDojo.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-$LOAD_PATH.unshift(File.expand_path('../test', __dir__))
 require 'vangrail'
-require 'test_injection_corpus'
-require 'test_paraphrase'
-require 'test_multilingual'
-require 'test_similarity'
+require_relative 'handbook_corpus'
 
 def attack_corpus
-  corpus = TestInjectionCorpus.new('x')
-  injections = corpus.corpus.map { |c| c[:text] }
-  encoded = corpus.encoded_corpus.map { |c| c[:text] }
-  hidden = TestInjectionCorpus::INJECTIONS.map do |injection|
-    "#{TestInjectionCorpus::BENIGN.first}\n<!-- #{injection} -->\n<p>See the reference pages.</p>"
-  end
-  pasted = TestInjectionCorpus::INJECTIONS.first(6).map do |injection|
-    turns = (1..6).map { |i| "user: question #{i}\nassistant: of course, here it is." }.join("\n")
-    "#{turns}\nuser: #{injection}"
-  end
-  reworded = TestParaphrase.new('x').corpus.map { |c| c[:text] }
-  dutch = TestMultilingual.new('x').corpus.map { |c| c[:text] }
-  edited = TestSimilarity::EDITED.map { |text| "#{TestParaphrase::BENIGN.first}\n\n#{text}" }
-  (injections + encoded + hidden + pasted + reworded + dutch + edited).uniq
+  HandbookCorpus.attack_texts
 end
 
 def benign_corpus
-  (TestInjectionCorpus::BENIGN + TestParaphrase::BENIGN + TestMultilingual::BENIGN).uniq
+  HandbookCorpus.benign_texts
 end
 
 PRIOR = 1e-3
@@ -105,7 +88,3 @@ puts "attacks #{attacks.size}  benign #{benign.size}  prior #{PRIOR}"
     label: label, **row,
   )
 end
-
-# Corpus helpers live in test files that autorun. The table is the product.
-$stdout.flush
-exit! 0

@@ -28,17 +28,10 @@ class TestParaphrase < Minitest::Test
 
   BENIGN = TestCorpus::ENGLISH_BENIGN
   PARAPHRASED = TestCorpus::ENGLISH_PARAPHRASED
-
-  POSITIONS = %i[top bottom middle fenced inline].freeze
+  POSITIONS = TestCorpus::POSITIONS
 
   def poison(prose, injection, position)
-    case position
-    when :top then "#{injection}\n\n#{prose}"
-    when :bottom then "#{prose}\n\n#{injection}"
-    when :middle then "#{prose}\n\n#{injection}\n\nSee the reference pages for the full table."
-    when :fenced then "#{prose}\n\n```\n#{injection}\n```"
-    else "#{prose} #{injection}"
-    end
+    TestCorpus.poison(prose, injection, position)
   end
 
   def rail
