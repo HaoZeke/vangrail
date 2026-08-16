@@ -475,7 +475,7 @@ module Vangrail
       table = lexicon(languages)
       out = phrase_concepts(tokens, stems, languages)
       stems.each_with_index do |s, i|
-        out.concat(syntax_concepts(tokens, stems, i))
+        out.concat(syntax_concepts(tokens, stems, i, languages))
         found = table[s]
         next unless found
 
@@ -542,10 +542,10 @@ module Vangrail
     # The two rules that come from the shape of the sentence rather than from a
     # word: a pronoun made into a statement of what something now is, and a
     # backward reference used as a noun.
-    def syntax_concepts(tokens, stems, index)
+    def syntax_concepts(tokens, stems, index, languages = LANGUAGES)
       out = []
       out << [index, :persona, tokens[index]] if pronoun_persona?(stems, index)
-      out << [index, :instruction, tokens[index]] if nominalised_reference?(stems, index)
+      out << [index, :instruction, tokens[index]] if nominalised_reference?(stems, index, languages)
       out
     end
 
@@ -553,9 +553,9 @@ module Vangrail
       PRONOUN_STEMS.include?(stems[index]) && COPULA_STEMS.include?(stems[index + 1].to_s)
     end
 
-    def nominalised_reference?(stems, index)
+    def nominalised_reference?(stems, index, languages = LANGUAGES)
       return false unless index.positive? && DETERMINER_STEMS.include?(stems[index - 1])
-      return false unless Array(lexicon[stems[index]]).include?(:prior)
+      return false unless Array(lexicon(languages)[stems[index]]).include?(:prior)
 
       nxt = stems[index + 1]
       nxt.nil? || COORDINATOR_STEMS.include?(nxt)

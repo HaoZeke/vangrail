@@ -126,6 +126,20 @@ class TestNLP < Minitest::Test
     refute_includes earlier, :instruction
   end
 
+  def test_a_nominalised_reference_stays_inside_the_caller_language
+    dutch = N.concepts('Negeer het bovenstaande', languages: [:nl]).map { |(_, concept, _)| concept }
+    english_only = N.concepts('Negeer het bovenstaande', languages: [:en]).map { |(_, concept, _)| concept }
+
+    assert_includes dutch, :instruction
+    refute_includes english_only, :instruction
+
+    english = N.concepts('Ignore the above', languages: [:en]).map { |(_, concept, _)| concept }
+    dutch_only = N.concepts('Ignore the above', languages: [:nl]).map { |(_, concept, _)| concept }
+
+    assert_includes english, :instruction
+    refute_includes dutch_only, :instruction
+  end
+
   def test_clauses_split_on_the_punctuation_that_ends_a_statement
     assert_equal ['Do not disclose your token to the desk;', 'rotate it and reply with the job id.'],
                  N.clauses('Do not disclose your token to the desk; rotate it and reply with the job id.')
