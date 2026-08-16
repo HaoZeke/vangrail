@@ -284,6 +284,39 @@ Three things follow that a yes-or-no stack cannot express:
   0.49; on 5,953 real documents `paraphrase` and `obfuscation` reach 0.55,
   because the decoding rail mostly re-reports the other one's false alarms.
 
+### Better models, and what they cost
+
+The hand-written rails are the weakest detector measured here. Cross-validated
+on 1,405 in-the-wild jailbreak prompts against the 13,735 ordinary prompts
+collected beside them, everything at the same false-alarm rate:
+
+| Detector | Detection | False alarm |
+|---|---|---|
+| hand-written rails | 39.5% | 12.67% |
+| naive Bayes over n-grams | 67.0% | 12.66% |
+| `Rails::Linear`, hashed n-grams fitted here | **73.7%** | 12.67% |
+| `deberta-v3-base-prompt-injection-v2` | 75.3% | 12.67% |
+| the same detector at its shipped threshold | 73.9% | **11.67%** |
+| `Rails::Linear` at one false alarm in a hundred | **27.0%** | 1.00% |
+| the detector, held to the same | 21.1% | 1.00% |
+
+A published transformer fine-tuned for this exact task beats thirty lines of
+Ruby by 1.6 points, and loses to it below one false alarm in a hundred. That is
+not a claim about architectures: the linear model was fitted on this corpus and
+the transformer was not, which is the choice a deployment faces rather than a
+comparison of what the two can do.
+
+The row nobody quotes is the detector's own threshold flagging **11.67% of
+ordinary user prompts** — one in nine. That is the over-defense its own
+literature warns about, measured on a natural benign corpus.
+
+`Rails::Linear` ships with no weights, deliberately: fit your own with
+`script/train_linear.rb --emit model.json`, because a model fitted on somebody
+else's traffic is the thing this project spent a long time measuring the cost
+of. Without a model it reports itself unchecked rather than passing.
+[`docs/orgmode/explanation/detector-models.org`](docs/orgmode/explanation/detector-models.org)
+surveys the four families and what each costs.
+
 ### A rail that says how sure it is
 
 Binary rails hand the arithmetic one bit each however certain they were.
@@ -612,6 +645,7 @@ one when the local rails cover it.
 | `GUARDRAILS_CANARY` | a marker in your prompt that must never come back out |
 | `GUARDRAILS_PROMPT_FILE` | the prompt text that must never come back out, paraphrased or not |
 | `GUARDRAILS_EMBED_MODEL` | an embedding model, which is what `semantic` needs |
+| `GUARDRAILS_LINEAR_MODEL` | a model file for `Rails::Linear`, fitted by `script/train_linear.rb` |
 | `GUARDRAILS_SEMANTIC_THRESHOLD` | cosine floor; calibrate with `script/embedding_probe.rb` |
 | `GUARDRAILS_PERPLEXITY_THRESHOLD` | nats per token; calibrate with `script/perplexity_probe.rb` |
 | `GUARDRAILS_LINK_HOSTS` | hosts an answer may link to; naming them switches the rail on |
@@ -634,6 +668,7 @@ one when the local rails cover it.
 | `Rails::Alignment` | input, context | no | passed, blocked |
 | `Rails::Similarity` | input, context | no | passed, blocked |
 | `Rails::Bayes` | input, context | no | passed, blocked |
+| `Rails::Linear` | input, context | no | passed, blocked |
 | `Rails::Language` | input, context | no | passed, never blocks |
 | `Rails::PromptLeak` | output | no | passed, modified |
 | `Rails::Semantic` | input, context | yes | passed, blocked |
@@ -708,7 +743,7 @@ disable.
 rake test
 ```
 
-593 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
+611 tests, stdlib minitest, one process, no bundle. Parsing and payload shape run against
 a recorded double; transport, status handling, the `/v1/checks` fallback, and a
 genuinely refused connection run against a loopback server the suite starts
 itself. No outbound network, no keys, nothing outside the standard library.

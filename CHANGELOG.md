@@ -253,6 +253,16 @@ Nothing has been released yet. This section describes what exists.
 - `Engine#triage`, which ranks a document set by posterior rather than
   partitioning it on the first objection: the doubtful page goes last in the
   passage list rather than away from the reader.
+- `Rails::Linear` and `Vangrail::LinearModel`: a logistic-regression classifier
+  over hashed n-grams, fitted by `script/train_linear.rb`. Cross-validated on
+  in-the-wild jailbreak prompts it catches 73.7% at the rails' false-alarm rate
+  against their 39.5%, and within two points of a published DeBERTa detector.
+  No weights ship: a model fitted on somebody else's traffic is what this
+  project spent a long time measuring the cost of, and pruning the fitted model
+  small enough to ship costs 26 points of detection.
+- A survey of the four detector families with the measurements attached, in
+  `docs/orgmode/explanation/detector-models.org`, including the published
+  transformer baseline scored on the same corpus.
 - `Vangrail::Beta` and `Evidence#bits(confidence:)`: the regularised incomplete
   beta in the standard library, so a rail's evidence is what the corpus can
   defend rather than what it happened to produce. At 95% two shipped rails fall
