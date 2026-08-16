@@ -39,7 +39,7 @@ module Vangrail
     # generating; one that runs per paragraph lets a whole paragraph through.
     DEFAULT_INTERVAL = 40
 
-    attr_reader :engine, :context, :buffer, :emitted, :checked, :checks
+    attr_reader :engine, :context, :emitted, :checked, :checks
 
     def initialize(engine, interval: DEFAULT_INTERVAL, **context)
       @engine = engine
@@ -50,7 +50,6 @@ module Vangrail
       @checked = 0
       @checks = 0
       @blocked = nil
-      @modified = false
       @released = +''
     end
 
@@ -85,9 +84,9 @@ module Vangrail
       result
     end
 
-    # What the caller should show, given everything decided so far.
+    # The prefix a rail has read. The unread tail stays in the buffer.
     def content
-      buffer
+      @buffer[0, @checked].to_s
     end
 
     # Text the caller has not been given yet, and that a rail has read.
@@ -107,7 +106,7 @@ module Vangrail
     # the new suffix. After one that changes what was already shown, it returns
     # the whole checked buffer, because the prefix on screen is no longer true.
     def take
-      current = content[0, @checked].to_s
+      current = content
       if @released.empty? || current.start_with?(@released)
         out = current[@released.length..] || ''
         @released = current.dup
@@ -119,6 +118,10 @@ module Vangrail
     end
 
     private
+
+    def buffer
+      @buffer
+    end
 
     def due?
       buffer.length - @emitted >= @interval
@@ -155,7 +158,6 @@ module Vangrail
       end
 
       @buffer = result.content_or(buffer)
-      @modified = true
       @checked = buffer.length
       result
     end

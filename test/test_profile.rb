@@ -72,4 +72,30 @@ class TestProfile < Minitest::Test
     assert Vangrail::Profile.workspace.denied?(:delete_all)
     refute Vangrail::Profile.workspace.denied?(:cite)
   end
+
+  def test_named_profile_merges_allow_and_deny
+    merged = Vangrail::Profile.resolve(:workspace, allow: { search: [] }, deny: ['cite'])
+
+    assert merged.denied?(:cite)
+    refute merged.allow.key?(:cite)
+    assert_equal [], merged.allow[:search]
+    assert merged.denied?(:delete_all)
+    assert_equal :workspace, merged.name
+  end
+
+  def test_readonly_is_false_for_a_missing_tool
+    set = tools
+
+    assert_equal true, set.readonly?(:cite)
+    assert_equal false, set.readonly?(:delete_all)
+    assert_equal false, set.readonly?(:unknown)
+  end
+
+  def test_from_rails_predicates_are_booleans
+    actions = Vangrail::Actions.from_rails
+
+    assert_equal false, actions['self_check_input'].call({}, { text: 'x' })
+    assert_equal false, actions['self_check_output'].call({}, { text: 'x' })
+    assert_equal false, actions['self_check_facts'].call({}, { text: 'x' })
+  end
 end

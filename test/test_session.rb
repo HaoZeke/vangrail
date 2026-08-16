@@ -305,16 +305,19 @@ class TestSession < Minitest::Test
     attack = engine.assess(PROBES.first, side: :context, prior: PRIOR, origin: :user)
     data = engine.assess(PROBES.first, side: :context, prior: PRIOR, origin: :data)
     watched.fold(attack)
-    bits = watched.bits
+    bits = watched.bits(:attack)
     watched.fold(data)
 
     assert_equal :attack, watched.channel
-    assert_in_delta bits, watched.bits, 1e-12
+    assert_in_delta bits, watched.bits(:attack), 1e-12
     assert_in_delta bits, watched.attack.bits(PRIOR), 1e-12
     assert_equal 1, watched.quarantined.size
-    assert_equal 1, watched.turns.size
+    assert_equal 1, watched.turns(:attack).size
     assert_operator watched.contamination.posterior, :>, PRIOR
     refute_in_delta 0.0, watched.contamination.bits(PRIOR), 1e-6
+    assert_raises(ArgumentError) { watched.posterior }
+    assert_raises(ArgumentError) { watched.action }
+    refute watched.block?(:attack)
   end
 
   def test_a_context_session_is_contamination_not_an_accusation
@@ -323,6 +326,32 @@ class TestSession < Minitest::Test
 
     assert_equal :contamination, watched.channel
     assert_empty watched.quarantined
+  end
+
+  def test_uncertain_bits_are_not_evidence_for_odds_or_cusum
+    quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused',
+                                         name: 'injected_instructions', sides: [:context])
+    paraphrase = Vangrail::Rails::Paraphrase.new(sides: [:context])
+    partial = Vangrail::Engine.new(context: [paraphrase, quiet])
+    watched = Vangrail::Session.new(engine: partial, prior: PRIOR, evidence: TABLE, decay: 1.0)
+    judgement = watched.observe(PROBES.first, side: :context)
+
+    refute_predicate judgement, :certain?
+    refute_in_delta 0.0, judgement.bits, 1e-6
+    assert_in_delta 0.0, watched.bits, 1e-12
+    assert_in_delta 0.0, watched.cusum, 1e-12
+  end
+
+  def test_block_without_a_name_is_true_if_either_track_would_block
+    watched = session(decay: 0.9)
+    60.times { watched.observe(PROBES.first, side: :context, origin: :data) }
+    watched.observe(CLEAN.first, side: :input, origin: :user)
+
+    assert watched.block?(:contamination)
+    refute watched.block?(:attack)
+    assert_predicate watched, :block?
+    assert_raises(ArgumentError) { watched.posterior }
+    assert_raises(ArgumentError) { watched.action }
   end
 
   def test_the_guards_are_on_the_numbers_that_would_break_the_arithmetic

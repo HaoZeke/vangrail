@@ -70,9 +70,16 @@ module Vangrail
     end
 
     def self.resolve(value, allow: {}, deny: [])
-      return value if value.is_a?(self)
+      extra = !allow.empty? || !Array(deny).empty?
       return from_allow(allow, deny: deny) if value.nil?
+      return merge_rules(value, allow, deny) if value.is_a?(self) && extra
+      return value if value.is_a?(self)
 
+      base = named(value)
+      extra ? merge_rules(base, allow, deny) : base
+    end
+
+    def self.named(value)
       case value.to_sym
       when :off then off
       when :read_only then read_only
@@ -80,6 +87,22 @@ module Vangrail
       when :strict then strict
       else raise ArgumentError, "unknown profile #{value.inspect}"
       end
+    end
+
+    def self.merge_rules(base, allow, deny)
+      extra_allow = allow.transform_keys(&:to_sym)
+                         .transform_values { |kinds| Array(kinds).map(&:to_sym) }
+      extra_deny = Array(deny).map(&:to_s)
+      merged_deny = (base.deny + extra_deny).uniq
+      merged_allow = base.allow.merge(extra_allow)
+                          .reject { |name, _| glob_denied?(name, merged_deny) }
+      new(name: base.name, allow: merged_allow, deny: merged_deny,
+          readonly: base.readonly?, strip_secrets: base.strip_secrets?)
+    end
+
+    def self.glob_denied?(name, rules)
+      needle = name.to_s
+      rules.any? { |rule| File.fnmatch?(rule, needle, File::FNM_EXTGLOB) }
     end
 
     def self.from_allow(allow, deny: [])

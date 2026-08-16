@@ -32,9 +32,9 @@ module Vangrail
   # follow-up or the same request rewritten, and telling those apart is
   # impossible without knowing a refusal happened.
   #
-  # Pass `prior:` and the same turns also feed a Session. Escalation sees
-  # the refusals; the posterior sees the sequence that never refused.
-  # They are different questions and they share one history.
+  # Pass `prior:` and the same turns also feed a Session. One engine walk
+  # per turn: assess when a session is present, otherwise check_input.
+  # That object is folded onto the Turn and the Session.
   #
   #   convo = Vangrail::Conversation.new(engine, prior: 1e-3)
   #   convo.ask(question)
@@ -61,7 +61,7 @@ module Vangrail
     DEFAULT_WINDOW = 12
 
     attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities,
-                :tools, :invocations, :intended, :profile
+                :tools, :invocations, :profile
 
     def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
                    allow: {}, admission: nil, capabilities: nil, tools: nil,
@@ -87,33 +87,47 @@ module Vangrail
 
     # Checks a question and records it, whatever the verdict. A blocked turn
     # stays in the history: it is the part the next check needs most.
+    #
+    # One engine walk: assess when a session is present, check_input
+    # otherwise. That object is folded onto the Turn and the Session.
     def ask(text, **context)
       @pinned = true
       seen = history
-      result = engine.check_input(text, history: seen, **@base_context, **context)
+      ctx = { history: seen, **@base_context, **context }
+      result = if @session
+                 judgement = engine.assess(text, side: :input, origin: Origin.user,
+                                           **session_assess, **ctx)
+                 @session.fold(judgement)
+                 result_from(judgement)
+               else
+                 engine.check_input(text, **ctx)
+               end
       @turns << Turn.new(role: :user, text: text.to_s, result: result, origin: Origin.user)
-      @session&.observe(text, side: :input, origin: :user, history: seen)
       result
     end
 
     def answer(text, **context)
       result = engine.check_output(text, history: history, **@base_context, **context)
-      @turns << Turn.new(role: :assistant, text: content_of(result, text), result: result,
-                         origin: Origin.tool)
+      turn = Turn.new(role: :assistant, text: content_of(result, text), result: result,
+                      origin: Origin.tool)
+      @turns << turn
+      @session&.fold(result, origin: turn.origin, side: :output)
       result
     end
 
     # Screens retrieved documents with the dialogue in view, so a context rail
     # can see which question they were fetched for. A session, if any, records
-    # each page on the contamination track: instruction-shaped data is
-    # poisoned retrieval, not a user attack.
+    # every judged page on the contamination track, rejected ones included:
+    # instruction-shaped data is poisoned retrieval, not a user attack.
+    # Retrieved cells stay the survivors.
     def screen(documents, **context)
       seen = history
       result = engine.screen(documents, history: seen, **@base_context, **context)
       @retrieved = result.cells
       @locked = true
-      @retrieved.each do |cell|
-        @session&.observe(cell.value, side: :context, origin: :data, history: seen)
+      @intended.freeze
+      Array(documents).each do |document|
+        @session&.observe(Cell.text_of(document), side: :context, origin: :data, history: seen)
       end
       result
     end
@@ -132,7 +146,11 @@ module Vangrail
 
         @intended << name unless @intended.include?(name)
       end
-      @intended
+      intended
+    end
+
+    def intended
+      @intended.dup.freeze
     end
 
     def locked?
@@ -190,7 +208,7 @@ module Vangrail
       hook = run_pre_invoke(name, arguments)
       return hook if hook
 
-      unless intended.include?(name)
+      unless @intended.include?(name)
         result = Result.blocked(rail: 'plan', reason: "capability #{name} was not intended")
         record_invocation(name, arguments, result, nil)
         return result
@@ -248,7 +266,7 @@ module Vangrail
         'turns' => turns.map(&:to_h),
         'blocked' => blocked_turns.size,
         'invoked' => invocations.select { |row| row[:result].allowed? }.map { |row| row[:name].to_s },
-        'intended' => intended.map(&:to_s),
+        'intended' => @intended.map(&:to_s),
         'locked' => locked?,
         'profile' => profile.name.to_s,
         'session' => session&.to_h,
@@ -275,7 +293,24 @@ module Vangrail
 
     def record_invocation(name, arguments, result, cell)
       @invocations << { name: name, arguments: arguments, result: result, cell: cell }
-      @turns << Turn.new(role: :tool, text: name.to_s, result: result, origin: Origin.tool)
+      turn = Turn.new(role: :tool, text: name.to_s, result: result, origin: Origin.tool)
+      @turns << turn
+      @session&.fold(result, origin: turn.origin, side: :output)
+    end
+
+    def session_assess
+      options = { prior: @session.prior, policy: @session.policy }
+      options[:evidence] = @session.evidence if @session.evidence
+      options
+    end
+
+    def result_from(judgement)
+      if judgement.block? || judgement.fired.any?
+        rail = judgement.fired.dig(0, :rail) || judgement.side.to_s
+        return Result.blocked(rail: rail, certain: judgement.certain?)
+      end
+
+      Result.passed(rail: judgement.side.to_s, certain: judgement.certain?)
     end
 
     def content_of(result, fallback)

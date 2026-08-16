@@ -182,6 +182,82 @@ class TestConversation < Minitest::Test
     assert_raises(Vangrail::Error) { convo.messages(system: 's') }
   end
 
+  def test_ask_walks_the_engine_once
+    guarded = Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input))
+    counts = { check_input: 0, assess: 0 }
+    walker = Module.new do
+      define_method(:check_input) do |*args, **kwargs, &block|
+        counts[:check_input] += 1
+        super(*args, **kwargs, &block)
+      end
+      define_method(:assess) do |*args, **kwargs, &block|
+        counts[:assess] += 1
+        super(*args, **kwargs, &block)
+      end
+    end
+    guarded.singleton_class.prepend(walker)
+    convo = Vangrail::Conversation.new(guarded, prior: 1e-3)
+    convo.ask('Submit a batch job with sbatch and check it with squeue.')
+
+    assert_equal 1, counts[:check_input] + counts[:assess]
+    assert_equal [0, 1].sort, [counts[:check_input], counts[:assess]].sort
+    assert_equal 1, convo.session.turns.size
+  end
+
+  def test_a_leak_in_the_answer_moves_the_session
+    convo = Vangrail::Conversation.new(engine, prior: 1e-3)
+    convo.ask('How do I submit a job?')
+    before = convo.session.contamination.posterior
+    convo.answer('The token is sk-abcdefghijklmnopqrstuvwx1234 for now.')
+
+    assert_operator convo.session.contamination.posterior, :>, before
+    assert_equal :tool, convo.turns.last.origin.kind
+    assert_raises(ArgumentError) { convo.session.posterior }
+  end
+
+  def test_screen_observes_rejected_documents
+    pattern = Vangrail::Rails::Pattern.new(patterns: { 'nope' => /poison/ }, sides: [:context])
+    guarded = Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input),
+                                   context: [pattern] + Vangrail::Builder.deterministic(:context))
+    convo = Vangrail::Conversation.new(guarded, prior: 1e-3)
+    convo.ask('How do I submit a GPU job?')
+    result = convo.screen([{ 'text' => 'poison in the page' },
+                           { 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
+
+    assert_predicate result, :rejected?
+    assert_equal 1, convo.retrieved.size
+    assert_equal 2, convo.session.contamination.turns.size
+    refute_includes convo.retrieved.map(&:value), 'poison in the page'
+  end
+
+  def test_intended_is_not_a_live_array
+    tools = Vangrail::Tools.new.tap { |set| set.register(:cite, readonly: true) { 'ok' } }
+    convo = Vangrail::Conversation.new(engine, allow: { cite: %i[data] }, tools: tools)
+    convo.ask('Which GPU partitions exist?')
+    convo.intend(:cite)
+
+    assert_raises(FrozenError) { convo.intended << :shell }
+    assert_equal %i[cite], convo.intended
+
+    convo.screen([{ 'text' => 'Use sbatch.' }])
+
+    assert_raises(FrozenError) { convo.intended << :shell }
+    assert_equal %i[cite], convo.intended
+  end
+
+  def test_invoke_folds_with_the_turn_origin
+    tools = Vangrail::Tools.new.tap { |set| set.register(:cite, readonly: true) { 'gpu_a100' } }
+    convo = Vangrail::Conversation.new(engine, prior: 1e-3, allow: { cite: %i[data] }, tools: tools)
+    convo.ask('Which GPU partitions exist?')
+    convo.intend(:cite)
+    convo.screen([{ 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
+    before = convo.session.contamination.turns.size
+    convo.invoke(:cite, arguments: 'gpu_a100')
+
+    assert_operator convo.session.contamination.turns.size, :>, before
+    assert_equal :tool, convo.turns.last.origin.kind
+  end
+
   def test_session_and_prior_together_are_refused
     existing = Vangrail::Session.new(engine: engine, prior: 1e-3)
 
