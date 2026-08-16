@@ -73,7 +73,16 @@ below `Unreleased` is written by hand until it is released.
 
 ## [Unreleased]
 
-Nothing has been released yet. This section describes what exists.
+### Added
+
+### Fixed
+
+## v0.2.0 - 2026-08-16
+
+The rail protocol is `#decide`. `#call` scrubs bytes first and then
+delegates. Builder and Engine are separate objects. Judges that cannot
+parse an answer go through `unchecked`. The rest of this section is what
+landed between v0.1.0 and this tag.
 
 ### Fixed
 
