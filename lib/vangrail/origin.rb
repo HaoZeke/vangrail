@@ -114,7 +114,7 @@ module Vangrail
   # Mixing is a union: concatenate a user question with a retrieved page
   # and the result carries both origins. Any untrusted origin taints the
   # cell. Taint does not wash off by quoting, summarising, or extracting
-  # a field. That is the CaMeL rule, and it is the whole rule.
+  # a field. That is a policy over tagged cells, not CaMeL.
   class Cell
     attr_reader :value, :origins, :capabilities
 
