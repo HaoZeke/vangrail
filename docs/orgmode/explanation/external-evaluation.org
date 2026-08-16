@@ -101,6 +101,28 @@ instructions addressed to software. The hand-written benign corpus hid this
 completely, because it contained handbook sentences rather than option
 descriptions.
 
+*** Bytes that are not text
+
+Checked before any scrub, over 2,981 of the same documents: *zero* carry invalid
+UTF-8, and *two* carry a replacement character already baked in. Both are old
+changelogs whose contributor names were mangled in some encoding transition and
+committed that way.
+
+That decides a design question rather than reporting a curiosity. Blocking on a
+replacement character would fire on genuine archival documentation at about one
+page in fifteen hundred, which is not a rate a screening rail can spend, so the
+character is stripped and the strip is reported as a rewrite -- the same
+contract zero-width characters have.
+
+The zero is more interesting than it looks, and it is an artifact. This corpus
+is files on disk, read whole or rendered through groff, and invalid bytes
+essentially cannot arise that way. They arise on the path this corpus cannot
+see: a body reassembled from network chunks, where a split multi-byte character
+is the ordinary case rather than an attack. A rail blocking on invalid bytes
+would therefore have a spotless record on the corpus that cannot produce them,
+and would fire on the innocent case in the one place they occur. Which is the
+off-distribution trap in miniature, approached from the other side.
+
 ** The base rate, measured rather than assumed
 
 Every argument on the evidence page rests on a base rate, and the number used
