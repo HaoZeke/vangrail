@@ -24,7 +24,8 @@ and it is measurable: run the rail over attacks, run it over ordinary
 documentation, and divide.
 
 Measured over 270 attack texts and 48 benign ones, every rail against the same
-set (=script/measure_evidence.rb=):
+handbook set (=script/measure_evidence.rb=, which writes
+=tmp/handbook_evidence.rb=, not the shipped table):
 
 | Rail                    | Caught  | Flagged | If it fires | Defensible at 95% | Capability at 1e-4 |
 |-------------------------+---------+---------+-------------+-------------------+--------------------|
@@ -39,7 +40,9 @@ set (=script/measure_evidence.rb=):
 
 A bit is a doubling of the odds. Silence is worth the other direction: a rail
 that catches three quarters of everything and says nothing about this page has
-told you something, and an OR gate cannot express it at all.
+told you something, and an OR gate cannot express it at all. =Engine#assess=
+reads =EvidenceData=, written by =script/measure_evidence_external.rb= from
+published attacks and real documents, not this handbook table.
 
 The third column is the one to trust and the second is the one to be careful
 with. A rate is not a number, it is a posterior over a number, and with a Beta
@@ -216,9 +219,10 @@ evidence of a clean page, and under a naive vote count it does.
 
 Three rails firing on the same sentence for the same reason are one observation
 reported three times, and summing them is how naive Bayes talks itself into
-certainty. =script/measure_evidence.rb= measures the correlation between every
-pair of rails and groups the ones that agree; a group contributes its single most
-informative member.
+certainty. =script/measure_evidence.rb= measures the correlation on the handbook
+set; the shipped table comes from =script/measure_evidence_external.rb=. Pairs
+that agree are grouped, and a group contributes its single most informative
+member.
 
 On the shipped corpus no pair reaches the grouping threshold: the highest is
 =alignment= with =similarity= at 0.49. The rails here really are
@@ -353,8 +357,8 @@ Every number moves if the corpus does. A rail measured against a corpus
 containing none of the attacks it was built for scores zero catches and the
 arithmetic concludes a hit from it is evidence of innocence, which is exactly
 what happened here before the encoded and pasted families were added. A
-deployment whose traffic looks different should regenerate the table rather than
-inherit these numbers.
+deployment whose traffic looks different should rerun
+=script/measure_evidence_external.rb= rather than inherit these numbers.
 
 *** The posterior is a ranking with a scale, not a calibrated probability
 

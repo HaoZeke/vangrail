@@ -208,4 +208,25 @@ class TestInjectionCorpus < Minitest::Test
   def test_the_encoded_corpus_is_the_size_it_claims
     assert_equal INJECTIONS.size * ENCODINGS.size, encoded_corpus.size
   end
+
+  # The measurement scripts share these sets. A uniq collapse would leave the
+  # comments and the handbook report lying, and nothing else would fail.
+  def test_the_handbook_sets_are_the_size_they_claim
+    require_relative '../script/handbook_corpus'
+
+    assert_equal 270, HandbookCorpus.attack_texts.size
+    assert_equal 48, HandbookCorpus.benign_texts.size
+    assert_equal 120, HandbookCorpus.local_attacks.size
+  end
+
+  # Scripts require this file as data. helper.rb is the only minitest/autorun
+  # load in the tree; one require added here puts every measurement back in
+  # autorun, and the suite would not notice because it loads helper first.
+  def test_the_corpus_file_loads_without_minitest
+    path = File.expand_path('corpus', __dir__)
+    script = "require #{path.inspect}; abort('minitest') if defined?(Minitest); print 'ok'"
+    actual = IO.popen([Gem.ruby, '-e', script], err: [:child, :out], &:read)
+
+    assert_equal 'ok', actual
+  end
 end

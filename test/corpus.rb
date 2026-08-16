@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# This file must never require helper or minitest: scripts load it as data.
 # Shared handbook and attack prose. Test files and measurement scripts read
 # this module instead of requiring a test class: a test_*.rb load starts
 # minitest, and scripts have no business doing that. Spliced pages live in

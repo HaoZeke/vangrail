@@ -126,8 +126,8 @@ end
 sorted = benign_scores.sort
 allowed = (rail_fpr * benign_scores.size).floor
 matched = allowed.zero? ? sorted.last + 1e-9 : sorted[[sorted.size - allowed - 1, 0].max]
-bayes_caught = attack_scores.count { |value| value > matched }
-bayes_flagged = benign_scores.count { |value| value > matched }
+bag_caught = attack_scores.count { |value| value > matched }
+bag_flagged = benign_scores.count { |value| value > matched }
 
 # And the threshold that spends nothing, for the other end of the curve.
 strict = sorted.last
@@ -138,11 +138,11 @@ report = {
   'source' => 'in-the-wild jailbreak prompts against ordinary prompts from the same collection',
   'rails' => { 'caught' => rail_caught, 'flagged' => rail_flagged,
                'detection' => rail_caught.fdiv(attacks.size).round(4), 'false_alarm' => rail_fpr.round(4) },
-  'bayes_matched' => { 'threshold' => matched.round(3), 'caught' => bayes_caught, 'flagged' => bayes_flagged,
-                       'detection' => bayes_caught.fdiv(attacks.size).round(4),
-                       'false_alarm' => bayes_flagged.fdiv(benign.size).round(4) },
-  'bayes_zero_false_alarms' => { 'threshold' => strict.round(3), 'caught' => strict_caught,
-                                 'detection' => strict_caught.fdiv(attacks.size).round(4) }
+  'bag_matched' => { 'threshold' => matched.round(3), 'caught' => bag_caught, 'flagged' => bag_flagged,
+                     'detection' => bag_caught.fdiv(attacks.size).round(4),
+                     'false_alarm' => bag_flagged.fdiv(benign.size).round(4) },
+  'bag_zero_false_alarms' => { 'threshold' => strict.round(3), 'caught' => strict_caught,
+                               'detection' => strict_caught.fdiv(attacks.size).round(4) }
 }
 
 File.write(OUTPUT, JSON.pretty_generate(report))
@@ -152,9 +152,9 @@ puts "#{attacks.size} in-the-wild jailbreaks, #{benign.size} ordinary prompts, #
 puts format('  %-28s %8s %10s %12s', 'detector', 'caught', 'detection', 'false alarm')
 puts format('  %-28s %8d %10.3f %12.4f', 'rails (hand-written)', rail_caught,
             report['rails']['detection'], report['rails']['false_alarm'])
-puts format('  %-28s %8d %10.3f %12.4f', 'naive Bayes, matched FPR', bayes_caught,
-            report['bayes_matched']['detection'], report['bayes_matched']['false_alarm'])
-puts format('  %-28s %8d %10.3f %12.4f', 'naive Bayes, zero FPR', strict_caught,
-            report['bayes_zero_false_alarms']['detection'], 0.0)
+puts format('  %-28s %8d %10.3f %12.4f', 'bag-of-stems, matched FPR', bag_caught,
+            report['bag_matched']['detection'], report['bag_matched']['false_alarm'])
+puts format('  %-28s %8d %10.3f %12.4f', 'bag-of-stems, zero FPR', strict_caught,
+            report['bag_zero_false_alarms']['detection'], 0.0)
 puts
 puts "written to #{OUTPUT}"
