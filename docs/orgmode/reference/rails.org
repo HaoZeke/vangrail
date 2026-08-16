@@ -114,13 +114,10 @@ and the same two nine lines apart are two sentences.
 
 Three-concept ordered match with a gap, for the adjunct the pair window
 cannot reach. Input and context, deterministic, offline, on with the
-other lexicon rails. Smith and Waterman (1981) is the motivation;
-the implementation takes the last occurrence of each template concept
-and requires them in order, with no coordinator between the first and
-the last. Extra copies of =instruction= mid-clause do not steal the
-object of the override.
-
-Not in the evidence table until it is scored on the same 270/48 texts.
+other lexicon rails. Last-in-order within a span: the last occurrence
+of each template concept, in order, with no coordinator between the
+first and the last. Extra copies of =instruction= mid-clause do not
+steal the object of the override.
 
 ** Session CUSUM
 

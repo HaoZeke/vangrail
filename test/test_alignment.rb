@@ -2,7 +2,7 @@
 
 require_relative 'helper'
 
-# Smith-Waterman over the concept stream: the pair window's gap.
+# Last-in-order within a span: the pair window's gap.
 class TestAlignment < Minitest::Test
   include GuardrailsTest
 
