@@ -99,11 +99,18 @@ class TestJudgement < Minitest::Test
   # those two numbers sit on different sides of the review line, the
   # action is not identified.
   def test_a_confidence_bound_refuses_an_action_the_corpus_cannot_defend
+    # An explicit operating point rather than the shipped table, so this keeps
+    # meaning the same thing after a remeasurement. Twenty-eight catches in
+    # fifty against six false alarms in fifty is enough to reach review on the
+    # point estimate and not enough to defend it at the bound.
+    table = { 'jailbreak' => Vangrail::Evidence.new(rail: 'jailbreak', group: 'jailbreak',
+                                                    attacks_caught: 28, attacks: 50,
+                                                    benign_flagged: 6, benign: 50) }
     hit = ScriptedRail.new(Vangrail::Result.blocked(rail: 'jailbreak'),
                            name: 'jailbreak', sides: [:context])
     isolated = Vangrail::Engine.new(context: [hit], cache: false)
-    point = isolated.assess('x', side: :context, prior: 0.02)
-    bound = isolated.assess('x', side: :context, prior: 0.02, confidence: 0.95)
+    point = isolated.assess('x', side: :context, prior: 0.02, evidence: table, confidence: nil)
+    bound = isolated.assess('x', side: :context, prior: 0.02, evidence: table)
 
     assert_equal :review, point.action
     assert_equal :allow, bound.action

@@ -91,12 +91,7 @@ warn "#{attacks.size} jailbreak prompts, #{benign.size} ordinary prompts"
 
 # --- the rails, on the same texts ---
 
-rails = [Vangrail::Rails::Pattern.new(patterns: Vangrail::Builder::INJECTION_PATTERNS,
-                                      name: 'injection_patterns', sides: [:input]),
-         Vangrail::Rails::Jailbreak.new(sides: [:input]),
-         Vangrail::Rails::Paraphrase.new(sides: [:input]),
-         Vangrail::Rails::Similarity.new(sides: [:input]),
-         Vangrail::Rails::ManyShot.new(sides: [:input])]
+rails = Vangrail::Builder.deterministic(:input).reject { |rail| rail.name == 'language' }
 
 def any_block?(rails, text)
   rails.any? { |rail| rail.call(text, side: :input).blocked? }

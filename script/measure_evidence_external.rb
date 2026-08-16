@@ -55,16 +55,8 @@ def local_attacks
   corpus.corpus.map { |c| c[:text] } + corpus.encoded_corpus.map { |c| c[:text] }
 end
 
-CONTEXT_RAILS = begin
-  deterministic = [Vangrail::Rails::InjectedInstructions.new,
-                   Vangrail::Rails::Jailbreak.new(sides: [:context]),
-                   Vangrail::Rails::Paraphrase.new(sides: [:context]),
-                   Vangrail::Rails::Similarity.new(sides: [:context]),
-                   Vangrail::Rails::ManyShot.new(sides: [:context])]
-  deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                   Vangrail::Rails::Hidden.new(rails: deterministic),
-                   Vangrail::Rails::Bayes.new(sides: [:context])]
-end
+CONTEXT_RAILS = (Vangrail::Builder.deterministic(:context).reject { |rail| rail.name == 'language' } +
+                 [Vangrail::Rails::Bayes.new(sides: [:context])]).freeze
 
 own = local_attacks
 own_caught = CONTEXT_RAILS.to_h do |rail|

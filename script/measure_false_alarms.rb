@@ -28,14 +28,11 @@ require_relative 'local_corpus'
 LIMIT = (ARGV[0] || 20_000).to_i
 OUTPUT = ARGV[1] || File.expand_path('../tmp/false_alarms.json', __dir__)
 
-deterministic = [Vangrail::Rails::InjectedInstructions.new,
-                 Vangrail::Rails::Jailbreak.new(sides: [:context]),
-                 Vangrail::Rails::Paraphrase.new(sides: [:context]),
-                 Vangrail::Rails::Similarity.new(sides: [:context]),
-                 Vangrail::Rails::ManyShot.new(sides: [:context])]
-RAILS = deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                         Vangrail::Rails::Hidden.new(rails: deterministic),
-                         Vangrail::Rails::Bayes.new(sides: [:context])]
+# Whatever the builder currently ships, rather than a list copied here and left
+# to rot: a rail added upstream is measured the next time this runs. The
+# language rail is dropped because it never blocks by design.
+RAILS = (Vangrail::Builder.deterministic(:context).reject { |rail| rail.name == 'language' } +
+         [Vangrail::Rails::Bayes.new(sides: [:context])]).freeze
 
 counts = RAILS.to_h { |rail| [rail.name, 0] }
 flagged = Hash.new { |hash, key| hash[key] = [] }

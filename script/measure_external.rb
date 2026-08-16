@@ -106,26 +106,11 @@ def prompts(dir, name, limit)
   out
 end
 
-def context_rails
-  deterministic = [Vangrail::Rails::InjectedInstructions.new,
-                   Vangrail::Rails::Jailbreak.new(sides: [:context]),
-                   Vangrail::Rails::Paraphrase.new(sides: [:context]),
-                   Vangrail::Rails::Similarity.new(sides: [:context]),
-                   Vangrail::Rails::ManyShot.new(sides: [:context])]
-  deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                   Vangrail::Rails::Hidden.new(rails: deterministic),
-                   Vangrail::Rails::Bayes.new(sides: [:context])]
-end
-
-def input_rails
-  deterministic = [Vangrail::Rails::Pattern.new(patterns: Vangrail::Builder::INJECTION_PATTERNS,
-                                                name: 'injection_patterns', sides: [:input]),
-                   Vangrail::Rails::Jailbreak.new(sides: [:input]),
-                   Vangrail::Rails::Paraphrase.new(sides: [:input]),
-                   Vangrail::Rails::Similarity.new(sides: [:input]),
-                   Vangrail::Rails::ManyShot.new(sides: [:input])]
-  deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:input]),
-                   Vangrail::Rails::Bayes.new(sides: [:input])]
+# Whatever the builder ships for each side, so a rail added upstream is scored
+# the next time this runs. The language rail never blocks and is dropped.
+def rails_for(side)
+  Vangrail::Builder.deterministic(side).reject { |rail| rail.name == 'language' } +
+    [Vangrail::Rails::Bayes.new(sides: [side])]
 end
 
 def tally(rails, texts, side)
@@ -158,7 +143,7 @@ poisoned = injections.each_with_index.map do |injection, i|
   "#{page[0, half]}\n\n#{injection}\n\n#{page[half..]}"
 end
 
-rails = context_rails
+rails = rails_for(:context)
 warn 'scoring poisoned pages'
 caught = tally(rails, poisoned, :context)
 warn 'scoring clean pages'
@@ -181,7 +166,7 @@ jailbreaks = prompts(DATA, 'jailbreak_prompts_2023_12_25.csv', PROMPTS)
 regular = prompts(DATA, 'regular_prompts_2023_12_25.csv', PROMPTS)
 warn "#{jailbreaks.size} jailbreak prompts, #{regular.size} ordinary prompts"
 
-rails = input_rails
+rails = rails_for(:input)
 warn 'scoring jailbreak prompts'
 caught = tally(rails, jailbreaks, :input)
 warn 'scoring ordinary prompts'

@@ -23,13 +23,9 @@ require_relative 'local_corpus'
 LIMIT = (ARGV[0] || 6000).to_i
 OUTPUT = ARGV[1] || File.expand_path('../tmp/union.json', __dir__)
 
-deterministic = [Vangrail::Rails::InjectedInstructions.new,
-                 Vangrail::Rails::Jailbreak.new(sides: [:context]),
-                 Vangrail::Rails::Paraphrase.new(sides: [:context]),
-                 Vangrail::Rails::Similarity.new(sides: [:context]),
-                 Vangrail::Rails::ManyShot.new(sides: [:context])]
-RAILS = deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                         Vangrail::Rails::Hidden.new(rails: deterministic)]
+# The stack as the builder ships it, minus the rail that never blocks.
+RAILS = Vangrail::Builder.deterministic(:context).reject { |rail| rail.name == 'language' }.freeze
+
 NAMES = RAILS.map(&:name).freeze
 
 vectors = []

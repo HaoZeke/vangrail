@@ -27,14 +27,8 @@ DATA = ARGV[0] || File.expand_path('../tmp/external', __dir__)
 OUTPUT = ARGV[1] || File.expand_path('../tmp/bipia_families.json', __dir__)
 PAGES = 120
 
-deterministic = [Vangrail::Rails::InjectedInstructions.new,
-                 Vangrail::Rails::Jailbreak.new(sides: [:context]),
-                 Vangrail::Rails::Paraphrase.new(sides: [:context]),
-                 Vangrail::Rails::Similarity.new(sides: [:context]),
-                 Vangrail::Rails::ManyShot.new(sides: [:context])]
-RAILS = deterministic + [Vangrail::Rails::Obfuscation.new(rails: deterministic, sides: [:context]),
-                         Vangrail::Rails::Hidden.new(rails: deterministic),
-                         Vangrail::Rails::Bayes.new(sides: [:context])]
+RAILS = (Vangrail::Builder.deterministic(:context).reject { |rail| rail.name == 'language' } +
+         [Vangrail::Rails::Bayes.new(sides: [:context])]).freeze
 
 pages = []
 LocalCorpus.each_document(limit: PAGES, quiet: true, truncate: 4000) { |text, _p| pages << text }

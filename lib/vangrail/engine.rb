@@ -152,8 +152,11 @@ module Vangrail
       # identified: reporting it as a certain decision would spend evidence
       # nobody measured.
       if confidence
+        # Explicitly nil, because the bound is what `combine` defaults to now:
+        # asking for the point estimate has to say so, or this compares the
+        # bound against itself and reports every action as identified.
         point, = Posterior.combine(prior: prior, observations: observations,
-                                   evidence: evidence, direct: direct)
+                                   evidence: evidence, direct: direct, confidence: nil)
         certain &&= policy.action_for(point) == action
       end
       Judgement.new(posterior: posterior, prior: prior, bits: contributions.sum { |c| c[:bits] },
