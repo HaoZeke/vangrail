@@ -23,9 +23,12 @@ module Vangrail
 
     attr_reader :model, :http
 
-    def initialize(model:, http: nil, base_url: nil, api_key: nil)
+    def initialize(model:, http: nil, base_url: nil, api_key: nil,
+                   open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
+                   read_timeout: HTTP::DEFAULT_READ_TIMEOUT)
       @model = model
       @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         open_timeout: open_timeout, read_timeout: read_timeout,
                          missing: 'an Embeddings needs a base_url or an http client')
     end
 

@@ -373,10 +373,12 @@ module Vangrail
     # placeholder ends up claiming a side that does not exist.
     def missing(name, side)
       reason =
-        if provider
-          "#{provider.name} is not available at #{provider.base_url}"
-        else
+        if provider.nil?
           'no endpoint resolved: set GUARDRAILS_API_BASE, or start a local one'
+        elsif provider.available? && provider.model(:judge).nil?
+          'no judge model; set LLMLITE_MODEL or GUARDRAILS_JUDGE_MODEL'
+        else
+          "#{provider.name} is not available at #{provider.base_url}"
         end
       Rails::Missing.new(reason: reason, name: name.to_s, sides: [side])
     end

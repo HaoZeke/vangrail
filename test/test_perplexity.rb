@@ -124,6 +124,15 @@ class TestPerplexity < Minitest::Test
     assert_raises(Vangrail::TransportError) { Vangrail::Completion.new(model: 'm', http: http).supported? }
   end
 
+  def test_a_missing_completions_endpoint_is_unsupported
+    http = StubHTTP.new(raises: { '/completions' => Vangrail::HTTPError.new(404, 'not found') })
+    completion = Vangrail::Completion.new(model: 'm', http: http)
+
+    refute_predicate completion, :supported?
+    refute_predicate completion, :supported?
+    assert_equal 1, http.calls.size
+  end
+
   def test_the_model_and_settings_are_part_of_the_memo_key
     assert_equal "test-model\n7.0\n16\ntext", rail.cache_key('text', {})
   end

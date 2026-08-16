@@ -135,6 +135,33 @@ class TestClient < Minitest::Test
     assert_raises(Vangrail::TransportError) { client.configs }
   end
 
+  # Rails splat open_timeout: / read_timeout: into these constructors.
+  def test_timeouts_are_forwarded_into_http
+    url = 'http://127.0.0.1:9'
+    client = Vangrail::Client.new(base_url: url, open_timeout: 1, read_timeout: 2)
+    chat = Vangrail::Chat.new(model: 'x', base_url: url, open_timeout: 1, read_timeout: 2)
+    embeddings = Vangrail::Embeddings.new(model: 'x', base_url: url, open_timeout: 3, read_timeout: 4)
+    via_helper = Vangrail.client(base_url: url, open_timeout: 1, read_timeout: 2)
+
+    assert_equal 1, client.http.open_timeout
+    assert_equal 2, client.http.read_timeout
+    assert_equal 1, chat.http.open_timeout
+    assert_equal 2, chat.http.read_timeout
+    assert_equal 3, embeddings.http.open_timeout
+    assert_equal 4, embeddings.http.read_timeout
+    assert_equal 1, via_helper.http.open_timeout
+  end
+
+  def test_a_turn_is_still_named_completion
+    FakeServer.with(legacy_handler) do |fake|
+      turn = Vangrail::Client.new(base_url: fake.base_url).chat(messages: [{ 'role' => 'user', 'content' => 'hi' }])
+
+      assert_instance_of Vangrail::Client::Turn, turn
+      assert_kind_of Vangrail::Client::Completion, turn
+      assert_same Vangrail::Client::Turn, Vangrail::Client::Completion
+    end
+  end
+
   # --- as a rail ---
 
   def test_a_remote_rail_fits_beside_the_local_ones

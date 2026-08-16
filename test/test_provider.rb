@@ -52,6 +52,18 @@ class TestProvider < Minitest::Test
     Vangrail::Providers.reset!
   end
 
+  def test_register_gateway_still_accepts_the_keyword_form
+    Vangrail::Providers.register_gateway(
+      name: 'hub', base_url: 'https://gateway.invalid/api/v0',
+      models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
+    )
+
+    assert_equal %w[llmlite hub], Vangrail::Provider.names
+    assert_equal 'some/instruct', Vangrail::Provider['hub'].model(:judge)
+  ensure
+    Vangrail::Providers.reset!
+  end
+
   def test_registering_a_name_twice_replaces_it
     2.times do
       Vangrail::Providers.register_gateway(

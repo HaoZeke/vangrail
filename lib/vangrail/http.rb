@@ -12,6 +12,9 @@ module Vangrail
     DEFAULT_OPEN_TIMEOUT = 5
     DEFAULT_READ_TIMEOUT = 30
 
+    # retries is a switch, not a count: 0 means no retry, any positive value
+    # retries TransportError once. HTTPError (including 429) is never retried
+    # and never slept on; a rail that waits is a rail that hangs the request.
     attr_reader :base_url, :open_timeout, :read_timeout, :retries
 
     # Chat, Embeddings, Completion, and Client all take an HTTP or the

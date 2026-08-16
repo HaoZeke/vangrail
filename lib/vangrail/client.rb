@@ -35,7 +35,12 @@ module Vangrail
     # of those happens, so a caller can report "not yet known" honestly.
     attr_reader :checks_supported
 
-    def initialize(http: nil, base_url: nil, config_id: nil, model: nil, api_key: nil, protocol: :auto)
+    # The 0.1.0 name. Prefer Turn in new code.
+    Completion = Turn
+
+    def initialize(http: nil, base_url: nil, config_id: nil, model: nil, api_key: nil,
+                   protocol: :auto, open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
+                   read_timeout: HTTP::DEFAULT_READ_TIMEOUT)
       unless PROTOCOLS.include?(protocol)
         raise ArgumentError,
               "protocol must be one of #{PROTOCOLS.join(', ')}"
@@ -46,6 +51,7 @@ module Vangrail
       @protocol = protocol
       @checks_supported = nil
       @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         open_timeout: open_timeout, read_timeout: read_timeout,
                          missing: 'a Client needs a base_url or an http client')
     end
 

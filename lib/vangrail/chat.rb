@@ -20,12 +20,14 @@ module Vangrail
     attr_reader :model, :http, :max_tokens, :temperature, :extra
 
     def initialize(model:, http: nil, base_url: nil, api_key: nil, max_tokens: 128,
-                   temperature: 0, extra: {})
+                   temperature: 0, extra: {}, open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
+                   read_timeout: HTTP::DEFAULT_READ_TIMEOUT)
       @model = model
       @max_tokens = max_tokens
       @temperature = temperature
       @extra = extra
       @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         open_timeout: open_timeout, read_timeout: read_timeout,
                          missing: 'a Chat needs a base_url or an http client')
     end
 

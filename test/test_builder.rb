@@ -54,7 +54,8 @@ class TestBuilder < Minitest::Test
   # The gap this closes: with only offline rails present, a clean pass would
   # otherwise read as certain while the configured model rail never ran.
   def test_an_unreachable_endpoint_leaves_a_placeholder_so_the_pass_stays_uncertain
-    e = engine('GUARDRAILS_PROVIDER' => 'llmlite', 'LLMLITE_PORT' => closed_port.to_s)
+    Vangrail::Providers.install!('LLMLITE_PORT' => closed_port.to_s)
+    e = engine('GUARDRAILS_PROVIDER' => 'llmlite')
 
     assert_includes e.rail_names(:input), 'input_model'
     result = e.check_input('How do I submit a job?')
@@ -62,6 +63,23 @@ class TestBuilder < Minitest::Test
     assert_predicate result, :passed?
     refute_predicate result, :certain?
     assert_includes result.reason, 'llmlite is not available'
+  end
+
+  # A listener with no named model is selected, then replaced by Missing.
+  # The reason has to say the model is missing, not that the proxy is down.
+  def test_a_reachable_endpoint_without_a_judge_names_the_missing_model
+    server = TCPServer.new('127.0.0.1', 0)
+    Vangrail::Providers.install!('LLMLITE_PORT' => server.addr[1].to_s)
+    e = engine('GUARDRAILS_PROVIDER' => 'llmlite')
+    result = e.check_input('How do I submit a job?')
+
+    assert_includes e.rail_names(:input), 'input_model'
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+    assert_includes result.reason, 'no judge model'
+    refute_includes result.reason, 'not available'
+  ensure
+    server&.close
   end
 
   def test_a_reachable_classifier_endpoint_gets_a_classifier_rail

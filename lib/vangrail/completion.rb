@@ -25,9 +25,12 @@ module Vangrail
 
     attr_reader :model, :http
 
-    def initialize(model:, http: nil, base_url: nil, api_key: nil)
+    def initialize(model:, http: nil, base_url: nil, api_key: nil,
+                   open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
+                   read_timeout: HTTP::DEFAULT_READ_TIMEOUT)
       @model = model
       @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         open_timeout: open_timeout, read_timeout: read_timeout,
                          missing: 'a Completion needs a base_url or an http client')
     end
 
@@ -51,15 +54,19 @@ module Vangrail
       values.compact
     end
 
-    # Whether this endpoint can score at all. ProtocolError means it cannot;
-    # TransportError means it is down, which is a different question. Asked
-    # once and kept, so a rail does not spend a scoring request on a boolean
-    # every check.
+    # Whether this endpoint can score at all. ProtocolError and HTTP 404 mean
+    # it cannot; TransportError means it is down, which is a different
+    # question. Asked once and kept, so a rail does not spend a scoring
+    # request on a boolean every check.
     def supported?
       return @supported unless @supported.nil?
 
       @supported = token_logprobs('the quick brown fox').size > 1
     rescue ProtocolError
+      @supported = false
+    rescue HTTPError => e
+      raise unless e.status == 404
+
       @supported = false
     end
 

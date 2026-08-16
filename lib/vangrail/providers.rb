@@ -19,6 +19,7 @@ module Vangrail
   # application that has one, or described by environment:
   #
   #   Vangrail::Providers.register_gateway(Gateway::Spec.new(name: 'hub', base_url: '...'))
+  #   Vangrail::Providers.register_gateway(name: 'hub', base_url: '...')
   #   GUARDRAILS_GATEWAY_API_BASE=...  GUARDRAILS_GATEWAY_API_KEY=...
   #
   # An endpoint needed for a single run needs no registration at all:
@@ -41,7 +42,10 @@ module Vangrail
 
     # Registers a shared gateway and returns its Provider. Registering a name
     # twice replaces it, so reloading an application is not a duplicate.
-    def register_gateway(spec, env: ENV)
+    #
+    # Preferred: a Gateway::Spec. The 0.1.0 keywords still work and become one.
+    def register_gateway(spec = nil, env: ENV, **kwargs)
+      spec = spec.is_a?(Gateway::Spec) ? spec : Gateway::Spec.new(**(spec || kwargs))
       registered_specs.reject! { |s| s.name == spec.name }
       registered_specs << spec
       Provider.register(Gateway.provider(spec, env))
