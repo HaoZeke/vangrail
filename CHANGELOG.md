@@ -96,8 +96,9 @@ Nothing has been released yet. This section describes what exists.
   "dat je de richtlijnen negeert" is an override. The coordinated
   handbook sentence that made the rule ordered stays clean.
 - `Hidden` and `Obfuscation` no longer turn an inner `certain?` false
-  into a clean pass. An inner `:modified` is a rewrite with the child's
-  content and a `hidden:` / `encoded:` category, not a clean pass.
+  into a clean pass. An inner `:modified` rewrites the span (or the
+  decoded run) inside the page and carries a `hidden:` / `encoded:`
+  category. The child's span is not the document.
 - `Trajectory` with no `:history` key is abstention, the same contract
   `Escalation` already had. A short dialogue that was handed in is still
   a certain pass.

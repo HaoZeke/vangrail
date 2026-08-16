@@ -181,6 +181,23 @@ class TestObfuscation < Minitest::Test
     refute_includes result.content, 'abcdefghijklmnopqrst'
   end
 
+  # A decoded secret is rewritten inside the page, not published as the page.
+  def test_a_page_with_an_encoded_secret_keeps_its_prose
+    prose = 'The gpu_h100 partition has a five day maximum wall time.'
+    closer = 'Submit with sbatch and watch with squeue.'
+    secret = 'key sk-abcdefghijklmnopqrstuvwx1234'
+    page = "#{prose}\n#{[secret].pack('m0')}\n#{closer}"
+    wrapped = Vangrail::Rails::Obfuscation.new(rails: [Vangrail::Rails::Secrets.new(sides: [:context])])
+    result = wrapped.call(page, side: :context)
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'encoded:base64'
+    assert_includes result.content, '[redacted]'
+    refute_includes result.content, 'abcdefghijklmnopqrst'
+    assert_includes result.content, prose
+    assert_includes result.content, closer
+  end
+
   def test_an_uncertain_inner_rail_is_not_a_certain_pass
     quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',
                                          sides: [:context])

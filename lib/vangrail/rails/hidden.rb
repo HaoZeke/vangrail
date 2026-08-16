@@ -25,7 +25,8 @@ module Vangrail
     # found rather than what it says. A hidden span with ordinary content in it
     # passes: pages carry meta descriptions and alt text for good reasons, and
     # a rail that objected to invisible text as such would reject most of the
-    # web.
+    # web. A child that rewrites a span (a key in a comment) replaces that
+    # span inside the page. The rest of the page is still the page.
     #
     # Only useful where documents arrive as HTML. A retrieval step that
     # converts to markdown before storing has usually dropped most of these
@@ -77,22 +78,42 @@ module Vangrail
       end
 
       def decide(text, context)
+        rewritten = text.to_s
+        modified = nil
         uncertain = nil
-        spans(text).each do |carrier, span|
-          rails.each do |rail|
-            result = rail.call(span, context)
-            extra = ["hidden:#{carrier}"]
-            if result.blocked?
-              return block(categories: (result.categories || []) + extra,
-                           reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
-            end
-            if result.modified?
-              return modify(result.content, categories: (result.categories || []) + extra,
-                            reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
-            end
 
-            uncertain ||= result unless result.certain?
+        blocked = catch(:blocked) do
+          carriers.each do |carrier, pattern|
+            rewritten = rewritten.gsub(pattern) do |full|
+              span = captured_span(Regexp.last_match)
+              next full if span.empty?
+
+              current = span
+              rails.each do |rail|
+                result = rail.call(current, context)
+                extra = ["hidden:#{carrier}"]
+                if result.blocked?
+                  throw :blocked, wrapped_block(result, extra, carrier)
+                end
+
+                if result.modified?
+                  current = result.content.to_s
+                  modified = [result, extra, carrier]
+                elsif !result.certain?
+                  uncertain ||= result
+                end
+              end
+              current == span ? full : full.sub(span) { current }
+            end
           end
+          nil
+        end
+        return blocked if blocked
+
+        if modified
+          result, extra, carrier = modified
+          return modify(rewritten, categories: (result.categories || []) + extra,
+                        reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
         end
         return unchecked(uncertain.reason) if uncertain
 
@@ -109,6 +130,18 @@ module Vangrail
             [carrier, span] unless span.empty?
           end
         end
+      end
+
+      private
+
+      def captured_span(match)
+        captures = match.captures.compact
+        (captures.max_by(&:length) || match[0]).to_s.strip
+      end
+
+      def wrapped_block(result, extra, carrier)
+        block(categories: (result.categories || []) + extra,
+              reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
       end
     end
   end

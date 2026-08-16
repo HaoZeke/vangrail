@@ -672,7 +672,7 @@ one when the local rails cover it.
 | `Rails::Semantic` | input, context | yes | passed, blocked |
 | `Rails::Perplexity` | input, context | yes | passed, blocked |
 | `Rails::Obfuscation` | input, context | follows what it wraps | passed, modified, blocked |
-| `Rails::Hidden` | context | follows what it wraps | passed, blocked |
+| `Rails::Hidden` | context | follows what it wraps | passed, modified, blocked |
 | `Rails::Escalation` | input | no | passed, blocked |
 | `Rails::ManyShot` | input, context | no | passed, modified, blocked |
 | `Rails::Canary` | input, output | no | passed, blocked |
