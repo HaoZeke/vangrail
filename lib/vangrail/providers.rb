@@ -18,7 +18,8 @@ module Vangrail
   # somebody's secrets live. A shared gateway is therefore registered by the
   # application that has one, or described by environment:
   #
-  #   Vangrail::Providers.register_gateway(name: 'hub', base_url: '...', ...)
+  #   Vangrail::Providers.register_gateway(Gateway::Spec.new(name: 'hub', base_url: '...'))
+  #   Vangrail::Providers.register_gateway(name: 'hub', base_url: '...')
   #   GUARDRAILS_GATEWAY_API_BASE=...  GUARDRAILS_GATEWAY_API_KEY=...
   #
   # An endpoint needed for a single run needs no registration at all:
@@ -41,13 +42,10 @@ module Vangrail
 
     # Registers a shared gateway and returns its Provider. Registering a name
     # twice replaces it, so reloading an application is not a duplicate.
-    def register_gateway(name:, base_url:, models: {}, guard_preset: nil, key_env: nil,
-                         file_env: nil, pass_env: nil, key_file: nil, pass_entry: nil, env: ENV)
-      spec = Gateway::Spec.new(
-        name: name.to_s, base_url: base_url, models: models, guard_preset: guard_preset,
-        key_env: key_env, file_env: file_env, pass_env: pass_env,
-        key_file: key_file, pass_entry: pass_entry
-      )
+    #
+    # Preferred: a Gateway::Spec. The 0.1.0 keywords still work and become one.
+    def register_gateway(spec = nil, env: ENV, **kwargs)
+      spec = spec.is_a?(Gateway::Spec) ? spec : Gateway::Spec.new(**(spec || kwargs))
       registered_specs.reject! { |s| s.name == spec.name }
       registered_specs << spec
       Provider.register(Gateway.provider(spec, env))

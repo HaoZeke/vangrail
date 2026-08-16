@@ -507,7 +507,7 @@ which model roles it can serve.
 
 | Provider | Endpoint | `model(:judge)` | `model(:guard)` | `model(:embed)` |
 |----------|----------|-----------------|-----------------|-----------------|
-| `llmlite` | local proxy on `127.0.0.1:8760/v1` | yes | no classifier | `LLMLITE_EMBED_MODEL`, if it serves one |
+| `llmlite` | local proxy on `127.0.0.1:8760/v1` | `LLMLITE_MODEL`, if named | no classifier | `LLMLITE_EMBED_MODEL`, if it serves one |
 | gateway | registered, or `GUARDRAILS_GATEWAY_*` | whatever you name | whatever you name | whatever you name |
 | `env` | `GUARDRAILS_API_BASE` | whatever you name | whatever you name | `GUARDRAILS_EMBED_MODEL` |
 
@@ -518,12 +518,14 @@ live. So a shared gateway is registered by the application that has one:
 
 ```ruby
 Vangrail::Providers.register_gateway(
-  name: 'hub',
-  base_url: 'https://gateway.example/api/v0',
-  models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
-  guard_preset: :apriel_guard,
-  key_env: 'HUB_API_KEY',
-  pass_entry: 'hub/token'
+  Vangrail::Providers::Gateway::Spec.new(
+    name: 'hub',
+    base_url: 'https://gateway.example/api/v0',
+    models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
+    guard_preset: :apriel_guard,
+    key_env: 'HUB_API_KEY',
+    pass_entry: 'hub/token'
+  )
 )
 ```
 

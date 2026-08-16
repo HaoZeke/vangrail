@@ -23,13 +23,13 @@ module Vangrail
 
     attr_reader :model, :http
 
-    def initialize(model:, base_url: nil, api_key: nil, http: nil,
-                   open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT, read_timeout: 20)
-      raise ArgumentError, 'an Embeddings needs a base_url or an http client' if http.nil? && base_url.to_s.strip.empty?
-
+    def initialize(model:, http: nil, base_url: nil, api_key: nil,
+                   open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
+                   read_timeout: HTTP::DEFAULT_READ_TIMEOUT)
       @model = model
-      @http = http || HTTP.new(base_url: base_url, api_key: api_key,
-                               open_timeout: open_timeout, read_timeout: read_timeout)
+      @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         open_timeout: open_timeout, read_timeout: read_timeout,
+                         missing: 'an Embeddings needs a base_url or an http client')
     end
 
     # Vectors for each input, in the order given.

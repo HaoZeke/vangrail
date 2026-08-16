@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'client/completion'
+require_relative 'client/turn'
 require_relative 'errors'
 require_relative 'http'
 require_relative 'result'
@@ -23,7 +23,11 @@ module Vangrail
     COMPLETIONS_PATH = '/v1/chat/completions'
     PROTOCOLS = %i[auto nested flat].freeze
 
-    RAIL_VARS = [Completion::INPUT_RAIL_VAR, Completion::OUTPUT_RAIL_VAR].freeze
+    RAIL_VARS = [Turn::INPUT_RAIL_VAR, Turn::OUTPUT_RAIL_VAR].freeze
+
+    # One guarded completion's arguments, so the wire methods take one value.
+    Request = Struct.new(:messages, :config_id, :config_ids, :options, :context,
+                         :thread_id, :model, :extra, keyword_init: true)
 
     attr_reader :config_id, :model, :protocol, :http
 
@@ -31,9 +35,12 @@ module Vangrail
     # of those happens, so a caller can report "not yet known" honestly.
     attr_reader :checks_supported
 
-    def initialize(base_url:, config_id: nil, model: nil, api_key: nil, protocol: :auto,
-                   open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT, read_timeout: HTTP::DEFAULT_READ_TIMEOUT,
-                   http: nil)
+    # The 0.1.0 name. Prefer Turn in new code.
+    Completion = Turn
+
+    def initialize(http: nil, base_url: nil, config_id: nil, model: nil, api_key: nil,
+                   protocol: :auto, open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
+                   read_timeout: HTTP::DEFAULT_READ_TIMEOUT)
       unless PROTOCOLS.include?(protocol)
         raise ArgumentError,
               "protocol must be one of #{PROTOCOLS.join(', ')}"
@@ -43,10 +50,9 @@ module Vangrail
       @model = model
       @protocol = protocol
       @checks_supported = nil
-      @http = http || HTTP.new(
-        base_url: base_url, api_key: api_key,
-        open_timeout: open_timeout, read_timeout: read_timeout
-      )
+      @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         open_timeout: open_timeout, read_timeout: read_timeout,
+                         missing: 'a Client needs a base_url or an http client')
     end
 
     def base_url
@@ -93,10 +99,13 @@ module Vangrail
     # answer as well as checking it.
     def chat(messages:, config_id: nil, config_ids: nil, options: nil, context: nil,
              thread_id: nil, model: nil, **extra)
-      opts = merge_options(options)
-      body = extra.merge(messages: normalize(messages))
-      chosen = { config_id: config_id || @config_id, config_ids: config_ids }
-      Completion.new(send_payload(body, chosen, opts, context, thread_id, model))
+      request = Request.new(messages: messages, config_id: config_id, config_ids: config_ids,
+                            options: options, context: context, thread_id: thread_id,
+                            model: model, extra: extra)
+      opts = merge_options(request.options)
+      body = request.extra.merge(messages: normalize(request.messages))
+      chosen = { config_id: request.config_id || @config_id, config_ids: request.config_ids }
+      Turn.new(send_payload(body, chosen, opts, request.context, request.thread_id, request.model))
     end
 
     private
@@ -119,12 +128,12 @@ module Vangrail
                  content: body['content'], raw: body)
     end
 
-    def from_completion(completion, rail)
-      return Result.passed(rail: rail.to_s, raw: completion.raw) if completion.allowed?
+    def from_completion(turn, rail)
+      return Result.passed(rail: rail.to_s, raw: turn.raw) if turn.allowed?
 
-      reason = completion.triggered_rail || completion.stopped_rails.first&.dig('name')
-      Result.blocked(rail: reason || rail.to_s, content: completion.content, reason: reason,
-                     raw: completion.raw)
+      reason = turn.triggered_rail || turn.stopped_rails.first&.dig('name')
+      Result.blocked(rail: reason || rail.to_s, content: turn.content, reason: reason,
+                     raw: turn.raw)
     end
 
     def check_options(rail)

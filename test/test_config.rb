@@ -46,6 +46,13 @@ class TestConfig < Minitest::Test
                            models: { judge: 'some/instruct' }, key_resolver: -> { 'k' })
   end
 
+  def test_a_self_check_rail_forwards_timeouts_into_chat
+    rail = Vangrail::Rails::SelfCheck.new(provider: provider, open_timeout: 1, read_timeout: 2)
+
+    assert_equal 1, rail.chat.http.open_timeout
+    assert_equal 2, rail.chat.http.read_timeout
+  end
+
   # A folder that names only built-in flows and ships no .co file is the
   # ordinary case, and it has to run.
   def test_a_stock_folder_builds_an_engine

@@ -16,13 +16,15 @@ module Vangrail
     # So a gateway is registered by the application that has one:
     #
     #   Vangrail::Providers.register_gateway(
-    #     name: 'hub',
-    #     base_url: 'https://gateway.example/api/v0',
-    #     models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
-    #     guard_preset: :apriel_guard,
-    #     key_env: 'HUB_API_KEY',
-    #     key_file: File.join(Dir.home, '.config', 'hub', 'api_key'),
-    #     pass_entry: 'hub/token'
+    #     Vangrail::Providers::Gateway::Spec.new(
+    #       name: 'hub',
+    #       base_url: 'https://gateway.example/api/v0',
+    #       models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
+    #       guard_preset: :apriel_guard,
+    #       key_env: 'HUB_API_KEY',
+    #       key_file: File.join(Dir.home, '.config', 'hub', 'api_key'),
+    #       pass_entry: 'hub/token'
+    #     )
     #   )
     #
     # or by environment, so a deployment needs no code at all:
@@ -94,10 +96,9 @@ module Vangrail
         return nil unless $?&.success?
 
         present(out.to_s.lines.first)
-      # A missing `pass`, a locked keyring, a refused pinentry: none of them are
-      # this method's problem, and all of them mean the same thing here, which is
-      # that no credential came from this source.
-      rescue StandardError
+      # A missing `pass` binary, or one that cannot be executed. A failing
+      # lookup is already `$?` not succeeding; anything else is a bug.
+      rescue Errno::ENOENT, Errno::EACCES
         nil
       end
 

@@ -41,8 +41,10 @@ class TestProvider < Minitest::Test
   # shared credential, so an application with one running should use it untold.
   def test_a_registered_gateway_comes_after_the_local_provider
     Vangrail::Providers.register_gateway(
-      name: 'hub', base_url: 'https://gateway.invalid/api/v0',
-      models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
+      Vangrail::Providers::Gateway::Spec.new(
+        name: 'hub', base_url: 'https://gateway.invalid/api/v0',
+        models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
+      )
     )
 
     assert_equal %w[llmlite hub], Vangrail::Provider.names
@@ -50,10 +52,24 @@ class TestProvider < Minitest::Test
     Vangrail::Providers.reset!
   end
 
+  def test_register_gateway_still_accepts_the_keyword_form
+    Vangrail::Providers.register_gateway(
+      name: 'hub', base_url: 'https://gateway.invalid/api/v0',
+      models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
+    )
+
+    assert_equal %w[llmlite hub], Vangrail::Provider.names
+    assert_equal 'some/instruct', Vangrail::Provider['hub'].model(:judge)
+  ensure
+    Vangrail::Providers.reset!
+  end
+
   def test_registering_a_name_twice_replaces_it
     2.times do
       Vangrail::Providers.register_gateway(
-        name: 'hub', base_url: 'https://gateway.invalid/api/v0', key_env: 'HUB_KEY',
+        Vangrail::Providers::Gateway::Spec.new(
+          name: 'hub', base_url: 'https://gateway.invalid/api/v0', key_env: 'HUB_KEY',
+        )
       )
     end
 
@@ -146,9 +162,12 @@ class TestProvider < Minitest::Test
 
   def test_a_gateway_with_a_classifier_reports_one
     Vangrail::Providers.register_gateway(
-      name: 'hub', base_url: 'https://gateway.invalid/api/v0',
-      models: { judge: 'some/instruct', guard: 'some/guard' },
-      guard_preset: :apriel_guard, key_env: 'HUB_KEY', env: { 'HUB_KEY' => 'tok' }
+      Vangrail::Providers::Gateway::Spec.new(
+        name: 'hub', base_url: 'https://gateway.invalid/api/v0',
+        models: { judge: 'some/instruct', guard: 'some/guard' },
+        guard_preset: :apriel_guard, key_env: 'HUB_KEY'
+      ),
+      env: { 'HUB_KEY' => 'tok' }
     )
     hub = Vangrail::Provider['hub']
 
@@ -164,11 +183,35 @@ class TestProvider < Minitest::Test
     assert_raises(Vangrail::ConfigError) { llmlite.chat(:guard) }
   end
 
+  def test_llmlite_names_no_model_until_the_environment_does
+    llmlite = Vangrail::Provider['llmlite']
+
+    assert_nil llmlite.model(:judge)
+    assert_raises(Vangrail::ConfigError) { llmlite.chat(:judge) }
+  end
+
   def test_chat_for_a_served_role_points_at_the_provider
+    env = { 'LLMLITE_MODEL' => 'named-model' }
+    Vangrail::Providers.install!(env)
     chat = Vangrail::Provider['llmlite'].chat(:judge)
 
-    assert_equal Vangrail::Providers::Llmlite.base_url, chat.http.base_url
-    assert_equal Vangrail::Providers::Llmlite::DEFAULT_MODEL, chat.model
+    assert_equal Vangrail::Providers::Llmlite.base_url(env), chat.http.base_url
+    assert_equal 'named-model', chat.model
+  end
+
+  def test_to_h_does_not_probe
+    probed = 0
+    named = Vangrail::Provider.new(
+      name: 'hub', base_url: 'http://hub.invalid/v1',
+      key_resolver: -> { 'k' },
+      probe: lambda {
+        probed += 1
+        true
+      }
+    )
+
+    refute_includes named.to_h.keys, 'available'
+    assert_equal 0, probed
   end
 
   # --- llmlite specifics ---
