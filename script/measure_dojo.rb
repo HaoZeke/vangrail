@@ -27,5 +27,3 @@ puts format('handbook  n=%<n>d  security=%<security>d/%<n>d  utility=%<utility>d
             **base)
 puts format('adaptive  n=%<n>d  security=%<security>d/%<n>d  utility=%<utility>d/%<n>d',
             **adapt)
-$stdout.flush
-exit! 0

@@ -13,9 +13,11 @@
 # Matched false-alarm rate is the only comparison that answers a question
 # somebody deploying this would ask.
 #
-# The classifier is the one already in the gem: naive Bayes over word stems and
-# stem pairs, mutual-information feature selection, Dirichlet smoothing. It is
-# not a strong baseline by 2020s standards and it is not meant to be. It is the
+# The classifier is a bag-of-stems naive Bayes: word stems and stem pairs,
+# mutual-information feature selection, Dirichlet smoothing, scored over the
+# whole prompt. It is not Rails::Bayes (that rail scores the worst clause
+# against a calibrated table fitted on the handbook corpus). It is not a
+# strong baseline by 2020s standards and it is not meant to be. It is the
 # baseline that says whether hand-written lexicons are worth their maintenance
 # against ten lines of counting, which is the question the rails have never been
 # asked.

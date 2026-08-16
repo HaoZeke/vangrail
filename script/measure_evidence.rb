@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-# Regenerates lib/vangrail/evidence_data.rb by running every deterministic rail
-# over the same corpora.
+# Scores every deterministic rail over the handbook corpora and writes
+# tmp/handbook_evidence.rb. That file is a local report. It is not the shipped
+# table: lib/vangrail/evidence_data.rb is the external-corpus schema and is
+# written only by script/measure_evidence_external.rb.
 #
 #   ruby script/measure_evidence.rb
 #
@@ -25,14 +27,11 @@
 # grouped, and a group speaks once.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-$LOAD_PATH.unshift(File.expand_path('../test', __dir__))
+require 'fileutils'
 require 'vangrail'
-require 'test_injection_corpus'
-require 'test_paraphrase'
-require 'test_multilingual'
-require 'test_similarity'
+require_relative 'handbook_corpus'
 
-OUT = File.expand_path('../lib/vangrail/evidence_data.rb', __dir__)
+OUT = File.expand_path('../tmp/handbook_evidence.rb', __dir__)
 
 # Correlation above this and two rails are treated as one witness. Set from the
 # measured matrix rather than from taste: the pairs that share a mechanism sit
@@ -49,24 +48,11 @@ GROUP_AT = 0.6
 # whose real mix differs should say so by regenerating this table rather than by
 # reading these numbers as universal.
 def attack_corpus
-  corpus = TestInjectionCorpus.new('x')
-  injections = corpus.corpus.map { |c| c[:text] }
-  encoded = corpus.encoded_corpus.map { |c| c[:text] }
-  hidden = TestInjectionCorpus::INJECTIONS.map do |injection|
-    "#{TestInjectionCorpus::BENIGN.first}\n<!-- #{injection} -->\n<p>See the reference pages.</p>"
-  end
-  pasted = TestInjectionCorpus::INJECTIONS.first(6).map do |injection|
-    turns = (1..6).map { |i| "user: question #{i}\nassistant: of course, here it is." }.join("\n")
-    "#{turns}\nuser: #{injection}"
-  end
-  reworded = TestParaphrase.new('x').corpus.map { |c| c[:text] }
-  dutch = TestMultilingual.new('x').corpus.map { |c| c[:text] }
-  edited = TestSimilarity::EDITED.map { |text| "#{TestParaphrase::BENIGN.first}\n\n#{text}" }
-  (injections + encoded + hidden + pasted + reworded + dutch + edited).uniq
+  HandbookCorpus.attack_texts
 end
 
 def benign_corpus
-  (TestInjectionCorpus::BENIGN + TestParaphrase::BENIGN + TestMultilingual::BENIGN).uniq
+  HandbookCorpus.benign_texts
 end
 
 # Only the rails that answer "is this an attack". A redaction rail is not in
@@ -154,13 +140,18 @@ body = rows.map do |row|
     "\n                     benign_flagged: #{row[:benign_flagged]}, benign: #{row[:benign]})"
 end
 
+FileUtils.mkdir_p(File.dirname(OUT))
 File.write(OUT, <<~RUBY)
   # frozen_string_literal: true
 
-  require_relative 'evidence'
+  # Handbook-corpus evidence table, written by script/measure_evidence.rb.
+  # Not lib/vangrail/evidence_data.rb: that file is the external-corpus schema
+  # and is written only by script/measure_evidence_external.rb.
+
+  require_relative '../lib/vangrail/evidence'
 
   module Vangrail
-    # What each rail is worth as evidence, measured on the shipped corpora.
+    # What each rail is worth as evidence, measured on the handbook corpora.
     #
     # GENERATED FILE. Do not edit by hand; rerun script/measure_evidence.rb when
     # a rail changes or a corpus grows. The arithmetic that reads this table
@@ -182,7 +173,7 @@ File.write(OUT, <<~RUBY)
     # #{format('%.2f', GROUP_AT)}:
     #
   #{matrix.join("\n")}
-    module EvidenceData
+    module HandbookEvidence
       ENTRIES = [
   #{body.join(",\n")}
       ].freeze

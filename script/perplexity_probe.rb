@@ -17,10 +17,8 @@
 # handbook, which is why they are in here beside the attacks.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-$LOAD_PATH.unshift(File.expand_path('../test', __dir__))
 require 'vangrail'
-require 'test_paraphrase'
-require 'test_multilingual'
+require_relative 'handbook_corpus'
 
 provider = Vangrail.provider
 abort 'no endpoint resolved: set GUARDRAILS_API_BASE, or start a local proxy' unless provider&.available?
@@ -68,7 +66,7 @@ end
 
 rail = Vangrail::Rails::Perplexity.new(completion: completion)
 
-prose = (TestParaphrase::BENIGN + TestMultilingual::BENIGN).map { |t| [t, score(rail, t)] }
+prose = (HandbookCorpus::ENGLISH_BENIGN + HandbookCorpus::DUTCH_BENIGN).map { |t| [t, score(rail, t)] }
 commands = COMMANDS.map { |t| [t, score(rail, t)] }
 attacks = SUFFIXES.map { |s| ["#{QUESTION} #{s}", score(rail, "#{QUESTION} #{s}")] }
 

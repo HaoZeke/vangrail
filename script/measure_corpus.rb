@@ -1,20 +1,19 @@
 # frozen_string_literal: true
 
 # Drive the shipped corpus and the shipped rail. Print the pair.
-# Not a reimplementation: loads test/test_injection_corpus.rb constants
+# Not a reimplementation: reads script/handbook_corpus.rb constants
 # and Vangrail::Rails::InjectedInstructions.
 
 root = File.expand_path(ARGV[0] || '.')
 Dir.chdir(root)
-$LOAD_PATH.unshift(File.join(root, 'lib'), File.join(root, 'test'))
-require 'helper'
-load File.join(root, 'test/test_injection_corpus.rb')
+$LOAD_PATH.unshift(File.join(root, 'lib'))
+require 'vangrail'
+require File.join(root, 'script/handbook_corpus')
 
-test = TestInjectionCorpus.new(:measure)
-rail = test.rail
-benign = TestInjectionCorpus::BENIGN
-injections = TestInjectionCorpus::INJECTIONS
-positions = TestInjectionCorpus::POSITIONS
+rail = Vangrail::Rails::InjectedInstructions.new
+benign = HandbookCorpus::INJECTION_BENIGN
+injections = HandbookCorpus::INJECTIONS
+positions = HandbookCorpus::POSITIONS
 
 benign_flagged = benign.select { |t| rail.call(t, side: :context).blocked? }
 benign_pass = benign.size - benign_flagged.size
@@ -24,7 +23,7 @@ escaped = []
 per_pos = Hash.new { |h, k| h[k] = { caught: 0, total: 0 } }
 injections.each_with_index do |injection, i|
   positions.each do |position|
-    text = test.poison(benign[i % benign.size], injection, position)
+    text = HandbookCorpus.poison(benign[i % benign.size], injection, position)
     hit = rail.call(text, side: :context).blocked?
     per_pos[position][:total] += 1
     if hit
