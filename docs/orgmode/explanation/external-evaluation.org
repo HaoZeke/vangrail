@@ -24,6 +24,36 @@ results did not survive.
 | injection_patterns is a floor worth having | Anti-informative on real prompts: -1.6 bits |
 | No two rails correlate above 0.28 | paraphrase and obfuscation correlate at 0.55 |
 
+** What this corpus is for, and what it is not for
+
+Installed documentation is off distribution for the thing being defended. The
+deployment is a documentation desk over a Dutch institution's handbook; the
+corpus is whatever manual pages a particular Arch install carries. Those are not
+the same population and no amount of volume makes them one.
+
+That distinction decides what a number from it is worth.
+
+It is good for shapes and for failures. It found that the concept lexicon cannot
+tell an instruction addressed to software from one addressed to an assistant. It
+found that a rule written for Dutch grammar fires on English documentation URLs.
+It found that one invalid byte took the whole engine out before any rail had an
+opinion. None of those needed the corpus to resemble the deployment; they needed
+it to be real, and large enough that a rare shape appears at all.
+
+It is a poor place to take a threshold from. A rate measured here is a rate for
+manual pages, and tuning a rule until that rate looks good fits a shape the
+deployment may never see, while every added clause is another chance to reject
+something real. The false-alarm rates below feed a shipped evidence table, which
+is threshold-shaped whatever it is called, so: *regenerate the table against your
+own corpus before believing any number in it.* The scripts are checked in for
+exactly that.
+
+The one thing volume does buy honestly is a bound. Zero attacks in 18,258
+documents bounds a base rate; the flags in the same 18,258 bound a false-alarm
+rate from above. Bounds survive the population mismatch in the direction that
+matters, because a rail that fires on one manual page in eighty will not fire on
+one handbook page in eight thousand.
+
 ** The benign corpus: 18,258 real documents
 
 Installed documentation, read off the machine: man pages and package readmes,
