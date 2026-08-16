@@ -231,7 +231,7 @@ class TestProvider < Minitest::Test
     refute ENV.key?('GROK_SHIM_PORT')
     refute ENV.key?('GROK_LLMLITE_MODEL')
     assert_equal 8760, Vangrail::Providers::Llmlite.port
-    assert_equal Vangrail::Providers::Llmlite::DEFAULT_MODEL, Vangrail::Providers::Llmlite.model
+    assert_nil Vangrail::Providers::Llmlite.model
   ensure
     ENV.delete('GROK_SHIM_PORT')
     ENV.delete('GROK_LLMLITE_MODEL')
