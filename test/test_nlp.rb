@@ -26,6 +26,16 @@ class TestNLP < Minitest::Test
     assert_equal 'a b', N.normalize((+"a\xC3(b").force_encoding('UTF-8'))
   end
 
+  def test_clauses_uses_the_same_encoding_door_as_normalize
+    # A body off a socket arrives tagged ASCII-8BIT. clauses used to call
+    # scrub on that tag, which does nothing, and hand the binary string on.
+    tagged = "one\ntwo".dup.force_encoding('ASCII-8BIT')
+
+    assert_equal %w[one two], N.clauses(tagged)
+    assert(N.clauses(tagged).all? { |clause| clause.encoding == Encoding::UTF_8 })
+    assert_equal 'one two', N.normalize(tagged)
+  end
+
   def test_stem_collapses_the_inflections_the_lexicon_would_otherwise_list
     assert_equal 'instruction', N.stem('instructions')
     assert_equal 'policy', N.stem('policies')

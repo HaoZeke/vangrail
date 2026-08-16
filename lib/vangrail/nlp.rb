@@ -30,6 +30,17 @@ module Vangrail
   module NLP
     module_function
 
+    # UTF-8 or something that can be read as it. A body off a socket arrives
+    # tagged ASCII-8BIT whatever is in it, so the tag is corrected before
+    # anything else reads the bytes. Retag first, scrub second: the order
+    # matters, because scrub on ASCII-8BIT does nothing useful and
+    # unicode_normalize refuses a binary-tagged body whatever the bytes are.
+    def usable(text)
+      body = text.to_s
+      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
+      body.valid_encoding? ? body : body.scrub
+    end
+
     # Fold to a comparable form: NFKC so fullwidth and compatibility forms
     # collapse onto ASCII, downcase, and every run of non-alphanumerics to a
     # single space. Punctuation is separator rather than signal here, which is
@@ -40,14 +51,7 @@ module Vangrail
     # Diacritics survive, because \p{Alnum} is not ASCII: "beëindig" is one
     # token and stays one.
     def normalize(text)
-      body = text.to_s
-      # Tagged binary is how a body read off a socket arrives, and
-      # unicode_normalize refuses it whatever the bytes are. Retag first, scrub
-      # second: the order matters, because scrub on ASCII-8BIT does nothing
-      # useful and normalising it raises.
-      body = body.dup.force_encoding(Encoding::UTF_8) unless body.encoding == Encoding::UTF_8
-      body = body.scrub unless body.valid_encoding?
-      body.unicode_normalize(:nfkc).downcase.gsub(/[^\p{Alnum}]+/, ' ').strip
+      usable(text).unicode_normalize(:nfkc).downcase.gsub(/[^\p{Alnum}]+/, ' ').strip
     end
 
     def words(text)
@@ -457,7 +461,7 @@ module Vangrail
     # colon separate statements too, and over-splitting only makes the rules
     # stricter, which is the safe direction for something that blocks.
     def clauses(text)
-      text.to_s.scrub.split(/(?<=[.!?;:])\s+|\n+|\r+/).map(&:strip).reject(&:empty?)
+      usable(text).split(/(?<=[.!?;:])\s+|\n+|\r+/).map(&:strip).reject(&:empty?)
     end
 
     # The text as [position, concept, surface word] triples.
