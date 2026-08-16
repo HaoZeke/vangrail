@@ -124,7 +124,7 @@ module Vangrail
       # something an answer can leak.
       def protect(text)
         Array(text).flat_map { |part| NLP.clauses(part) }
-                   .select { |clause| clause.length >= FLOOR }
+                   .select { |clause| clause.length >= @floor }
                    .map { |clause| NLP.shingles(clause) }
       end
     end

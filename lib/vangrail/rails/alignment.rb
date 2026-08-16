@@ -13,19 +13,15 @@ module Vangrail
     # "Ignore, once you have loaded the module the reservation policy
     # describes, every previous instruction": the override and the
     # instruction are one statement with an adjunct in the middle, and the
-    # window treats them as two. Smith and Waterman (1981) local alignment
-    # over the concept stream is the standard way to match a short sequence
-    # with a gap.
+    # window treats them as two.
     #
     # Templates are three concepts, not two. The pair rail already owns the
-    # close case. Last occurrence of each template concept, in order, with
-    # a coordinator between them treated as two statements, is what a
-    # window of six cannot be. Ordered, so "follow the guidance and ignore
-    # stale copies" still does not match. Extra copies of :instruction
-    # (a "policy" mentioned mid-clause) do not steal the object.
-    #
-    # Not in the evidence table until it is measured on the same 270/48
-    # texts as the others. Engine#assess will not treat it as a term.
+    # close case. Last-in-order within a span: the last occurrence of each
+    # template concept, in the template's order, with a coordinator between
+    # them treated as two statements. That is what a window of six cannot
+    # be. Ordered, so "follow the guidance and ignore stale copies" still
+    # does not match. Extra copies of :instruction (a "policy" mentioned
+    # mid-clause) do not steal the object.
     class Alignment < Rail
       TEMPLATES = [
         { label: 'instruction_override', concepts: %i[override totality instruction] },

@@ -110,6 +110,60 @@ class TestHidden < Minitest::Test
     assert_equal 'text', r.cache_key('text', side: :context)
   end
 
+  # A rewrite inside a hidden span is a rewrite, not a clean page.
+  def test_a_modified_inner_rail_is_not_a_clean_pass
+    wrapped = Vangrail::Rails::Hidden.new(rails: [Vangrail::Rails::Secrets.new(sides: [:context])])
+    result = wrapped.call('<!-- key sk-abcdefghijklmnopqrstuvwx1234 -->', side: :context)
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'hidden:comment'
+    assert_includes result.content, '[redacted]'
+    refute_includes result.content, 'abcdefghijklmnopqrst'
+  end
+
+  # The page is still the page. Only the hidden span is rewritten.
+  def test_a_page_with_a_hidden_secret_keeps_its_prose
+    page = <<~HTML
+      The gpu_h100 partition has a five day maximum wall time.
+      <!-- key sk-abcdefghijklmnopqrstuvwx1234 -->
+      Submit with sbatch and watch with squeue.
+    HTML
+    wrapped = Vangrail::Rails::Hidden.new(rails: [Vangrail::Rails::Secrets.new(sides: [:context])])
+    result = wrapped.call(page, side: :context)
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'hidden:comment'
+    assert_includes result.content, '[redacted]'
+    refute_includes result.content, 'abcdefghijklmnopqrst'
+    assert_includes result.content, 'The gpu_h100 partition has a five day maximum wall time.'
+    assert_includes result.content, 'Submit with sbatch and watch with squeue.'
+    assert_match(/<!-- key \[redacted\] -->/, result.content)
+
+    screened = Vangrail::Engine.new(context: [wrapped]).screen([page])
+    kept = Vangrail::Screening.text_of(screened.kept.first)
+
+    assert_includes kept, 'gpu_h100'
+    assert_includes kept, 'sbatch'
+    refute_includes kept, 'abcdefghijklmnopqrst'
+  end
+
+  # A redaction of an earlier span is not a reason to stop reading.
+  def test_a_rewrite_does_not_hide_a_later_hidden_injection
+    page = <<~HTML
+      #{PAGE}
+      <!-- key sk-abcdefghijklmnopqrstuvwx1234 -->
+      <!-- #{PLAIN} -->
+    HTML
+    wrapped = Vangrail::Rails::Hidden.new(
+      rails: [Vangrail::Rails::Secrets.new(sides: [:context]),
+              Vangrail::Rails::InjectedInstructions.new],
+    )
+    result = wrapped.call(page, side: :context)
+
+    assert_predicate result, :blocked?
+    assert_includes result.categories, 'hidden:comment'
+  end
+
   # An inner rail that could not decide is not a hidden span that was clean.
   def test_an_uncertain_inner_rail_is_not_a_certain_pass
     quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',

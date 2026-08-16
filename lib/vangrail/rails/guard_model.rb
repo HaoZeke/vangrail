@@ -60,9 +60,8 @@ module Vangrail
         answer = chat.ask(messages_for(text, context))
         parsed = preset == :apriel_guard ? Parsers.apriel_guard(answer.text) : Parsers.llama_guard(answer.text)
         unless parsed[:decided]
-          return Result.new(status: :passed, rail: name, certain: false, model: model,
-                            latency_ms: answer.latency_ms, raw: answer.raw,
-                            reason: "unparsed guard response: #{parsed[:reason]}")
+          return unchecked("unparsed guard response: #{parsed[:reason]}",
+                           model: model, latency_ms: answer.latency_ms, raw: answer.raw)
         end
 
         return pass(model: model, latency_ms: answer.latency_ms, raw: answer.raw) unless parsed[:violated]

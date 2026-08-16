@@ -18,7 +18,7 @@
 | =Rails::Semantic=           | input, context | yes    | passed, blocked            |
 | =Rails::Perplexity=         | input, context | yes    | passed, blocked            |
 | =Rails::Obfuscation=        | input, context | depends | passed, modified, blocked |
-| =Rails::Hidden=             | context       | depends | passed, blocked            |
+| =Rails::Hidden=             | context       | depends | passed, modified, blocked  |
 | =Rails::Escalation=         | input         | no      | passed, blocked            |
 | =Rails::ManyShot=           | input, context | no     | passed, modified, blocked  |
 | =Rails::Canary=             | input, output | no      | passed, blocked            |
@@ -114,13 +114,10 @@ and the same two nine lines apart are two sentences.
 
 Three-concept ordered match with a gap, for the adjunct the pair window
 cannot reach. Input and context, deterministic, offline, on with the
-other lexicon rails. Smith and Waterman (1981) is the motivation;
-the implementation takes the last occurrence of each template concept
-and requires them in order, with no coordinator between the first and
-the last. Extra copies of =instruction= mid-clause do not steal the
-object of the override.
-
-Not in the evidence table until it is scored on the same 270/48 texts.
+other lexicon rails. Last-in-order within a span: the last occurrence
+of each template concept, in order, with no coordinator between the
+first and the last. Extra copies of =instruction= mid-clause do not
+steal the object of the override.
 
 ** Session CUSUM
 
@@ -450,7 +447,8 @@ is one the page's own readers notice; the same sentence in an alt attribute is
 read by the model and by nobody else.
 
 It judges nothing itself. A hidden span with ordinary content passes, because
-pages carry meta descriptions and alt text for good reasons.
+pages carry meta descriptions and alt text for good reasons. A child that
+rewrites a span replaces that span inside the page; the rest of the page stays.
 
 Only useful where documents arrive as HTML. A retrieval step that converts to
 markdown first has usually dropped these carriers already, which is a reason to

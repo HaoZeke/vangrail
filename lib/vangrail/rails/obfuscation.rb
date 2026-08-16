@@ -26,7 +26,10 @@ module Vangrail
     # original is dropped, so ordinary text costs one comparison per transform
     # and nothing else. A hit names both the rail and the encoding it was
     # hiding under, because "blocked" without that is unactionable for whoever
-    # has to look at the page.
+    # has to look at the page. A child that rewrites a variant (a key inside a
+    # decoded blob) is spliced back into the page, or into that variant when
+    # the variant *is* the page (the invisible-character strip). The decoded
+    # form is not published in place of the document.
     #
     # Invisible characters are handled here directly rather than by a delegate:
     # they are stripped, and the strip is reported as a rewrite. A zero-width
@@ -106,9 +109,9 @@ module Vangrail
 
       private
 
-      # Stops at the first rail that objects to any variant. Order is the
-      # caller's rail order, then transform order, so the reported reason is
-      # stable rather than whichever regexp happened to be quickest.
+      # Walks every variant. A block stops the pass. A rewrite is spliced into
+      # the page and the remaining encodings are still read, so a redaction
+      # cannot hide a later injection.
       def first_objection(body, stripped, context)
         candidates = []
         # The stripped text is a variant in its own right when anything was
@@ -117,19 +120,75 @@ module Vangrail
         candidates << [:invisible, stripped] unless stripped == body
         candidates.concat(variants(stripped))
 
+        published = stripped
+        modified = nil
         uncertain = nil
         candidates.each do |name, decoded|
+          viewed = decoded
+          variant_modified = nil
+          extra = ["encoded:#{name}"]
           rails.each do |rail|
-            result = rail.call(decoded, context)
+            result = rail.call(viewed, context)
             if result.blocked?
-              return [block(categories: (result.categories || []) + ["encoded:#{name}"],
+              return [block(categories: (result.categories || []) + extra,
                             reason: "#{result.reason} (hidden with #{name})"), nil]
             end
-
-            uncertain ||= result unless result.certain?
+            if result.modified?
+              viewed = result.content.to_s
+              variant_modified = [result, extra, name]
+            elsif !result.certain?
+              uncertain ||= result
+            end
           end
+          next if variant_modified.nil? || modified
+
+          published = apply_rewrite(published, name, decoded, viewed)
+          modified = variant_modified
         end
+        if modified
+          result, extra, name = modified
+          return [modify(published, categories: (result.categories || []) + extra,
+                         reason: "#{result.reason} (hidden with #{name})"), nil]
+        end
+
         [nil, uncertain]
+      end
+
+      # Puts the child's rewrite back on the page the reader will see.
+      def apply_rewrite(published, name, decoded, rewrite)
+        return splice_base64(published, rewrite) if name == :base64
+        return rewrite if decoded == published
+        return published.sub(decoded) { rewrite } if published.include?(decoded)
+        return splice_aligned(published, decoded, rewrite) if published.length == decoded.length
+
+        published
+      end
+
+      def splice_base64(published, rewrite)
+        runs = published.scan(BASE64)
+        return published if runs.empty?
+        return published.sub(runs.first) { rewrite } unless runs.size > 1
+
+        pieces = rewrite.split("\n")
+        return published.sub(runs.first) { rewrite } unless pieces.size == runs.size
+
+        runs.zip(pieces).reduce(published) { |acc, (run, piece)| acc.sub(run) { piece } }
+      end
+
+      def splice_aligned(published, decoded, rewrite)
+        prefix = 0
+        limit = [decoded.length, rewrite.length].min
+        prefix += 1 while prefix < limit && decoded[prefix] == rewrite[prefix]
+
+        suffix = 0
+        max_suffix = [decoded.length - prefix, rewrite.length - prefix].min
+        while suffix < max_suffix &&
+              decoded[decoded.length - 1 - suffix] == rewrite[rewrite.length - 1 - suffix]
+          suffix += 1
+        end
+
+        replacement = rewrite[prefix, rewrite.length - prefix - suffix]
+        published[0, prefix] + replacement.to_s + published[published.length - suffix, suffix]
       end
 
       def apply(name, body)
