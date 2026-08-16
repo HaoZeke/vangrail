@@ -81,9 +81,14 @@ module Vangrail
         spans(text).each do |carrier, span|
           rails.each do |rail|
             result = rail.call(span, context)
+            extra = ["hidden:#{carrier}"]
             if result.blocked?
-              return block(categories: (result.categories || []) + ["hidden:#{carrier}"],
+              return block(categories: (result.categories || []) + extra,
                            reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
+            end
+            if result.modified?
+              return modify(result.content, categories: (result.categories || []) + extra,
+                            reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
             end
 
             uncertain ||= result unless result.certain?

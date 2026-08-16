@@ -121,9 +121,14 @@ module Vangrail
         candidates.each do |name, decoded|
           rails.each do |rail|
             result = rail.call(decoded, context)
+            extra = ["encoded:#{name}"]
             if result.blocked?
-              return [block(categories: (result.categories || []) + ["encoded:#{name}"],
+              return [block(categories: (result.categories || []) + extra,
                             reason: "#{result.reason} (hidden with #{name})"), nil]
+            end
+            if result.modified?
+              return [modify(result.content, categories: (result.categories || []) + extra,
+                             reason: "#{result.reason} (hidden with #{name})"), nil]
             end
 
             uncertain ||= result unless result.certain?

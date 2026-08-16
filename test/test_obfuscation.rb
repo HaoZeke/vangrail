@@ -169,6 +169,18 @@ class TestObfuscation < Minitest::Test
 
   # A decoded blob that is bytes rather than a sentence contributes nothing,
   # rather than failing the page it was found on.
+  # A rewrite of a decoded variant is a rewrite, not a clean page.
+  def test_a_modified_inner_rail_is_not_a_clean_pass
+    secret = 'sk-abcdefghijklmnopqrstuvwx1234'
+    wrapped = Vangrail::Rails::Obfuscation.new(rails: [Vangrail::Rails::Secrets.new(sides: [:context])])
+    result = wrapped.call(secret.sub('sk-', "sk-\u200B"), side: :context)
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'encoded:invisible'
+    assert_includes result.content, '[redacted]'
+    refute_includes result.content, 'abcdefghijklmnopqrst'
+  end
+
   def test_an_uncertain_inner_rail_is_not_a_certain_pass
     quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',
                                          sides: [:context])

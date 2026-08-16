@@ -110,6 +110,17 @@ class TestHidden < Minitest::Test
     assert_equal 'text', r.cache_key('text', side: :context)
   end
 
+  # A rewrite inside a hidden span is a rewrite, not a clean page.
+  def test_a_modified_inner_rail_is_not_a_clean_pass
+    wrapped = Vangrail::Rails::Hidden.new(rails: [Vangrail::Rails::Secrets.new(sides: [:context])])
+    result = wrapped.call('<!-- key sk-abcdefghijklmnopqrstuvwx1234 -->', side: :context)
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'hidden:comment'
+    assert_includes result.content, '[redacted]'
+    refute_includes result.content, 'abcdefghijklmnopqrst'
+  end
+
   # An inner rail that could not decide is not a hidden span that was clean.
   def test_an_uncertain_inner_rail_is_not_a_certain_pass
     quiet = Vangrail::Rails::Missing.new(reason: 'endpoint refused', name: 'paraphrase',
