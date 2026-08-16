@@ -72,6 +72,25 @@ class TestLinear < Minitest::Test
     end
   end
 
+  def test_a_hostile_bucket_count_is_refused_before_the_table_grows
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'model.json')
+      [
+        1_000_000_000,
+        0,
+        -1,
+        1.5,
+        '8',
+        Vangrail::LinearModel::MAX_BUCKETS + 1
+      ].each do |buckets|
+        File.write(path, JSON.generate('buckets' => buckets, 'bias' => 0.0, 'weights' => { '0' => 1.0 }))
+        error = assert_raises(ArgumentError) { Vangrail::LinearModel.load(path) }
+
+        assert_match(/buckets must be an integer/, error.message)
+      end
+    end
+  end
+
   def test_a_loaded_table_is_exactly_the_bucket_count
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'model.json')
@@ -92,6 +111,31 @@ class TestLinear < Minitest::Test
 
     sampled.each { |gram| assert features.key?(Vangrail::LinearModel.bucket(gram)), gram }
     refute features.key?(Vangrail::LinearModel.bucket(skipped))
+  end
+
+  def test_stride_is_written_into_the_file_and_required_on_load
+    dumped = toy_model.to_h
+
+    assert_equal Vangrail::LinearModel::STRIDE, dumped.fetch('stride')
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'model.json')
+      File.write(path, JSON.generate(dumped.merge('stride' => 4, 'buckets' => 8,
+                                                  'weights' => { '0' => 1.0 })))
+      loaded = Vangrail::LinearModel.load(path)
+
+      assert_equal 4, loaded.stride
+    end
+  end
+
+  def test_a_file_without_stride_still_loads_as_two
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'model.json')
+      File.write(path, JSON.generate('buckets' => 8, 'bias' => 0.0, 'weights' => { '0' => 1.0 }))
+      loaded = Vangrail::LinearModel.load(path)
+
+      assert_equal 2, loaded.stride
+    end
   end
 
   def test_a_model_survives_a_round_trip_through_a_file

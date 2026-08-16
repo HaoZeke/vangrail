@@ -36,6 +36,18 @@ class TestNLP < Minitest::Test
     assert_equal 'one two', N.normalize(tagged)
   end
 
+  def test_clauses_survives_invalid_bytes
+    # Scrubbed rather than raised on. Punctuation split is the point of
+    # clauses, so a replacement character may remain; the door is that
+    # the call itself does not explode.
+    broken = (+"one\xC3\ntwo").force_encoding('UTF-8')
+    clauses = N.clauses(broken)
+
+    assert_equal 2, clauses.size
+    assert(clauses.all? { |clause| clause.encoding == Encoding::UTF_8 })
+    assert(clauses.all?(&:valid_encoding?))
+  end
+
   def test_the_stem_cache_evicts_the_oldest_key_once_full
     snapshot = N::STEM_CACHE.dup
     N::STEM_CACHE.clear
@@ -48,6 +60,20 @@ class TestNLP < Minitest::Test
     assert_equal N::STEM_LIMIT, N::STEM_CACHE.size
     assert N::STEM_CACHE.key?('zzzzzzzz')
     refute N::STEM_CACHE.key?('tok00000xxxx')
+  ensure
+    N::STEM_CACHE.clear
+    snapshot.each { |key, value| N::STEM_CACHE[key] = value }
+  end
+
+  def test_an_evicted_lexicon_stem_still_stems_to_the_same_value
+    snapshot = N::STEM_CACHE.dup
+    N::STEM_CACHE.clear
+    assert_equal 'instruction', N.stem('instructions')
+    N::STEM_LIMIT.times { |i| N.stem(format('tok%05dxxxx', i)) }
+
+    refute N::STEM_CACHE.key?('instructions')
+    assert_equal 'instruction', N.stem('instructions')
+    assert_equal 'policy', N.stem('policies')
   ensure
     N::STEM_CACHE.clear
     snapshot.each { |key, value| N::STEM_CACHE[key] = value }

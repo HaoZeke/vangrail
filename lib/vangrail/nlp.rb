@@ -86,8 +86,7 @@ module Vangrail
       text = word.to_s
       return text if text.length <= 3
 
-      cached = STEM_CACHE[text]
-      return cached if cached
+      return STEM_CACHE[text] if STEM_CACHE.key?(text)
 
       stemmed = strip_suffix(text)
       # Bounded because the input is hostile. A memo that keeps the first

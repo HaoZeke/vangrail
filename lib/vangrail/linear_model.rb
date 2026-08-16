@@ -31,17 +31,23 @@ module Vangrail
   # a bug.
   class LinearModel
     # A four-thousand character prefix, hashed into a fixed table. Character
-    # four-grams are sampled every STRIDE characters. All three numbers are
-    # part of the model: change any and every index moves.
+    # four-grams are sampled every STRIDE characters. The bucket count and
+    # the stride are written into the file; LIMIT stays a process constant.
+    # Change the stride and the character-gram indices move.
     LIMIT = 4000
     BUCKETS = 2**18
     STRIDE = 2
+    # A hostile file names its own table size. Array.new of that number is
+    # the allocation, so the bound has to sit in front of it.
+    MAX_BUCKETS = 2**20
 
-    attr_reader :bias, :buckets, :threshold, :trained_on
+    attr_reader :bias, :buckets, :stride, :threshold, :trained_on
 
     def self.load(path)
       data = JSON.parse(File.read(path))
-      buckets = data['buckets'] || BUCKETS
+      buckets = bounded_integer(data['buckets'], name: 'buckets', default: BUCKETS, max: MAX_BUCKETS)
+      # Older files have no stride field; they were trained at 2.
+      stride = bounded_integer(data['stride'], name: 'stride', default: 2, max: LIMIT)
       weights = Array.new(buckets, 0.0)
       data.fetch('weights').each do |index, value|
         i = index.to_i
@@ -51,19 +57,30 @@ module Vangrail
       end
       raise ArgumentError, "loaded #{weights.size} weights for #{buckets} buckets" unless weights.size == buckets
 
-      new(weights: weights, bias: data['bias'].to_f, buckets: buckets,
+      new(weights: weights, bias: data['bias'].to_f, buckets: buckets, stride: stride,
           threshold: data['threshold'], trained_on: data['trained_on'])
     end
 
-    def initialize(weights:, bias: 0.0, buckets: BUCKETS, threshold: nil, trained_on: nil)
+    def initialize(weights:, bias: 0.0, buckets: BUCKETS, stride: STRIDE, threshold: nil, trained_on: nil)
       raise ArgumentError, "weights.size (#{weights.size}) != buckets (#{buckets})" unless weights.size == buckets
 
       @weights = weights
       @bias = bias
       @buckets = buckets
+      @stride = stride
       @threshold = threshold
       @trained_on = trained_on
     end
+
+    def self.bounded_integer(value, name:, default:, max:)
+      count = value.nil? ? default : value
+      unless count.is_a?(Integer) && count.positive? && count <= max
+        raise ArgumentError, "#{name} must be an integer between 1 and #{max}, got #{count.inspect}"
+      end
+
+      count
+    end
+    private_class_method :bounded_integer
 
     # FNV-1a rather than String#hash, which is seeded per process: a model whose
     # feature indices move between runs cannot be saved, and the failure would
@@ -75,16 +92,17 @@ module Vangrail
     end
 
     # Word stems, adjacent stem pairs, and character four-grams taken every
-    # STRIDE characters, counted and capped. The cap is what stops a page
-    # repeating one word from outvoting a page that says something. Train and
-    # serve both call this method, so the stride cannot drift apart.
-    def self.features(text, buckets = BUCKETS)
+    # stride characters, counted and capped. The cap is what stops a page
+    # repeating one word from outvoting a page that says something. Train
+    # calls this with the process STRIDE; score calls it with the stride the
+    # file named, so the two cannot silently disagree.
+    def self.features(text, buckets = BUCKETS, stride = STRIDE)
       body = text.to_s[0, LIMIT]
       words = NLP.words(body).map { |word| NLP.stem(word) }
       grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
       normalised = NLP.normalize(body)
       chars = if normalised.length > 4
-                (0..(normalised.length - 4)).step(STRIDE).map { |i| "c:#{normalised[i, 4]}" }
+                (0..(normalised.length - 4)).step(stride).map { |i| "c:#{normalised[i, 4]}" }
               else
                 []
               end
@@ -94,11 +112,12 @@ module Vangrail
 
     # The log-odds the model assigns, positive towards attack.
     def score(text)
-      self.class.features(text, buckets).sum { |index, value| (@weights[index] || 0.0) * value } + bias
+      self.class.features(text, buckets, stride).sum { |index, value| (@weights[index] || 0.0) * value } + bias
     end
 
     def to_h
-      { 'buckets' => buckets, 'bias' => bias, 'threshold' => threshold, 'trained_on' => trained_on,
+      { 'buckets' => buckets, 'stride' => stride, 'bias' => bias, 'threshold' => threshold,
+        'trained_on' => trained_on,
         'weights' => @weights.each_with_index.filter_map { |value, i| [i.to_s, value] unless value.zero? }.to_h }
     end
   end
