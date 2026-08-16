@@ -33,13 +33,17 @@ module Vangrail
         end
       end
 
+      def offline?
+        false
+      end
+
       # Not memoizable. Stated rather than left to a default so the reason is
       # visible where the decision is.
       def cache_key(_text, _context)
         nil
       end
 
-      def call(text, context)
+      def decide(text, context)
         passages = Array(context[:passages])
         return unchecked('no passages supplied') if passages.empty?
 

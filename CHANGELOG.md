@@ -84,6 +84,14 @@ Nothing has been released yet. This section describes what exists.
 - Stem-cache lookup is membership by key, so a falsey cached stem cannot
   evict a different word. An evicted lexicon form still stems correctly.
 - `NLP.clauses` on invalid UTF-8 does not raise.
+- `ResultCache` is ordinary UTF-8. The source file no longer carries NUL
+  bytes in a composite key; side, name, and key sit on an ordered Hash.
+- The engine keys a memo on `Rail.usable(text)`, not the raw body. A
+  socket-tagged retry and a body carrying a NUL share the slot the first
+  verdict already filled.
+- `ColangFlow#offline?` is false. Its actions can hit the network, so a
+  config-folder engine is not reported as free.
+
 - `Engine#assess` no longer treats an unread language as a clean page.
   When `Rails::Language` reports that the text is outside the lexicons,
   silence from the word rails is abstention rather than innocence, and
@@ -132,6 +140,17 @@ Nothing has been released yet. This section describes what exists.
 
 - Colang `stop` is a return tag, and a missing `define bot` or flow raises
   `ColangError` at load instead of `UnknownAction` at run.
+- `Builder` is its own file. `GUARDRAILS_RAILS` names that are not in the
+  known set raise `ArgumentError` instead of disappearing through
+  intersection.
+- `Engine#rails` raises on an unknown side. `:sideways` is not a quiet
+  trip through the output list.
+- A rail implements `#decide`. `#call` is the template: it scrubs the
+  bytes first and then calls `#decide`. A subclass that defines `#call`
+  instead skips the scrub.
+- `Rail#offline?` defaults to true. Networked is the rare case and has
+  to say so.
+
 - A page carrying bytes that are not valid UTF-8 now comes back `modified`
   rather than `passed`: the byte is stripped from what the reader and the model
   are handed, which is the contract zero-width characters have always had.

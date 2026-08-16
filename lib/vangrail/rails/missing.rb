@@ -22,15 +22,11 @@ module Vangrail
         @reason = reason
       end
 
-      def offline?
-        true
-      end
-
       def placeholder?
         true
       end
 
-      def call(_text, _context)
+      def decide(_text, _context)
         unchecked(reason)
       end
     end

@@ -89,17 +89,13 @@ module Vangrail
         @tolerance = tolerance
       end
 
-      def offline?
-        true
-      end
-
       # Not memoizable: the same question means different things depending on
       # what came before it, which is the entire premise of the rail.
       def cache_key(_text, _context)
         nil
       end
 
-      def call(text, context)
+      def decide(text, context)
         # A caller that never passes :history is not threading a dialogue, and
         # this rail has not checked anything: say so. A caller that passes an
         # empty one is threading a dialogue that has just started, which is a

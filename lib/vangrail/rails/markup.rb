@@ -50,10 +50,6 @@ module Vangrail
         @patterns = patterns
       end
 
-      def offline?
-        true
-      end
-
       def language_agnostic?
         true
       end
@@ -62,7 +58,7 @@ module Vangrail
         text
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         found = []
         cleaned = patterns.reduce(body) do |acc, (label, pattern)|

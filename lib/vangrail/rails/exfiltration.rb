@@ -67,10 +67,6 @@ module Vangrail
         @max_query = max_query
       end
 
-      def offline?
-        true
-      end
-
       def language_agnostic?
         true
       end
@@ -79,7 +75,7 @@ module Vangrail
         text
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         found = []
         cleaned = strip_all(body, found)

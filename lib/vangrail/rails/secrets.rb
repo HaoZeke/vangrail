@@ -40,15 +40,11 @@ module Vangrail
         @placeholder = placeholder
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         text
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         body = text.to_s
         found = []
         redacted = patterns.reduce(body) do |acc, (label, pattern)|

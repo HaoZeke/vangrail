@@ -6,7 +6,7 @@ module Vangrail
   # The whole rail protocol: a name, the sides it applies to, and `call`.
   #
   #   class ShoutRail < Vangrail::Rail
-  #     def call(text, _context)
+  #     def decide(text, _context)
   #       return pass if text == text.downcase
   #
   #       modify(text.downcase, reason: 'lowered')
@@ -15,7 +15,8 @@ module Vangrail
   #
   # Deliberately not a DSL. A rail is an object with one method, so a Ruby
   # application can write one in five lines, test it without a network, and put
-  # it in the same ordered list as the model-backed ones.
+  # it in the same ordered list as the model-backed ones. Subclasses implement
+  # `#decide`; `#call` scrubs the bytes first so every rail sees readable text.
   class Rail
     # Three sides, not two. `:context` is text the application retrieved and is
     # about to put in a prompt: a wiki page, a search result, a file. It is the
@@ -43,32 +44,11 @@ module Vangrail
 
     # Returns a Result. `context` is a hash the engine threads through:
     # :side, :user_input, :passages, :history, plus anything a caller adds.
-    def call(_text, _context)
-      raise NotImplementedError, "#{self.class} must implement #call"
-    end
-
-    # Bytes a rail can read, applied to every subclass's `call` before it runs.
     #
-    # The engine scrubs at its own boundary, but `rail.call(page, side:
-    # :context)` is the shape the README and the tutorial teach, and a caller
-    # composing rails themselves got the original crash: ArgumentError out of
-    # Regexp#match?, or Encoding::CompatibilityError out of unicode_normalize
-    # on a body still tagged binary. Defending the path the tests take and not
-    # the path the docs teach is the wrong half.
-    #
-    # Prepended rather than asked for, so the invariant belongs to a rail
-    # instead of to whoever calls one. A rail written this afternoon gets it by
-    # inheriting, which is the only way a promise like this survives contact
-    # with rails nobody here wrote.
-    module Readable
-      def call(text, context = {})
-        super(Rail.usable(text), context)
-      end
-    end
-
-    def self.inherited(subclass)
-      super
-      subclass.prepend(Readable)
+    # Scrubs here so `rail.call(page, side: :context)` (the shape the README
+    # and the tutorial teach) never hands a subclass bytes it cannot read.
+    def call(text, context = {})
+      decide(Rail.usable(text), context)
     end
 
     # UTF-8 or something that can be read as it. A body off a socket arrives
@@ -82,10 +62,19 @@ module Vangrail
       body.valid_encoding? ? body : body.scrub
     end
 
+    # Subclasses implement this. `text` is already readable UTF-8.
+    def decide(_text, _context)
+      raise NotImplementedError, "#{self.class} must implement #decide"
+    end
+
+    def cache_key(_text, _context) = nil
+
+    def quantifies? = false
+
     # Does this rail need the network. Used to report a posture and to let a
-    # caller build a model-free engine on purpose.
+    # caller build a model-free engine on purpose. The rare case is networked.
     def offline?
-      false
+      true
     end
 
     # A rail that stands in for one that could not be built, rather than a rail

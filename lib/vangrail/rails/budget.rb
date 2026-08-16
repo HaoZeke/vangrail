@@ -40,10 +40,6 @@ module Vangrail
         @max_context = max_context
       end
 
-      def offline?
-        true
-      end
-
       def language_agnostic?
         true
       end
@@ -52,7 +48,7 @@ module Vangrail
         "#{context[:side]}:#{text.to_s.length}"
       end
 
-      def call(text, context)
+      def decide(text, context)
         limit = context[:side] == :context ? max_context : max_characters
         return pass if limit.nil?
 

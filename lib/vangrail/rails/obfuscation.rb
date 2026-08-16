@@ -78,7 +78,7 @@ module Vangrail
         text if offline?
       end
 
-      def call(text, context)
+      def decide(text, context)
         body = text.to_s
         stripped = body.gsub(INVISIBLE, '')
 

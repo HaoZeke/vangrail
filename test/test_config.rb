@@ -62,6 +62,7 @@ class TestConfig < Minitest::Test
 
       assert_equal ['self check input'], engine.rail_names(:input)
       assert_equal ['self check output'], engine.rail_names(:output)
+      refute_predicate engine, :offline?
     end
   end
 

@@ -131,6 +131,20 @@ class TestResult < Minitest::Test
     assert_equal 1, rail.seen.size
   end
 
+  # The memo keys Rail.usable(text). A NUL is valid UTF-8; a broken byte
+  # is not. Tagging the same bytes ASCII-8BIT must not be a second slot.
+  def test_the_engine_keys_the_memo_on_usable_text
+    rail = GuardrailsTest::ScriptedRail.new(R.passed(rail: 'p'), name: 'p')
+    def rail.cache_key(text, _context) = text
+    engine = Vangrail::Engine.new(input: [rail])
+    raw = "same\x00question\xC3"
+    engine.check_input(raw.dup.force_encoding(Encoding::UTF_8))
+    engine.check_input(raw.dup.force_encoding(Encoding::ASCII_8BIT))
+
+    assert_equal 1, rail.seen.size
+    assert_equal 1, engine.cache.hits
+  end
+
   # A rail whose decision depends on more than the text says so with a nil key,
   # and the engine must respect that rather than guessing.
   def test_the_engine_never_memoizes_a_rail_without_a_key

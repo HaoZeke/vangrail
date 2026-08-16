@@ -55,13 +55,17 @@ module Vangrail
         end
       end
 
+      def offline?
+        false
+      end
+
       # Never memoizable: the same message means different things depending on
       # what it follows.
       def cache_key(_text, _context)
         nil
       end
 
-      def call(text, context)
+      def decide(text, context)
         return unchecked('no history was provided, so the sequence was not judged') unless context.key?(:history)
 
         turns = Array(context[:history]).last(window)

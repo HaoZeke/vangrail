@@ -76,7 +76,7 @@ module Vangrail
         text if offline?
       end
 
-      def call(text, context)
+      def decide(text, context)
         uncertain = nil
         spans(text).each do |carrier, span|
           rails.each do |rail|

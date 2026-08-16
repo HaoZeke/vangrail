@@ -41,21 +41,13 @@ module Vangrail
 
       attr_reader :model, :threshold
 
-      def offline?
-        true
-      end
-
-      def quantifies?
-        false
-      end
-
       def cache_key(text, _context)
         return nil unless model
 
         "#{threshold}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         return unchecked(missing_reason) unless model
 
         value = model.score(text)

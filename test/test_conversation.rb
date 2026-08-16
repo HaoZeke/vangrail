@@ -73,7 +73,7 @@ class TestConversation < Minitest::Test
   def test_screening_documents_sees_the_dialogue
     seen = nil
     spy = Class.new(Vangrail::Rail) do
-      define_method(:call) do |_text, context|
+      define_method(:decide) do |_text, context|
         seen = context[:history]
         Vangrail::Result.passed(rail: 'spy')
       end
@@ -90,7 +90,7 @@ class TestConversation < Minitest::Test
   def test_extra_context_is_threaded_through_every_check
     seen = []
     spy = Class.new(Vangrail::Rail) do
-      define_method(:call) do |_text, context|
+      define_method(:decide) do |_text, context|
         seen << context[:tenant]
         Vangrail::Result.passed(rail: 'spy')
       end

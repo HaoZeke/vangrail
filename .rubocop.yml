@@ -47,17 +47,18 @@ Style/Documentation:
 Metrics/MethodLength:
   Max: 45
 Metrics/AbcSize:
-  # 53 rather than the default 17. The methods between 17 and 53 are a
-  # parser dispatch, a request builder, the incomplete beta, and
-  # Engine#observe, which walks every rail and records three kinds of
-  # silence. Splitting those scatters one decision. Past 53 is grown.
-  Max: 53
+  # 40 rather than the default 17. The methods between 17 and 40 are a
+  # parser dispatch, a request builder, the incomplete beta, and the
+  # builder's stack assembly. Splitting those scatters one decision.
+  Max: 40
 Metrics/CyclomaticComplexity:
   Max: 24
 Metrics/PerceivedComplexity:
   Max: 24
 Metrics/ClassLength:
-  Max: 270
+  # 220 fails the pre-split Engine (~277 code lines). The pieces after
+  # the split (Builder, Engine, Assessor) sit under it.
+  Max: 220
 Metrics/ModuleLength:
   # NLP holds the lexicons, the stemmer, the language profiles, and
   # anaphora. Those are tables, not branches.

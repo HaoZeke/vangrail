@@ -283,6 +283,14 @@ class TestBuilder < Minitest::Test
     assert_empty engine(gateway_env.merge('GUARDRAILS_RAILS' => 'none'))
   end
 
+  def test_an_unknown_rail_name_is_refused
+    error = assert_raises(ArgumentError) do
+      engine(gateway_env.merge('GUARDRAILS_RAILS' => 'input,phantasm'))
+    end
+
+    assert_includes error.message, 'phantasm'
+  end
+
   def test_a_server_url_builds_a_remote_rail
     e = engine('GUARDRAILS_SERVER' => 'http://127.0.0.1:8000')
 

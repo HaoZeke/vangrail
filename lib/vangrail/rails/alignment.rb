@@ -44,15 +44,11 @@ module Vangrail
         raise ArgumentError, "unknown language(s): #{unknown.join(', ')}" unless unknown.empty?
       end
 
-      def offline?
-        true
-      end
-
       def cache_key(text, _context)
         "#{languages.join('+')}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         clauses = NLP.clauses(text)
         hits = NLP.clause_concepts(text, languages: languages).flat_map.with_index do |found, i|
           clause_hits(found, NLP.words(clauses[i]))

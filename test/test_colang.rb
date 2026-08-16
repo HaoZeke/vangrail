@@ -442,4 +442,15 @@ class TestColang < Minitest::Test
 
     assert_nil rail.cache_key('text', side: :input)
   end
+
+  # Those actions include model calls. Inheriting the default offline? would
+  # report a config-folder engine as free when every check is a round trip.
+  def test_a_colang_rail_is_not_offline
+    rail = Vangrail::Rails::ColangFlow.new(
+      flow_name: 'self check input', program: Vangrail::Colang::Library.program,
+      actions: Vangrail::Actions.new
+    )
+
+    refute_predicate rail, :offline?
+  end
 end

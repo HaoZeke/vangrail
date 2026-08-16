@@ -202,13 +202,13 @@ You have only used rails that came with the library. Write one.
 
 The specification: a context rail that blocks a document containing an HTML
 comment, because a comment is invisible to a reader and visible to a model. A
-rail is an object with one =call= method that returns a =Result=.
+rail is an object with one =decide= method that returns a =Result=.
 
 Start from this and fill in the body:
 
 #+begin_src ruby
 class NoHtmlComments < Vangrail::Rail
-  def call(text, _context)
+  def decide(text, _context)
     # return block(reason: '...') when text contains <!-- ... -->
     # otherwise return pass
   end
@@ -228,7 +228,7 @@ One solution, whole, so you can run it as it stands:
 require 'vangrail'
 
 class NoHtmlComments < Vangrail::Rail
-  def call(text, _context)
+  def decide(text, _context)
     return pass unless text.match?(/<!--.*?-->/m)
 
     block(categories: ['html_comment'], reason: 'html comment in a retrieved page')
@@ -251,7 +251,7 @@ ordered list as the ones that call a model, and returns the same =Result=.
 | What you see                                   | What happened                          | Fix                                              |
 |------------------------------------------------+----------------------------------------+--------------------------------------------------|
 | =cannot load such file -- vangrail=            | Ruby cannot find the library           | Run from the repository root, and keep =-Ilib=   |
-| =NotImplementedError: ... must implement #call= | Your rail does not define =call=       | The method takes two arguments: text and context |
+| =NotImplementedError: ... must implement #decide= | Your rail does not define =decide=   | The method takes two arguments: text and context |
 | =unknown side(s): ...=                          | A side was passed a name that is not a side | Sides are =:input=, =:context=, =:output=   |
 | Everything passes and =certain?= is false       | No rails are configured                | Pass rails to =Engine.new=, as in step 3         |
 | Your own rail never fires on a document         | It was not given the context side      | =sides: [:context]=, as in the solution above    |

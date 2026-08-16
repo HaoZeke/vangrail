@@ -74,7 +74,7 @@ module Vangrail
         "#{embeddings.model}\n#{threshold}\n#{text}"
       end
 
-      def call(text, _context)
+      def decide(text, _context)
         clauses, dropped = candidates(text)
         return pass if clauses.empty?
 
