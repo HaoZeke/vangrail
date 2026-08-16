@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'benchmark'
 require_relative 'helper'
 
 # The gap this rail exists to close, measured rather than asserted.
@@ -144,6 +145,36 @@ class TestParaphrase < Minitest::Test
     assert_includes result.categories, 'instruction_override'
     assert_match(/disregard/i, result.reason)
     assert_match(/directives/i, result.reason)
+  end
+
+  # An attacker-controlled quadratic, which is what pairing every override with
+  # every instruction was.
+  #
+  # A ratio rather than a budget, and on the adversarial shape rather than a
+  # fixture: a wall-clock budget written against tidy prose passes happily
+  # against quadratic code, because a hand-written page never carries enough
+  # concepts to reach it. Here the page carries thousands of both and no pair
+  # close enough to match, so every comparison the old loop would make is made.
+  #
+  # Four times the page should cost about four times the work. Quadratic costs
+  # sixteen. The band is wide because it is a timing test on a shared machine;
+  # it is still two doublings clear of the failure it guards.
+  def test_a_page_full_of_concepts_costs_what_its_length_costs
+    hostile = lambda do |count|
+      (['ignore'] * count + ['padding'] * 40 + ['instructions'] * count).join(' ')
+    end
+    guard = Vangrail::Rails::Paraphrase.new(sides: [:context])
+    small = hostile.call(500)
+    large = hostile.call(2000)
+
+    # Warm the stem memo so the first call does not pay for both.
+    guard.call(small, side: :context)
+    at_small = Benchmark.realtime { guard.call(small, side: :context) }
+    at_large = Benchmark.realtime { guard.call(large, side: :context) }
+
+    assert_operator at_large, :<, at_small * 8,
+                    format('4x the page cost %<factor>.1fx the time, which is the quadratic back',
+                           factor: at_large / at_small)
   end
 
   def test_it_is_offline_and_memoizable

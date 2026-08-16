@@ -61,7 +61,17 @@ class TestJudgement < Minitest::Test
 
     assert_operator rare.fired.size, :>=, 1
     assert_in_delta rare.bits, common.bits, 1e-9
-    assert_operator common.posterior, :>, rare.posterior * 100
+
+    # Stated in odds rather than in probabilities. Equal evidence multiplies
+    # the prior odds by the same factor, so the ratio between the two
+    # deployments is exactly the ratio between their base rates -- which a
+    # comparison of posteriors cannot show once one of them saturates, and
+    # which stops being true the moment somebody quietly makes the evidence
+    # depend on the prior.
+    odds = ->(judgement) { judgement.posterior / (1 - judgement.posterior) }
+    expected = (1e-1 / (1 - 1e-1)) / (1e-4 / (1 - 1e-4))
+
+    assert_in_delta expected, odds.call(common) / odds.call(rare), expected * 1e-6
     refute_predicate rare, :block?
   end
 

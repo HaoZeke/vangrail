@@ -124,19 +124,39 @@ module Vangrail
         end
       end
 
+      # Pairs within a window, found by walking the window rather than by
+      # comparing everything with everything.
+      #
+      # The obvious loop is lefts against rights, and it is quadratic in the
+      # number of concepts a document carries. That is invisible on ordinary
+      # prose, where a clause holds two or three, and it is reachable on
+      # purpose: a retrieved page is written by whoever wants it retrieved, and
+      # a page of "ignore ignore ignore ... instructions instructions" carries
+      # thousands of each with no pair close enough to match, so every one gets
+      # compared against every one. Measured before this rewrite: 51 ms at 5 KB,
+      # 1,298 ms at 39 KB, four times the work for twice the page, and the
+      # decoding pass runs it again per transform.
+      #
+      # A window is at most ten tokens, so walking it costs the same per concept
+      # whatever the page weighs.
       def match(found, template, length)
         first, second = template[:concepts]
-        lefts = found.select { |(_, concept, _)| concept == first }
-        rights = found.select { |(_, concept, _)| concept == second }
+        seconds = Hash.new { |hash, key| hash[key] = [] }
+        found.each { |(index, concept, word)| seconds[index] << word if concept == second }
+        window = template[:window]
 
-        lefts.each do |(i, _, left_word)|
-          rights.each do |(j, _, right_word)|
+        found.each do |(i, concept, left_word)|
+          next unless concept == first
+
+          ((i - window)..(i + window)).each do |j|
             # One word carrying both concepts is one fact, not two. "prompt" is
             # an instruction and a secret at the same index, and a page that
             # says it once has not said anything twice.
-            next if i == j
+            next if j == i
             next if template[:ordered] && j < i && !verb_final_object?(i, length, left_word)
-            next if (i - j).abs > template[:window]
+
+            right_word = seconds[j].first
+            next unless right_word
 
             return { label: template[:label], words: [left_word, right_word] }
           end
