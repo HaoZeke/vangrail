@@ -83,6 +83,17 @@ class TestLinear < Minitest::Test
     end
   end
 
+  def test_character_four_grams_step_by_the_named_stride
+    assert_equal 2, Vangrail::LinearModel::STRIDE
+
+    features = Vangrail::LinearModel.features('abcdefghij')
+    sampled = %w[c:abcd c:cdef c:efgh c:ghij]
+    skipped = 'c:bcde'
+
+    sampled.each { |gram| assert features.key?(Vangrail::LinearModel.bucket(gram)), gram }
+    refute features.key?(Vangrail::LinearModel.bucket(skipped))
+  end
+
   def test_a_model_survives_a_round_trip_through_a_file
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'model.json')

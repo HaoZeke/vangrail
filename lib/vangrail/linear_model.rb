@@ -30,10 +30,12 @@ module Vangrail
   # every test and badly in production, and nothing about the failure looks like
   # a bug.
   class LinearModel
-    # A four-thousand character prefix, hashed into a fixed table. Both numbers
-    # are part of the model: change either and every index moves.
+    # A four-thousand character prefix, hashed into a fixed table. Character
+    # four-grams are sampled every STRIDE characters. All three numbers are
+    # part of the model: change any and every index moves.
     LIMIT = 4000
     BUCKETS = 2**18
+    STRIDE = 2
 
     attr_reader :bias, :buckets, :threshold, :trained_on
 
@@ -72,16 +74,17 @@ module Vangrail
       hash % buckets
     end
 
-    # Word stems, adjacent stem pairs, and character four-grams, counted and
-    # capped. The cap is what stops a page repeating one word from outvoting a
-    # page that says something.
+    # Word stems, adjacent stem pairs, and character four-grams taken every
+    # STRIDE characters, counted and capped. The cap is what stops a page
+    # repeating one word from outvoting a page that says something. Train and
+    # serve both call this method, so the stride cannot drift apart.
     def self.features(text, buckets = BUCKETS)
       body = text.to_s[0, LIMIT]
       words = NLP.words(body).map { |word| NLP.stem(word) }
       grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
       normalised = NLP.normalize(body)
       chars = if normalised.length > 4
-                (0..(normalised.length - 4)).step(2).map { |i| "c:#{normalised[i, 4]}" }
+                (0..(normalised.length - 4)).step(STRIDE).map { |i| "c:#{normalised[i, 4]}" }
               else
                 []
               end
