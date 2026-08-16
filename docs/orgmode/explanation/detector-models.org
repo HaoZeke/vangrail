@@ -1,0 +1,154 @@
+#+TITLE: What Detects an Injection, and What It Costs
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* What Detects an Injection, and What It Costs
+
+This gem detects injections with hand-written rules, which is one of four
+families the published work uses and the weakest of them on every measurement
+here. This page is the survey that says so, with the numbers measured on the
+same corpus rather than quoted from each paper's own.
+
+Every reference was checked before it was written down.
+
+** Four families, and one that is not a detector at all
+
+*** Hand-written rules
+
+Patterns, lexicons, and templates: everything in =lib/vangrail/rails= except the
+classifier. They cost microseconds, need no model, keep working when the
+endpoint is down, and can be read and argued with by the person who has to
+maintain them.
+
+They also lose. On in-the-wild jailbreak prompts they catch 39.5% at a
+false-alarm rate of 12.67%, and the false-alarm rate is not a dial: a rule stack
+has exactly one operating point, and the only way to spend fewer false alarms is
+to delete rules.
+
+*** A bag of n-grams, fitted
+
+The oldest working text classifier, and the cheapest thing that beats the rules.
+Naive Bayes over word n-grams is the junk-mail recipe; a linear model fitted
+discriminatively over hashed n-grams is the same features with the independence
+assumption dropped, which is the =fastText= shape ([[https://doi.org/10.48550/arXiv.1607.01759][10.48550/arXiv.1607.01759]]).
+
+The difference between them is not academic here. Naive Bayes counts a word and
+the pair containing it as two independent votes, so its score overstates itself
+and has to be calibrated after the fact; fitting the weights jointly removes the
+problem rather than correcting for it. Measured on the same folds: 67.0% for
+naive Bayes, 73.7% for the linear model, both at the rails' 12.67%.
+
+Neither needs a GPU, a network, or a dependency. The linear model is a flat
+array of floats.
+
+*** A fine-tuned encoder
+
+The deployed shape of a published detector: a BERT-family encoder
+([[https://doi.org/10.48550/arXiv.1810.04805][10.48550/arXiv.1810.04805]]),
+usually DeBERTa ([[https://doi.org/10.48550/arXiv.2006.03654][10.48550/arXiv.2006.03654]]),
+fine-tuned on labelled injections. This is what ProtectAI's detector, Meta's
+PromptGuard, InjecGuard ([[https://doi.org/10.48550/arXiv.2410.22770][10.48550/arXiv.2410.22770]])
+and PromptShield ([[https://doi.org/10.48550/arXiv.2501.15145][10.48550/arXiv.2501.15145]])
+all are.
+
+It needs a model in the process or an endpoint in front of one, which is the
+dependency this gem's whole design refuses. The measurement below is what it
+buys.
+
+*** The model as its own judge
+
+Llama Guard ([[https://doi.org/10.48550/arXiv.2312.06674][10.48550/arXiv.2312.06674]])
+and the policy rails here: a generative model reading the text against a written
+policy. Flexible, expensive per call, and reading an argument written to
+persuade it when the text is a retrieved page.
+
+A white-box variant reads the model's own attention rather than its output:
+Attention Tracker ([[https://doi.org/10.48550/arXiv.2411.00348][10.48550/arXiv.2411.00348]])
+detects the distraction an injection causes, without training, and needs access
+to the attention weights. DataSentinel
+([[https://doi.org/10.48550/arXiv.2504.11358][10.48550/arXiv.2504.11358]]) fine-tunes a
+detector by a game between attacker and defender.
+
+*** And the family that is not detection
+
+StruQ ([[https://doi.org/10.48550/arXiv.2402.06363][10.48550/arXiv.2402.06363]]),
+SecAlign, Jatmo ([[https://doi.org/10.48550/arXiv.2312.17673][10.48550/arXiv.2312.17673]])
+and the instruction hierarchy
+([[https://doi.org/10.48550/arXiv.2404.13208][10.48550/arXiv.2404.13208]]) do not detect
+anything. They change the model or the prompt so that the injection does not
+work: separated channels, task-specific fine-tuning, a trained priority between
+instruction sources.
+
+They are the answer this repository cannot reach from outside the model, and
+they are where the residual has to be paid for. A detector in front of a model
+that will obey any instruction it reads is a filter in front of a hole.
+
+** The finding two of those papers share with this repository
+
+The surprise of the survey was not the ranking. It was that the false-alarm
+problem this project measured by accident is the thing the recent detector
+papers are about.
+
+InjecGuard names it *over-defense*: guard models flag benign inputs because they
+contain words that appear in attacks. Their benign evaluation set, NotInject, is
+339 sentences enriched with trigger words, and they report state-of-the-art
+models dropping to about 60% accuracy on it, which is close to guessing.
+
+PromptShield's stated contribution is performance "in the low false positive
+rate regime", on the argument that existing detectors are not deployable.
+
+Both are the argument of [[file:evidence.org][the evidence page]] arrived at from
+the other direction, and both are the finding of
+[[file:external-evaluation.org][the external evaluation]] with a curated corpus
+instead of a natural one. Where they build 339 benign sentences designed to
+carry trigger words, this repository ran 18,258 manual pages that carry them
+without being designed to:
+
+| =Ignore all errors in commands executed to remake files.= | make's -i flag |
+| =Print the authentication token gh uses for a hostname.= | a documented feature |
+| =Enable debug mode.= | every tool with a debug flag |
+| =331 Guest login ok, send your complete e-mail address as password.= | an FTP transcript |
+
+The two corpora answer different questions. A curated one asks whether a
+detector can be tricked by trigger words on purpose; a natural one asks how
+often the trigger words occur anyway. A deployment needs the second number and
+the literature mostly reports the first.
+
+** Measured here, on one corpus, at one operating point
+
+In-the-wild jailbreak prompts against the ordinary prompts collected beside
+them, 1,405 against 13,735, everything cross-validated where it was fitted:
+
+| Detector | Detection | False alarm |
+|----------+-----------+-------------|
+| hand-written rules | 39.5% | 12.67% |
+| naive Bayes over n-grams | 67.0% | 12.66% |
+| linear model over hashed n-grams | 73.7% | 12.67% |
+| linear model, held to one false alarm in a hundred | 27.0% | 1.00% |
+
+The last row is the one the rules cannot answer at all. A scored model has a
+curve and a rule stack has a point, so only the model can be asked what it
+catches when the desk will accept one false alarm in a hundred rather than one
+in eight.
+
+** What to use
+
+For a documentation desk on a laptop, in this order.
+
+Run the deterministic rails, because they cost nothing and they are the only
+thing that works when the endpoint is down. Do not expect them to be the
+defence: 39.5% of one corpus's jailbreaks, and 0% of the published indirect
+injections, which is [[file:coverage.org][a gap no surface rule closes]].
+
+Fit a linear model on your own traffic. It is thirty lines, it needs no
+dependency, it beats the rules by thirty-four points on this corpus, and unlike
+anything shipped it is fitted to the attacks you actually receive. The trainer
+is =script/train_linear.rb=.
+
+Put a fine-tuned encoder in front if you can afford the endpoint, and calibrate
+it against your own benign corpus before believing its threshold, because
+over-defense is what its own literature says it will do to you.
+
+And spend the effort you have left on the training-time family instead, because
+none of the above stops a model from obeying an instruction it reads. Detection
+buys time and evidence; it does not buy correctness.
