@@ -25,13 +25,10 @@ module Vangrail
 
     attr_reader :model, :http
 
-    def initialize(model:, base_url: nil, api_key: nil, http: nil,
-                   open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT, read_timeout: 20)
-      raise ArgumentError, 'a Completion needs a base_url or an http client' if http.nil? && base_url.to_s.strip.empty?
-
+    def initialize(model:, http: nil, base_url: nil, api_key: nil)
       @model = model
-      @http = http || HTTP.new(base_url: base_url, api_key: api_key,
-                               open_timeout: open_timeout, read_timeout: read_timeout)
+      @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         missing: 'a Completion needs a base_url or an http client')
     end
 
     # The log probability of each token of `text`, under this model.
@@ -54,13 +51,16 @@ module Vangrail
       values.compact
     end
 
-    # Whether this endpoint can score at all, answered by asking it to score
-    # three words. A deployment finds out once, at startup, instead of once per
-    # check.
+    # Whether this endpoint can score at all. ProtocolError means it cannot;
+    # TransportError means it is down, which is a different question. Asked
+    # once and kept, so a rail does not spend a scoring request on a boolean
+    # every check.
     def supported?
-      token_logprobs('the quick brown fox').size > 1
-    rescue Error
-      false
+      return @supported unless @supported.nil?
+
+      @supported = token_logprobs('the quick brown fox').size > 1
+    rescue ProtocolError
+      @supported = false
     end
 
     private

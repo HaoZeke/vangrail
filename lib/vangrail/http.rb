@@ -14,6 +14,17 @@ module Vangrail
 
     attr_reader :base_url, :open_timeout, :read_timeout, :retries
 
+    # Chat, Embeddings, Completion, and Client all take an HTTP or the
+    # arguments that build one. One helper so those constructors stay thin.
+    def self.build(http: nil, base_url: nil, api_key: nil,
+                   open_timeout: DEFAULT_OPEN_TIMEOUT, read_timeout: DEFAULT_READ_TIMEOUT,
+                   missing: 'a client needs a base_url or an http client')
+      return http if http
+      raise ArgumentError, missing if base_url.to_s.strip.empty?
+
+      new(base_url: base_url, api_key: api_key, open_timeout: open_timeout, read_timeout: read_timeout)
+    end
+
     def initialize(base_url:, api_key: nil, open_timeout: DEFAULT_OPEN_TIMEOUT,
                    read_timeout: DEFAULT_READ_TIMEOUT, retries: 1, headers: {})
       @base_url = base_url.to_s.sub(/\/+\z/, '')
@@ -49,20 +60,11 @@ module Vangrail
 
     def request(klass, path, payload)
       uri = URI.join("#{base_url}/", path.to_s.sub(/\A\/+/, ''))
-      attempt = 0
-      begin
-        attempt += 1
-        perform(klass, uri, payload)
-      rescue TransportError, HTTPError => e
-        raise unless attempt <= retries && retryable?(e)
+      perform(klass, uri, payload)
+    rescue TransportError
+      raise if retries < 1
 
-        sleep(0.25 * attempt)
-        retry
-      end
-    end
-
-    def retryable?(error)
-      error.is_a?(TransportError) || error.retryable?
+      perform(klass, uri, payload)
     end
 
     def perform(klass, uri, payload)

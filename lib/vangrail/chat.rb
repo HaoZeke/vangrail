@@ -19,24 +19,14 @@ module Vangrail
 
     attr_reader :model, :http, :max_tokens, :temperature, :extra
 
-    def initialize(model:, base_url: nil, api_key: nil, http: nil, max_tokens: 128,
-                   temperature: 0, extra: {}, open_timeout: HTTP::DEFAULT_OPEN_TIMEOUT,
-                   read_timeout: 20)
-      if http.nil? && base_url.to_s.strip.empty?
-        raise ArgumentError,
-              'a Chat needs a base_url or an http client'
-      end
-
+    def initialize(model:, http: nil, base_url: nil, api_key: nil, max_tokens: 128,
+                   temperature: 0, extra: {})
       @model = model
       @max_tokens = max_tokens
       @temperature = temperature
       @extra = extra
-      @http = http || HTTP.new(
-        base_url: base_url,
-        api_key: api_key,
-        open_timeout: open_timeout,
-        read_timeout: read_timeout,
-      )
+      @http = HTTP.build(http: http, base_url: base_url, api_key: api_key,
+                         missing: 'a Chat needs a base_url or an http client')
     end
 
     # A copy pointed at a different model on the same endpoint and credentials.

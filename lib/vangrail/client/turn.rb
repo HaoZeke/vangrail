@@ -2,14 +2,14 @@
 
 module Vangrail
   class Client
-    # A guardrailed chat completion, read out of either server response shape.
+    # A guardrailed chat turn, read out of either server response shape.
     #
     # The OpenAI-compatible shape puts the answer in choices[0].message.content
     # and rail bookkeeping under a top-level `guardrails` object. The older shape
     # answers with a bare {role, content} message (or a list of them) and puts
     # bookkeeping at the top level. Both appear in the wild depending on the
     # server version, so this reads whichever is present.
-    class Completion
+    class Turn
       # Server-side names for the variables holding the rail that stopped a turn.
       INPUT_RAIL_VAR = 'triggered_input_rail'
       OUTPUT_RAIL_VAR = 'triggered_output_rail'
