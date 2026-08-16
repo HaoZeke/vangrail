@@ -104,6 +104,7 @@ module Vangrail
       parts.join(' ')
     end
 
+    # Public so Assessor can run one rail without going through #run.
     def invoke(rail, text, ctx)
       memoized(rail, text, ctx) { call_rail(rail, text, ctx) }
     end
@@ -187,7 +188,9 @@ module Vangrail
     def memoized(rail, text, ctx, &)
       return yield unless cache
 
-      key = rail.cache_key(text, ctx)
+      # Key the readable form. Raw bytes can carry a NUL or a wrong tag
+      # and would store the same decision under two keys.
+      key = rail.cache_key(Rail.usable(text), ctx)
       return yield if key.nil?
 
       cache.fetch(ctx[:side], rail.name, key, &)
