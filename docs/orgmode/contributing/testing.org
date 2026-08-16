@@ -31,10 +31,12 @@ the paraphrase suite three times and report a number nobody could add up.
 ** The environment is emptied by prefix
 
 =GuardrailsTest#isolate_env!= deletes every =GUARDRAILS*=, =WILLMA_*=, and
-=LLMLITE_*= variable, not a hand-maintained list of them. A new
-=GUARDRAILS_GATEWAY_*= key cannot leak a laptop's hub token into a builder
-test. Tests that need a gateway describe it in the hash they pass to
-=Builder.new=.
+=LLMLITE_*= variable, not a hand-maintained list of them, plus the two
+llmlite aliases that sit outside those prefixes (=GROK_SHIM_PORT=,
+=GROK_LLMLITE_MODEL=). A new =GUARDRAILS_GATEWAY_*= key cannot leak a
+laptop's hub token into a builder test, and a leftover =GROK_SHIM_PORT=
+cannot point the registered provider at the developer's proxy. Tests that
+need a gateway describe it in the hash they pass to =Builder.new=.
 
 ** What a new rail test has to contain
 

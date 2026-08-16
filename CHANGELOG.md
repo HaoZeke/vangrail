@@ -202,8 +202,10 @@ Nothing has been released yet. This section describes what exists.
   true and `COVERAGE=1` sees the whole library. Shared prose lives in
   `test/corpus.rb` instead of in test files that required each other.
 - `isolate_env!` clears every `GUARDRAILS*`, `WILLMA_*`, and `LLMLITE_*`
-  variable by prefix, so a new gateway key cannot leak a laptop token
-  into a builder test.
+  variable by prefix, plus the llmlite aliases `GROK_SHIM_PORT` and
+  `GROK_LLMLITE_MODEL`, so a new gateway key cannot leak a laptop token
+  into a builder test and a leftover shim port cannot keep the proxy
+  registered.
 
 - `Vangrail::NLP`, a text analysis layer in the standard library: normalisation,
   a suffix stripper, a concept lexicon with negation and multiword phrases,

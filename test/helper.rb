@@ -58,10 +58,10 @@ module GuardrailsTest
     end
   end
 
-  # Every variable this gem reads, by prefix. A hand-maintained list goes
-  # stale the first time a new GUARDRAILS_GATEWAY_* key is added, and a
-  # laptop's hub token then decides what a builder test does.
-  WATCHED_ENV = /\A(GUARDRAILS|WILLMA|LLMLITE)(_|\z)/
+  # Every variable this gem reads, by prefix, plus the two llmlite aliases
+  # that live outside it. A prefix-only list leaves GROK_SHIM_PORT pointing
+  # the registered provider at the developer's proxy.
+  WATCHED_ENV = /\A((GUARDRAILS|WILLMA|LLMLITE)(_|\z)|GROK_SHIM_PORT\z|GROK_LLMLITE_MODEL\z)/
 
   def isolate_env!
     @saved_env = ENV.select { |key, _| key.match?(WATCHED_ENV) }

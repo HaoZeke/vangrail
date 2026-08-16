@@ -27,35 +27,19 @@ class TestDocumentation < Minitest::Test
 
   # Blocks that cannot run here and say so: they need an endpoint, a key, or a
   # server. A regex would skip a new snippet without naming it. Each entry is
-  # [path relative to the repo root, first line of the block, reason].
+  # [path relative to the repo root, a line unique to the block, reason].
+  #
+  # The line is not always the first. Three tutorial blocks start with
+  # `require 'vangrail'`, and only the README one calls from_env. Matching on
+  # the first line would skip the two that never open a socket.
+  #
+  # register_gateway and Provider.register are not listed: they install a
+  # struct. No socket opens until something later asks the registry to
+  # resolve.
   NEEDS_NETWORK = [
-    ['docs/orgmode/howto/calibrating-a-model-rail.org',
-     'Vangrail.provider.name        # => "llmlite"',
-     'probes a live provider'],
-    ['docs/orgmode/howto/calibrating-a-model-rail.org',
+    ['README.md',
      'engine = Vangrail.from_env',
-     'checks a configured semantic rail against a live page'],
-    ['docs/orgmode/howto/choosing-an-endpoint.org',
-     'Vangrail::Providers.register_gateway(',
-     'registers a live gateway'],
-    ['README.md',
-     'Vangrail::Providers.register_gateway(',
-     'registers a live gateway'],
-    ['README.md',
-     'Vangrail.provider.name        # => "llmlite"',
-     'probes a live provider'],
-    ['README.md',
-     'Vangrail::Provider.register(',
-     'registers a live endpoint'],
-    ['README.md',
-     "config = Vangrail::Config.load('config/handbook')",
-     'loads a folder against the resolved provider'],
-    ['README.md',
-     "Vangrail::Config.for_provider(Vangrail.provider, name: 'handbook').write!('config')",
-     'writes a folder from the resolved provider'],
-    ['README.md',
-     "client = Vangrail.client(base_url: 'http://127.0.0.1:8000', config_id: 'handbook')",
-     'talks to a Guardrails server'],
+     'resolves a provider and may call a live model'],
   ].freeze
 
   def setup
@@ -87,9 +71,13 @@ class TestDocumentation < Minitest::Test
   end
 
   def network_reason(path, source)
-    line = first_line(source)
     name = rel(path)
-    NEEDS_NETWORK.detect { |listed, first, _reason| listed == name && first == line }&.last
+    NEEDS_NETWORK.detect { |listed, marker, _reason| listed == name && source.include?(marker) }&.last
+  end
+
+  def live_call?(source)
+    source.include?('Vangrail.from_env') ||
+      source.match?(/Vangrail(?:\.client|::Client\.new)\b/)
   end
 
   def parses?(source)
@@ -109,12 +97,23 @@ class TestDocumentation < Minitest::Test
   end
 
   def test_the_network_list_names_real_blocks
-    missing = NEEDS_NETWORK.reject do |listed, first, _reason|
+    missing = NEEDS_NETWORK.reject do |listed, marker, _reason|
       path = File.join(ROOT, listed)
-      File.file?(path) && ruby_blocks(path).any? { |src| first_line(src) == first }
+      File.file?(path) && ruby_blocks(path).any? { |src| src.include?(marker) }
     end
 
     assert_empty missing, "NEEDS_NETWORK names blocks that are not in the documents:\n  #{missing.inspect}"
+  end
+
+  def test_every_self_contained_live_example_is_named
+    unnamed = documents.flat_map do |path|
+      ruby_blocks(path).select { |src| src.include?("require 'vangrail'") && live_call?(src) }
+                       .reject { |src| network_reason(path, src) }
+                       .map { |src| "#{rel(path)}: #{first_line(src)}" }
+    end
+
+    assert_empty unnamed,
+                 "these self-contained examples call from_env or Client and are not in NEEDS_NETWORK:\n  #{unnamed.join("\n  ")}"
   end
 
   def self_contained
