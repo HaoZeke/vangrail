@@ -118,6 +118,13 @@ Nothing has been released yet. This section describes what exists.
 
 ### Changed
 
+- A page carrying bytes that are not valid UTF-8 now comes back `modified`
+  rather than `passed`: the byte is stripped from what the reader and the model
+  are handed, which is the contract zero-width characters have always had.
+  Anything branching on `modified` should know it can now mean a rewrite that is
+  not a redaction.
+
+
 - The context rails catch 0 of 125 published BIPIA injections. Those attacks are
   off-task instructions carrying no override, disclosure, or concealment, which
   is a coverage gap the documentation never named rather than a detection

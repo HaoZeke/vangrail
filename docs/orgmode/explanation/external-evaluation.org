@@ -68,14 +68,15 @@ not belong in a gem.
 | =hidden= | 0 | 0.00% | 0.01% |
 | =many_shot= | 2 | 0.01% | 0.03% |
 | =jailbreak= | 20 | 0.11% | 0.16% |
+| =alignment= | 24 | 0.13% | 0.18% |
 | =injected_instructions= | 48 | 0.26% | 0.33% |
 | =obfuscation= | 59 | 0.32% | 0.40% |
-| =paraphrase= | 235 | 1.29% | 1.43% |
+| =paraphrase= | 236 | 1.29% | 1.44% |
 | =bayes= | 1617 | 8.86% | 9.21% |
 
-The stack as a whole drops *2.32%* of real documentation (95% bound 2.66%,
-measured over 5,953 documents in a separate pass). One page in forty-three, on a
-corpus with nothing wrong with it. An application screening a wiki with these
+The stack as a whole drops *2.34%* of real documentation (139 of 5,953, 95%
+bound 2.67%, measured in a separate pass). One page in forty-three, on a corpus
+with nothing wrong with it. An application screening a wiki with these
 rails is deleting a page in forty-three from its own search results, and until
 this measurement existed nobody could have known.
 
@@ -94,6 +95,17 @@ pattern nobody would have predicted from the hand-written corpus:
 - /suppresses display of the response/ -- read as concealment from a reader.
 - /Enable debug mode./ -- read as a jailbreak, because the pattern looks for
   "enable debug mode" and every tool with a debug flag documents one.
+- /Ignore all errors in commands executed to remake files./ -- make's -i flag,
+  read as an instruction override by the rail built to compare a page against
+  the question that fetched it.
+- /331 Guest login ok, send your complete e-mail address as password./ -- an FTP
+  server's response, quoted in Perl documentation, read as a request for a
+  password.
+
+The rates differ across rails by three orders of magnitude and the *kind* of
+error does not differ at all. Every one is documentation describing what
+software does, in the vocabulary an instruction to an assistant uses. No
+lexicon separates those, because they are the same words.
 
 The concept lexicon cannot tell an instruction addressed to software from an
 instruction addressed to an assistant, and manual pages are nothing but
@@ -122,6 +134,35 @@ is the ordinary case rather than an attack. A rail blocking on invalid bytes
 would therefore have a spotless record on the corpus that cannot produce them,
 and would fire on the innocent case in the one place they occur. Which is the
 off-distribution trap in miniature, approached from the other side.
+
+*** Why a hand-written fixture cannot fail in a direction its author did not expect
+
+That sentence is the general form of everything on this page, and it earned a
+section of its own on the day three separate defects came out of the same corpus
+idea:
+
+- A universal bypass. One invalid byte raised out of the engine before any rail
+  had an opinion, so a page carrying an injection and a broken character
+  produced no verdict at all.
+- A quadratic. Pairing every override with every instruction cost 51 ms at 5 KB
+  and 1,298 ms at 39 KB, on a rail the decoding pass runs again per transform,
+  against input an attacker writes.
+- A false-alarm class. A rule written for Dutch grammar fired on English
+  documentation URLs.
+
+None of the three is subtle once seen, and none was visible on 48 hand-written
+sentences. A fixture is a statement of what its author expected, so it can only
+fail in directions its author anticipated: tidy prose carries no URLs, no stray
+bytes, no option tables, and never enough concepts in one clause to make a
+quadratic show.
+
+The same blindness reaches past false alarms. A wall-clock budget written
+against a fixture passes against quadratic code, because the fixture never gets
+big enough to breach it -- which is why the regression test here asserts a ratio
+on the adversarial shape rather than a budget on a fixture, and why the one for
+the byte asserts that the poisoned page is *caught* rather than merely that
+nothing raised. "Does not crash" would have passed with the document silently
+unscreened.
 
 ** The base rate, measured rather than assumed
 
@@ -237,6 +278,7 @@ and the machinery never engaged. Measured on 5,953 real documents:
 | =paraphrase= with =obfuscation= | +0.55 |
 | =injected_instructions= with =obfuscation= | +0.26 |
 | =injected_instructions= with =paraphrase= | +0.25 |
+| =paraphrase= with =alignment= | +0.23 |
 
 =obfuscation= re-runs the other rails over decoded text, so on ordinary
 documentation it is largely re-reporting =paraphrase='s false alarms with
