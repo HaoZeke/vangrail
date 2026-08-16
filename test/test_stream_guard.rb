@@ -8,8 +8,6 @@ require_relative 'helper'
 # reach the same verdicts either way, but a stream guard reaches them before the
 # text is on screen rather than after.
 class TestStreamGuard < Minitest::Test
-  include GuardrailsTest
-
   SECRET = 'sk-abcdefghijklmnopqrstuvwx1234'
 
   def engine(rails = [Vangrail::Rails::Secrets.new])
@@ -65,12 +63,10 @@ class TestStreamGuard < Minitest::Test
     stream(guard, "a nope arrives here and the guard stops#{' padding' * 10}")
     before = guard.content
 
-    assert_nil_or_blocked guard.push('more text that should be ignored entirely')
-    assert_equal before, guard.content
-  end
+    again = guard.push('more text that should be ignored entirely')
 
-  def assert_nil_or_blocked(result)
-    assert(result.nil? || result.blocked?)
+    assert_predicate again, :blocked?
+    assert_equal before, guard.content
   end
 
   # --- what it deliberately does not do ---
