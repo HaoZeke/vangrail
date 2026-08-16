@@ -26,14 +26,10 @@ COUNT = (ARGV[2] || 12).to_i
 
 report = JSON.parse(File.read(RESULTS))
 
-RAILS = {
-  'injected_instructions' => Vangrail::Rails::InjectedInstructions.new,
-  'jailbreak' => Vangrail::Rails::Jailbreak.new(sides: [:context]),
-  'paraphrase' => Vangrail::Rails::Paraphrase.new(sides: [:context]),
-  'similarity' => Vangrail::Rails::Similarity.new(sides: [:context]),
-  'many_shot' => Vangrail::Rails::ManyShot.new(sides: [:context]),
-  'bayes' => Vangrail::Rails::Bayes.new(sides: [:context])
-}.freeze
+# Built from whatever the builder ships, so a rail added upstream can still be
+# read rather than silently printing no span.
+RAILS = (Vangrail::Builder.deterministic(:context) +
+         [Vangrail::Rails::Bayes.new(sides: [:context])]).to_h { |rail| [rail.name, rail] }.freeze
 
 def offending(rail, text)
   clauses = Vangrail::NLP.clauses(text)
