@@ -29,40 +29,22 @@ require 'json'
 require 'vangrail'
 require_relative 'external_corpus'
 
-DATA = ARGV[0] || File.expand_path('../tmp/external', __dir__)
-OUTPUT = ARGV[1] || File.expand_path('../tmp/linear_results.json', __dir__)
+DATA = (ARGV[0] && !ARGV[0].start_with?('--') ? ARGV[0] : nil) ||
+       File.expand_path('../tmp/external', __dir__)
+OUTPUT = File.expand_path('../tmp/linear_results.json', __dir__)
 
-BUCKETS = 2**18
+BUCKETS = Vangrail::LinearModel::BUCKETS
 EPOCHS = 4
 L2 = 1e-6
 RATE = 0.5
 FOLDS = 5
+EMIT = ARGV.include?('--emit') ? ARGV[ARGV.index('--emit') + 1] : nil
 
-# FNV-1a rather than String#hash, which is seeded per process: a model whose
-# feature indices change between runs is a model that cannot be shipped, and the
-# failure would look like a classifier that scores perfectly in training and
-# randomly everywhere else.
-def bucket(feature)
-  hash = 2_166_136_261
-  feature.each_byte { |byte| hash = ((hash ^ byte) * 16_777_619) & 0xFFFFFFFF }
-  hash % BUCKETS
-end
-
-# Truncated, because the tail of a four-thousand-character prompt says little
-# the head did not and the cost is linear in every one of them.
-LIMIT = 4000
-
+# Shared with the rail rather than copied, because a classifier whose training
+# features differ from its serving features by one stemmer revision scores well
+# in every test and badly in production, and the failure looks like nothing.
 def features(text)
-  body = text.to_s[0, LIMIT]
-  words = Vangrail::NLP.words(body).map { |word| Vangrail::NLP.stem(word) }
-  grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
-  normalised = Vangrail::NLP.normalize(body)
-  chars = normalised.length > 4 ? (0..(normalised.length - 4)).step(2).map { |i| "c:#{normalised[i, 4]}" } : []
-  # Counts rather than presence, capped: a page repeating a word forty times is
-  # not forty times the evidence, and the cap is what stops length alone from
-  # dominating the score.
-  (grams + chars).tally.transform_values { |count| [count, 3].min }
-                 .transform_keys { |feature| bucket(feature) }
+  Vangrail::LinearModel.features(text)
 end
 
 def score(vector, weights, bias)
@@ -167,3 +149,18 @@ puts format('  %-34s %8d %10.3f %12.4f', 'linear, matched false-alarm rate', cau
             report['linear_matched']['detection'], rail_fpr)
 puts format('  %-34s %8d %10.3f %12.4f', 'linear, one false alarm in a hundred', strict_caught,
             report['linear_one_percent']['detection'], 0.01)
+
+if EMIT
+  # Fitted on everything for the shipped artifact, with the threshold from the
+  # cross-validated run rather than from this fit: a threshold chosen on the
+  # data the model just saw is a threshold that flatters it.
+  warn 'fitting the final model on the whole corpus'
+  weights, bias = train(attack_rows + benign_rows, positive_weight)
+  model = Vangrail::LinearModel.new(weights: weights, bias: bias, threshold: matched,
+                                    trained_on: "#{attacks.size} attacks, #{benign.size} benign")
+  File.write(EMIT, JSON.generate(model.to_h))
+  puts
+  puts format('wrote %<path>s (%<size>d KB, threshold %<threshold>+.2f)', path: EMIT,
+              size: File.size(EMIT) / 1024, threshold: matched)
+  puts 'GUARDRAILS_LINEAR_MODEL=' + EMIT + ' GUARDRAILS_RAILS=input,linear'
+end
