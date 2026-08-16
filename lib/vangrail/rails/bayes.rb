@@ -56,7 +56,7 @@ module Vangrail
 
       def decide(text, _context)
         score = score_for(text)
-        evidence = bits(text)
+        evidence = bits_for(score)
         payload = { 'bits' => evidence, 'score' => score }
         # The middle calibration band has both classes in it (22 attacks and
         # 8 ordinary pages between 0 and the threshold). A score there is
@@ -90,7 +90,10 @@ module Vangrail
       # into a posterior, and it is bounded by what 48 attack clauses can
       # demonstrate rather than by how loudly the classifier scored.
       def bits(text)
-        score = score_for(text)
+        bits_for(score_for(text))
+      end
+
+      def bits_for(score)
         band = calibration.reverse.detect { |floor, _| score > floor }
         band ? band.last : calibration.first.last
       end
