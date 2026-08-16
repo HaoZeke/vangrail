@@ -125,8 +125,8 @@ before it, so pointing a key file at nothing means there is no key.
 |---------------------+-------------------------------------------|
 | =LLMLITE_HOST=      | default =127.0.0.1=                       |
 | =LLMLITE_PORT=      | default =8760=; =GROK_SHIM_PORT= also read |
-| =LLMLITE_MODEL=     | default =grok-4.5=                        |
-| =LLMLITE_API_KEY=   | default =grok-inside=                     |
+| =LLMLITE_MODEL=     | instruct model; none compiled in          |
+| =LLMLITE_API_KEY=   | credential; none compiled in              |
 
 Availability is decided by a TCP connect, not a request: a proxy that is not
 running is the ordinary case, and finding that out has to cost microseconds.

@@ -50,15 +50,17 @@ For an application that ships with one endpoint in mind.
 
 #+begin_src ruby
 Vangrail::Providers.register_gateway(
-  name: 'hub',
-  base_url: 'https://gateway.example/api/v0',
-  models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
-  guard_preset: :apriel_guard,
-  key_env: 'HUB_API_KEY',
-  file_env: 'HUB_API_KEY_FILE',
-  pass_env: 'HUB_PASS_ENTRY',
-  key_file: File.join(Dir.home, '.config', 'hub', 'api_key'),
-  pass_entry: 'hub/token'
+  Vangrail::Providers::Gateway::Spec.new(
+    name: 'hub',
+    base_url: 'https://gateway.example/api/v0',
+    models: { judge: 'some/instruct-model', guard: 'some/guard-model' },
+    guard_preset: :apriel_guard,
+    key_env: 'HUB_API_KEY',
+    file_env: 'HUB_API_KEY_FILE',
+    pass_env: 'HUB_PASS_ENTRY',
+    key_file: File.join(Dir.home, '.config', 'hub', 'api_key'),
+    pass_entry: 'hub/token'
+  )
 )
 #+end_src
 

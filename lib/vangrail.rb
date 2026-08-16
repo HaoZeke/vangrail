@@ -336,7 +336,7 @@ module Vangrail
     # are built to produce.
     def multiturn_rails
       rails = [Rails::Escalation.new]
-      rails << if provider&.available?
+      rails << if provider&.available? && provider.model(:judge)
                  Rails::Trajectory.new(provider: provider, every: judge_every)
                else
                  missing('trajectory', :input)
@@ -360,6 +360,7 @@ module Vangrail
       return remote(side) if server_url
       return missing("#{side}_model", side) unless provider&.available?
       return guard_model(side) if provider.guard?
+      return missing("#{side}_model", side) unless provider.model(:judge)
 
       Rails::SelfCheck.new(provider: provider, sides: [side], name: "policy_#{side}")
     end
@@ -437,7 +438,7 @@ module Vangrail
     # property of the endpoint's model, and an uncalibrated detector switched on
     # by default is a detector that blocks somebody's shell transcript.
     def perplexity(side)
-      return missing('perplexity', side) unless provider&.available?
+      return missing('perplexity', side) unless provider&.available? && provider.model(:judge)
 
       Rails::Perplexity.new(completion: provider.completion, sides: [side],
                             threshold: perplexity_threshold)
@@ -465,7 +466,7 @@ module Vangrail
     end
 
     def grounding
-      return missing('grounding', :output) unless provider&.available?
+      return missing('grounding', :output) unless provider&.available? && provider.model(:judge)
 
       Rails::Grounding.new(provider: provider)
     end

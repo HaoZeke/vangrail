@@ -11,8 +11,8 @@ module Vangrail
     # It is the right default for guardrails specifically. Rails run on every
     # turn, so their latency and their failure modes are the application's; a
     # local endpoint keeps both on this machine, needs no shared credential, and
-    # cannot bill anyone. It also means a laptop with the proxy running has
-    # working rails with nothing configured.
+    # cannot bill anyone. It also means a laptop with the proxy running, and a
+    # model named, has working rails with no shared credential to configure.
     #
     # The proxy serves an instruct model, not a safety classifier, so
     # `model(:guard)` is nil and the builder puts a policy rail on the input
@@ -21,8 +21,10 @@ module Vangrail
     module Llmlite
       HOST = '127.0.0.1'
       DEFAULT_PORT = 8760
-      DEFAULT_KEY = 'grok-inside'
-      DEFAULT_MODEL = 'grok-4.5'
+      LISTEN_ERRORS = [
+        Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH,
+        Errno::ECONNRESET, Errno::ETIMEDOUT, Errno::EADDRNOTAVAIL, SocketError
+      ].freeze
 
       module_function
 
@@ -44,35 +46,40 @@ module Vangrail
         socket = TCPSocket.new(host(env), port(env))
         socket.close
         true
-      rescue StandardError
+      rescue *LISTEN_ERRORS
         false
       end
 
       def model(env = ENV)
-        env['LLMLITE_MODEL'] || env['GROK_LLMLITE_MODEL'] || DEFAULT_MODEL
+        present(env['LLMLITE_MODEL'] || env['GROK_LLMLITE_MODEL'])
       end
 
       # No default. Which embedding model a proxy serves, if any, is deployment
       # knowledge, and a guessed name costs a 404 on every check while looking
       # like a rail that ran.
       def embed_model(env = ENV)
-        value = env['LLMLITE_EMBED_MODEL'] || env['GUARDRAILS_EMBED_MODEL']
-        value.to_s.strip.empty? ? nil : value.strip
+        present(env['LLMLITE_EMBED_MODEL'] || env['GUARDRAILS_EMBED_MODEL'])
       end
 
       def key(env = ENV)
-        env['LLMLITE_API_KEY'] || DEFAULT_KEY
+        present(env['LLMLITE_API_KEY'])
       end
 
       def provider(env = ENV)
+        resolved = key(env)
         Provider.new(
           name: 'llmlite',
           base_url: base_url(env),
           models: { judge: model(env), guard: nil, embed: embed_model(env) },
-          key_resolver: -> { key(env) },
+          key_resolver: resolved && -> { resolved },
           local: true,
           probe: -> { listening?(env) },
         )
+      end
+
+      def present(value)
+        s = value.to_s.strip
+        s.empty? ? nil : s
       end
     end
   end

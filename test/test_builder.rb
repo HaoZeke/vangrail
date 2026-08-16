@@ -65,6 +65,7 @@ class TestBuilder < Minitest::Test
   end
 
   def test_a_reachable_classifier_endpoint_gets_a_classifier_rail
+    Vangrail::Providers.install!('LLMLITE_PORT' => closed_port.to_s)
     e = engine(gateway_env)
 
     assert_includes e.rail_names(:input), 'apriel_guard'
