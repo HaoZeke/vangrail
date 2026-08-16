@@ -34,11 +34,18 @@ module Vangrail
   #
   # Pass `prior:` and the same turns also feed a Session. One engine walk
   # per turn: assess when a session is present, otherwise check_input.
-  # That object is folded onto the Turn and the Session.
+  # Escalation is not an assess term, so a retry after a refusal is
+  # caught on the path without a session.
+  #
+  # After ask and screen both tracks have turns. Name the channel;
+  # `block?` is true if either would block.
   #
   #   convo = Vangrail::Conversation.new(engine, prior: 1e-3)
   #   convo.ask(question)
-  #   convo.session.posterior
+  #   convo.screen(documents)
+  #   convo.session.posterior(:attack)
+  #   convo.session.posterior(:contamination)
+  #   convo.session.block?
   class Conversation
     Turn = Struct.new(:role, :text, :result, :origin, keyword_init: true) do
       def blocked?
@@ -89,7 +96,8 @@ module Vangrail
     # stays in the history: it is the part the next check needs most.
     #
     # One engine walk: assess when a session is present, check_input
-    # otherwise. That object is folded onto the Turn and the Session.
+    # otherwise. Assess does not run Escalation. That object is folded
+    # onto the Turn and the Session.
     def ask(text, **context)
       @pinned = true
       seen = history

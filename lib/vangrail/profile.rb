@@ -18,6 +18,9 @@ module Vangrail
   #
   # The profile is chosen at Conversation construction and cannot be
   # widened later. Deny always wins over allow and over the plan.
+  # Extra `allow:` / `deny:` on a named profile is a conflict, not a
+  # merge: `resolve` raises. Deny-wins merge applies when composing
+  # from hashes alone.
   class Profile
     NAMES = %i[off read_only workspace strict].freeze
     SECRET = /key|secret|token|password|passwd|authorization/i
@@ -72,11 +75,10 @@ module Vangrail
     def self.resolve(value, allow: {}, deny: [])
       extra = !allow.empty? || !Array(deny).empty?
       return from_allow(allow, deny: deny) if value.nil?
-      return merge_rules(value, allow, deny) if value.is_a?(self) && extra
+      raise ArgumentError, 'pass profile: or allow:/deny:, not both' if extra
       return value if value.is_a?(self)
 
-      base = named(value)
-      extra ? merge_rules(base, allow, deny) : base
+      named(value)
     end
 
     def self.named(value)
@@ -89,24 +91,16 @@ module Vangrail
       end
     end
 
-    def self.merge_rules(base, allow, deny)
-      extra_allow = allow.transform_keys(&:to_sym)
-                         .transform_values { |kinds| Array(kinds).map(&:to_sym) }
-      extra_deny = Array(deny).map(&:to_s)
-      merged_deny = (base.deny + extra_deny).uniq
-      merged_allow = base.allow.merge(extra_allow)
-                          .reject { |name, _| glob_denied?(name, merged_deny) }
-      new(name: base.name, allow: merged_allow, deny: merged_deny,
-          readonly: base.readonly?, strip_secrets: base.strip_secrets?)
-    end
-
     def self.glob_denied?(name, rules)
       needle = name.to_s
       rules.any? { |rule| File.fnmatch?(rule, needle, File::FNM_EXTGLOB) }
     end
 
     def self.from_allow(allow, deny: [])
-      new(name: :custom, allow: allow, deny: deny, readonly: false, strip_secrets: true)
+      deny_list = Array(deny).map(&:to_s)
+      cleaned = allow.transform_keys(&:to_sym)
+                     .reject { |name, _| glob_denied?(name, deny_list) }
+      new(name: :custom, allow: cleaned, deny: deny, readonly: false, strip_secrets: true)
     end
 
     def self.strip_secrets(env)

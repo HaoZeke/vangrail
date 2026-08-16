@@ -73,14 +73,20 @@ class TestProfile < Minitest::Test
     refute Vangrail::Profile.workspace.denied?(:cite)
   end
 
-  def test_named_profile_merges_allow_and_deny
-    merged = Vangrail::Profile.resolve(:workspace, allow: { search: [] }, deny: ['cite'])
+  def test_a_named_profile_refuses_extra_allow_or_deny
+    assert_raises(ArgumentError) { Vangrail::Profile.resolve(:workspace, allow: { search: [] }) }
+    assert_raises(ArgumentError) { Vangrail::Profile.resolve(:strict, deny: ['cite']) }
+    assert_raises(ArgumentError) { Vangrail::Profile.resolve(:off, allow: { cite: %i[data] }) }
+    assert_equal :workspace, Vangrail::Profile.resolve(:workspace).name
+  end
 
-    assert merged.denied?(:cite)
-    refute merged.allow.key?(:cite)
-    assert_equal [], merged.allow[:search]
-    assert merged.denied?(:delete_all)
-    assert_equal :workspace, merged.name
+  def test_hash_composition_is_deny_wins
+    custom = Vangrail::Profile.resolve(nil, allow: { cite: %i[data], search: [] }, deny: ['cite'])
+
+    assert custom.denied?(:cite)
+    refute custom.allow.key?(:cite)
+    assert_equal [], custom.allow[:search]
+    assert_equal :custom, custom.name
   end
 
   def test_readonly_is_false_for_a_missing_tool

@@ -41,6 +41,13 @@ module Vangrail
   #   session.posterior                  # => the session's, not the turn's
   #   session.action                     # => :allow, :review, :block
   #
+  # After a retrieved page or an answer, both tracks have turns. Unnamed
+  # `posterior` and `action` raise then. Name the channel:
+  #
+  #   session.posterior(:attack)
+  #   session.posterior(:contamination)
+  #   session.block?                     # true if either track would block
+  #
   # The per-turn judgement is still returned, because both numbers are real and
   # they answer different questions. "Is this message an attack" is what a
   # request path routes on. "Is this session an attack" is what a desk wants
@@ -322,9 +329,8 @@ module Vangrail
 
       table = evidence || EvidenceData.for_side(side)
       entry = table[event.rail.to_s] if table && event.rail
-      return entry.bits(fired) if entry&.measured?
-      # An unmeasured rewrite is a leak; an unmeasured block is a gate.
-      fired && event.modified? ? 1.0 : 0.0
+      # No operating point is zero bits. Unmeasured is not a leak.
+      entry&.measured? ? entry.bits(fired) : 0.0
     end
 
     def apply(track, judgement)

@@ -300,6 +300,17 @@ class TestSession < Minitest::Test
     refute_predicate watched, :shift?
   end
 
+  def test_an_unmeasured_rewrite_moves_no_odds
+    watched = session
+    result = Vangrail::Result.modified(rail: 'secrets', content: '[redacted]')
+    watched.fold(result, origin: :tool, side: :output)
+
+    assert_equal 1, watched.contamination.turns.size
+    assert_equal :tool, watched.contamination.turns.last.origin.kind
+    assert_in_delta 0.0, watched.contamination.bits(PRIOR), 1e-12
+    assert_in_delta PRIOR, watched.contamination.posterior, 1e-12
+  end
+
   def test_data_does_not_move_an_attack_session
     watched = session
     attack = engine.assess(PROBES.first, side: :context, prior: PRIOR, origin: :user)

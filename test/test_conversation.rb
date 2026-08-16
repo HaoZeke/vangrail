@@ -204,14 +204,15 @@ class TestConversation < Minitest::Test
     assert_equal 1, convo.session.turns.size
   end
 
-  def test_a_leak_in_the_answer_moves_the_session
+  def test_a_leak_in_the_answer_is_folded
     convo = Vangrail::Conversation.new(engine, prior: 1e-3)
     convo.ask('How do I submit a job?')
-    before = convo.session.contamination.posterior
+    before = convo.session.contamination.turns.size
     convo.answer('The token is sk-abcdefghijklmnopqrstuvwx1234 for now.')
 
-    assert_operator convo.session.contamination.posterior, :>, before
+    assert_operator convo.session.contamination.turns.size, :>, before
     assert_equal :tool, convo.turns.last.origin.kind
+    assert_in_delta 0.0, convo.session.contamination.turns.last.bits, 1e-12
     assert_raises(ArgumentError) { convo.session.posterior }
   end
 
