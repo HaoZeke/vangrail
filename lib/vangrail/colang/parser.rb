@@ -2,6 +2,7 @@
 
 require_relative '../errors'
 require_relative 'ast'
+require_relative 'value_parser'
 
 module Vangrail
   module Colang
@@ -22,8 +23,13 @@ module Vangrail
     # matching quietly missing: a guardrail that half-loads is a guardrail that
     # reports checks it is not running.
     #
-    # Indentation defines blocks. Tabs are refused, because a file mixing tabs
-    # and spaces would otherwise parse into a different program than it looks.
+    # Indentation defines blocks. A tab anywhere in the indent run is refused,
+    # because a file mixing tabs and spaces would otherwise parse into a
+    # different program than it looks.
+    #
+    # Assignments, `if` conditions, and action arguments share one value
+    # grammar: string, int, and bool literals, `$vars`, `execute`, `not`, and
+    # `==` / `!=`.
     class Parser
       Line = Struct.new(:indent, :text, :number, keyword_init: true)
 
@@ -51,7 +57,8 @@ module Vangrail
       def significant_lines
         @source.lines.each_with_index.filter_map do |raw, i|
           number = i + 1
-          raise error('tabs are not allowed in Colang indentation', number) if raw.start_with?("\t")
+          indent_run = raw[/\A[ \t]*/]
+          raise error('tabs are not allowed in Colang indentation', number) if indent_run.include?("\t")
 
           text = raw.rstrip
           stripped = text.strip
@@ -107,10 +114,13 @@ module Vangrail
         line = lines[index]
         case line.text
         when /\A\$(\w+)\s*=\s*(.+)\z/
-          [Assign.new(variable: Regexp.last_match(1), expression: expression(Regexp.last_match(2), line)),
+          [Assign.new(variable: Regexp.last_match(1), expression: value(Regexp.last_match(2), line)),
            index + 1]
-        when /\Aexecute\s+(.+)\z/
-          [action_call(Regexp.last_match(1), line), index + 1]
+        when /\Aexecute\s+/
+          node = value(line.text, line)
+          raise error("unsupported statement #{line.text.inspect}", line.number) unless node.is_a?(Execute)
+
+          [node, index + 1]
         when /\Abot\s+(.+)\z/
           [Bot.new(message: Regexp.last_match(1).strip), index + 1]
         when /\Astop\z/
@@ -127,7 +137,7 @@ module Vangrail
       end
 
       def conditional(lines, index, line, condition_text)
-        condition = condition(condition_text, line)
+        condition = value(condition_text, line)
         then_lines, index = block(lines, index + 1, line.indent)
         else_lines = []
         if index < lines.length && lines[index].text == 'else' && lines[index].indent == line.indent
@@ -137,60 +147,8 @@ module Vangrail
          index]
       end
 
-      def expression(text, line)
-        return action_call(Regexp.last_match(1), line) if text =~ /\Aexecute\s+(.+)\z/
-        return Literal.new(value: unquote(text)) if quoted?(text)
-        return Var.new(name: Regexp.last_match(1)) if text =~ /\A\$(\w+)\z/
-
-        raise error("unsupported expression #{text.inspect}", line.number)
-      end
-
-      def action_call(text, line)
-        name, args = text.match(/\A([\w.]+)\s*(?:\((.*)\))?\s*\z/)&.captures
-        raise error("unsupported action call #{text.inspect}", line.number) unless name
-
-        Execute.new(action: name, arguments: arguments(args, line))
-      end
-
-      # key="value", key=$var, key=42. Positional arguments are refused: an
-      # action here is a Ruby method taking a keyword hash.
-      def arguments(text, line)
-        return {} if text.nil? || text.strip.empty?
-
-        text.split(/,(?=(?:[^"]*"[^"]*")*[^"]*\z)/).to_h do |pair|
-          key, value = pair.split('=', 2).map { |s| s.to_s.strip }
-          raise error("argument #{pair.inspect} needs a name", line.number) if value.nil? || key.empty?
-
-          [key, argument_value(value, line)]
-        end
-      end
-
-      def argument_value(value, line)
-        return unquote(value) if quoted?(value)
-        return Var.new(name: Regexp.last_match(1)) if value =~ /\A\$(\w+)\z/
-        return value.to_i if value.match?(/\A-?\d+\z/)
-        return true if %w[True true].include?(value)
-        return false if %w[False false].include?(value)
-
-        raise error("unsupported argument value #{value.inspect}", line.number)
-      end
-
-      def condition(text, line)
-        text = text.strip
-        return Not.new(expression: condition(Regexp.last_match(1), line)) if text =~ /\Anot\s+(.+)\z/
-        if text =~ /\A(.+?)\s*(==|!=)\s*(.+)\z/
-          return Compare.new(
-            left: condition(Regexp.last_match(1), line),
-            operator: Regexp.last_match(2),
-            right: condition(Regexp.last_match(3), line),
-          )
-        end
-        return Var.new(name: Regexp.last_match(1)) if text =~ /\A\$(\w+)\z/
-        return Literal.new(value: unquote(text)) if quoted?(text)
-        return Literal.new(value: true) if %w[True true].include?(text)
-        return Literal.new(value: false) if %w[False false].include?(text)
-
-        raise error("unsupported condition #{text.inspect}", line.number)
+      def value(text, line)
+        ValueParser.parse(text, line, method(:error))
       end
 
       def strings(lines)

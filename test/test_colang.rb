@@ -46,7 +46,42 @@ class TestColang < Minitest::Test
     call = program.flow('check').body.first.expression
 
     assert_equal 'my_action', call.action
-    assert_equal({ 'threshold' => 3, 'label' => 'high', 'flag' => true }, call.arguments)
+    assert_equal 3, call.arguments['threshold'].value
+    assert_equal 'high', call.arguments['label'].value
+    assert_equal true, call.arguments['flag'].value
+  end
+
+  # One value grammar: the same literal is a value in assign, if, and arguments.
+  def test_a_value_is_the_same_in_assign_if_and_arguments
+    program = Parser.parse(<<~CO)
+      define flow check
+        $n = 1
+        $ok = execute probe(n=1)
+        if $n == 1
+          stop
+    CO
+    body = program.flow('check').body
+    assigned = body[0].expression
+    argument = body[1].expression.arguments['n']
+    compared = body[2].condition.right
+
+    assert_equal 1, assigned.value
+    assert_equal assigned, argument
+    assert_equal assigned, compared
+  end
+
+  def test_equality_inside_quotes_is_not_a_compare
+    program = Parser.parse(<<~CO)
+      define flow check
+        if "a == b" == $x
+          stop
+    CO
+    node = program.flow('check').body.first.condition
+
+    assert_instance_of Vangrail::Colang::Compare, node
+    assert_equal 'a == b', node.left.value
+    assert_equal '==', node.operator
+    assert_equal 'x', node.right.name
   end
 
   def test_else_branches_parse
@@ -85,6 +120,8 @@ class TestColang < Minitest::Test
   def test_tabs_are_refused
     error = assert_raises(Vangrail::ColangError) { Parser.parse("define flow x\n\t$a = execute b\n") }
     assert_includes error.message, 'tabs'
+    nested = assert_raises(Vangrail::ColangError) { Parser.parse("define flow x\n  \t$a = execute b\n") }
+    assert_includes nested.message, 'tabs'
   end
 
   def test_the_error_names_the_file_and_line
@@ -149,13 +186,77 @@ class TestColang < Minitest::Test
     assert_raises(Vangrail::UnknownAction) { interpret(FLOW, {}) }
   end
 
-  def test_an_unknown_bot_message_raises
-    source = "define flow x\n  bot never defined\n  stop\n"
-    assert_raises(Vangrail::UnknownAction) { interpret(source, {}, flow: 'x') }
+  # A missing bot in an unreached branch must still fail at load, not on
+  # the first turn that happens to take that branch.
+  def test_a_missing_bot_is_an_error_at_load
+    source = <<~CO
+      define flow x
+        if False
+          bot never defined
+          stop
+    CO
+    program = Parser.parse(source)
+    error = assert_raises(Vangrail::ColangError) do
+      Interpreter.new(program: program, actions: Vangrail::Actions.new)
+    end
+    refute_instance_of Vangrail::UnknownAction, error
+    assert_includes error.message, 'never defined'
   end
 
-  def test_an_unknown_flow_raises
-    assert_raises(Vangrail::UnknownAction) { interpret(FLOW, {}, flow: 'no such flow') }
+  def test_an_unknown_flow_raises_at_load
+    program = Parser.parse(FLOW)
+    error = assert_raises(Vangrail::ColangError) do
+      Vangrail::Rails::ColangFlow.new(
+        flow_name: 'no such flow', program: program, actions: Vangrail::Actions.new,
+      )
+    end
+    refute_instance_of Vangrail::UnknownAction, error
+    assert_includes error.message, 'no such flow'
+  end
+
+  def test_an_unknown_flow_raises_when_run_directly
+    error = assert_raises(Vangrail::ColangError) { interpret(FLOW, {}, flow: 'no such flow') }
+    refute_instance_of Vangrail::UnknownAction, error
+  end
+
+  def test_stop_does_not_raise_a_control_exception
+    refute_includes Interpreter.constants, :Stopped
+    outcome = interpret(FLOW, { 'self_check_input' => ->(_a, _c) { false } })
+
+    assert_equal :blocked, outcome.status
+  end
+
+  def test_the_turn_text_is_bound_as_user_and_bot_message
+    seen = nil
+    source = "define flow check\n  $ok = execute probe(msg=$user_message)\n"
+    interpret(source, { 'probe' => lambda { |args, _ctx|
+      seen = args['msg']
+    } }, flow: 'check', context: { text: 'hello' })
+
+    assert_equal 'hello', seen
+  end
+
+  # Rewrite is a change to the seeded $user_message / $bot_message bindings,
+  # not a scan of whatever names a flow happened to assign.
+  def test_assigning_another_name_is_not_a_rewrite
+    source = "define flow mask\n  $user_input = execute redact\n"
+    outcome = interpret(source, { 'redact' => ->(_a, _c) { 'other' } }, flow: 'mask',
+                                                                        context: { text: 'hello' })
+
+    assert_equal :passed, outcome.status
+  end
+
+  def test_a_bot_from_another_file_is_visible_after_merge
+    source = <<~CO
+      define flow x
+        bot refuse to respond
+        stop
+    CO
+    program = Vangrail::Colang::Library.program.merge(Parser.parse(source))
+    outcome = Interpreter.new(program: program, actions: Vangrail::Actions.new).run('x', {})
+
+    assert_equal :blocked, outcome.status
+    assert_equal "I'm sorry, I can't respond to that.", outcome.content
   end
 
   def test_comparison_conditions_evaluate
@@ -173,6 +274,60 @@ class TestColang < Minitest::Test
 
     assert_equal :blocked, blocked.status
     passed = interpret(source, { 'level' => ->(_a, _c) { 'low' } }, flow: 'check')
+
+    assert_equal :passed, passed.status
+  end
+
+  def test_an_integer_assignment_is_a_value
+    source = <<~CO
+      define flow check
+        $n = 1
+        if $n == 1
+          bot warn
+          stop
+
+      define bot warn
+        "n"
+    CO
+    outcome = interpret(source, {}, flow: 'check')
+
+    assert_equal :blocked, outcome.status
+    assert_equal 'n', outcome.content
+  end
+
+  def test_execute_is_a_condition_value
+    source = <<~CO
+      define flow check
+        if execute allowed
+          bot warn
+          stop
+
+      define bot warn
+        "no"
+    CO
+    blocked = interpret(source, { 'allowed' => ->(_a, _c) { true } }, flow: 'check')
+
+    assert_equal :blocked, blocked.status
+    passed = interpret(source, { 'allowed' => ->(_a, _c) { false } }, flow: 'check')
+
+    assert_equal :passed, passed.status
+  end
+
+  def test_a_quoted_equality_evaluates_as_a_literal
+    source = <<~CO
+      define flow check
+        $x = execute val
+        if "a == b" == $x
+          bot warn
+          stop
+
+      define bot warn
+        "hit"
+    CO
+    blocked = interpret(source, { 'val' => ->(_a, _c) { 'a == b' } }, flow: 'check')
+
+    assert_equal :blocked, blocked.status
+    passed = interpret(source, { 'val' => ->(_a, _c) { 'other' } }, flow: 'check')
 
     assert_equal :passed, passed.status
   end
