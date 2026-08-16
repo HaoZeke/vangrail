@@ -23,6 +23,12 @@ module Vangrail
         @interpreter = Colang::Interpreter.new(program: program, actions: actions)
       end
 
+      # Actions registered on the flow can hit the network. The default
+      # offline? is true; this rail is not that case.
+      def offline?
+        false
+      end
+
       def cache_key(_text, _context)
         nil
       end
