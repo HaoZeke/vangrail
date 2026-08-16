@@ -109,7 +109,7 @@ class TestLanguage < Minitest::Test
 
   def test_markup_budget_and_canary_do_not_care_what_language_the_words_are_in
     [Vangrail::Rails::Markup.new, Vangrail::Rails::Budget.new,
-     Vangrail::Rails::Canary.new(tokens: ['marker'])].each do |r|
+     Vangrail::Rails::Canary.new(tokens: ['marker']), Vangrail::Rails::Secrets.new].each do |r|
       assert_predicate r, :language_agnostic?, r.name
     end
   end

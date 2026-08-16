@@ -112,6 +112,7 @@ class TestOfflineRails < Minitest::Test
     assert rail.applies_to?(:output)
     refute rail.applies_to?(:input)
     assert_predicate rail, :offline?
+    assert_predicate rail, :language_agnostic?
   end
 
   # An engine with only these rails keeps working with no endpoint at all,
