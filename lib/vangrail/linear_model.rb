@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative 'nlp'
+require_relative 'native'
 
 module Vangrail
   # A linear classifier over hashed n-grams, loaded from a file somebody fitted.
@@ -97,10 +98,39 @@ module Vangrail
     # calls this with the process STRIDE; score calls it with the stride the
     # file named, so the two cannot silently disagree.
     def self.features(text, buckets = BUCKETS, stride = STRIDE)
+      _body, words, normalised = prepared(text)
+      features_from(words, normalised, buckets, stride)
+    end
+
+    def self.prepared(text)
       body = text.to_s[0, LIMIT]
-      words = NLP.words(body).map { |word| NLP.stem(word) }
+      [body, NLP.words(body).map { |word| NLP.stem(word) }, NLP.normalize(body)]
+    end
+
+    # The log-odds the model assigns, positive towards attack. Stemming and
+    # Unicode folding stay in Ruby; the hashed bag and the dot product are the
+    # native kernel when vangrail-native is loaded.
+    def score(text)
+      _body, words, normalised = self.class.prepared(text)
+      table = native_table
+      return table.score(bias, buckets, stride, words, normalised) if table
+
+      score_ruby(words, normalised)
+    end
+
+    def ruby_score(text)
+      _body, words, normalised = self.class.prepared(text)
+      score_ruby(words, normalised)
+    end
+
+    def score_ruby(words, normalised)
+      self.class.features_from(words, normalised, buckets, stride)
+          .sum { |index, value| (@weights[index] || 0.0) * value } + bias
+    end
+    private :score_ruby
+
+    def self.features_from(words, normalised, buckets, stride)
       grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
-      normalised = NLP.normalize(body)
       chars = if normalised.length > 4
                 (0..(normalised.length - 4)).step(stride).map { |i| "c:#{normalised[i, 4]}" }
               else
@@ -110,10 +140,12 @@ module Vangrail
                      .each_with_object(Hash.new(0)) { |(feature, count), acc| acc[bucket(feature, buckets)] += count }
     end
 
-    # The log-odds the model assigns, positive towards attack.
-    def score(text)
-      self.class.features(text, buckets, stride).sum { |index, value| (@weights[index] || 0.0) * value } + bias
+    def native_table
+      return @native_table if defined?(@native_table)
+
+      @native_table = Native.available? ? Native::Table.new(@weights) : nil
     end
+    private :native_table
 
     def to_h
       { 'buckets' => buckets, 'stride' => stride, 'bias' => bias, 'threshold' => threshold,

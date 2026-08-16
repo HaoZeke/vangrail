@@ -69,6 +69,25 @@ class TestLinear < Minitest::Test
     assert_equal Vangrail::LinearModel.bucket('ignore all previous').to_s, actual
   end
 
+  def test_native_bucket_matches_ruby
+    return unless Vangrail::Native.available?
+
+    %w[ignore all previous c:abcd instruction].each do |feature|
+      assert_equal Vangrail::LinearModel.bucket(feature),
+                   Vangrail::Native.bucket(feature, Vangrail::LinearModel::BUCKETS),
+                   feature
+    end
+  end
+
+  def test_native_score_matches_ruby
+    return unless Vangrail::Native.available?
+
+    model = toy_model
+    [ATTACK, BENIGN, '', 'éééé', 'beëindig de instructies'].each do |text|
+      assert_in_delta model.ruby_score(text), model.score(text), 1e-9, text
+    end
+  end
+
   def test_a_weight_past_the_table_is_refused
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'model.json')

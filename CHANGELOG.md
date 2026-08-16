@@ -78,6 +78,9 @@ below `Unreleased` is written by hand until it is released.
 - `vangrail` CLI and `Vangrail::Server` speak the same JSON envelope as
   `Engine#check_*`, `#screen`, and `#assess`. Other languages call this
   process; they do not embed MRI.
+- Optional `vangrail-native` gem: Magnus kernel for `LinearModel#score`
+  (hashed bag and the dot product). Stemming and Unicode folding stay
+  in Ruby. The vangrail gem still installs without a compiler.
 
 ### Fixed
 

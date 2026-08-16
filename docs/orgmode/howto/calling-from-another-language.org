@@ -32,3 +32,10 @@ screen (=kept=, =rejected=), or a =Judgement= (=action=, =posterior=,
 A hot rail is a separate Magnus + rb-sys gem that subclasses
 =Vangrail::Rail= and implements =#decide=. It sits in the same engine
 list. It is not this gem, and it does not change the JSON front.
+
+** The linear kernel
+
+=LinearModel#score= is a hashed bag and a dot product. =script/compile_native.sh=
+builds the optional Magnus gem. Stemming and Unicode folding stay in Ruby.
+Without the extension the same Ruby path runs.
+

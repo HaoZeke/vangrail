@@ -312,6 +312,9 @@ literature warns about, measured on a natural benign corpus.
 `script/train_linear.rb --emit model.json`, because a model fitted on somebody
 else's traffic is the thing this project spent a long time measuring the cost
 of. Without a model it reports itself unchecked rather than passing.
+Scoring is a hashed bag and a dot product; `vangrail-native` (optional,
+Magnus) compiles that kernel. Stemming and Unicode folding stay in this
+gem. The `vangrail` gem still installs without a compiler.
 [`docs/orgmode/explanation/detector-models.org`](docs/orgmode/explanation/detector-models.org)
 surveys the four families and what each costs.
 

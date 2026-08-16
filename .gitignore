@@ -64,3 +64,10 @@ build-iPhoneSimulator/
 /doc/
 .yardoc/
 tmp/
+
+# Optional Magnus extension
+/target/
+/ext/**/target/
+*.so
+*.bundle
+*.dylib
