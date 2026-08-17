@@ -4,6 +4,8 @@
 
 * vangrail
 
+[[file:../assets/vangrail-mark.svg]]
+
 Guardrails that run inside a Ruby process. Input and output rails, plus rails
 for the documents a retrieval step just fetched, with no Python service
 anywhere in the path and nothing outside the standard library at runtime.
