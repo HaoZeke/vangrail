@@ -58,10 +58,12 @@ module Vangrail
     def assess(payload)
       prior = payload['prior']
       raise ArgumentError, 'prior is required' if prior.nil?
+      raise ArgumentError, 'prior must be a number' unless numeric?(prior)
 
+      extra = context_of(payload)
+      extra.delete(:prior)
       side = (payload['side'] || 'input').to_sym
-      engine.assess(required(payload, 'text'), side: side, prior: prior.to_f,
-                    **context_of(payload)).to_h
+      engine.assess(required(payload, 'text'), side: side, prior: prior.to_f, **extra).to_h
     end
 
     def self.result_payload(result)
@@ -92,6 +94,10 @@ module Vangrail
 
     def symbolize(hash)
       hash.to_h.transform_keys { |key| key.to_s.to_sym }
+    end
+
+    def numeric?(value)
+      value.is_a?(Numeric) || (value.is_a?(String) && value.match?(/\A-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\z/))
     end
   end
 end
