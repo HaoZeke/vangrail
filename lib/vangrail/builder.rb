@@ -13,7 +13,7 @@ module Vangrail
     # in a policy rail, where a false positive is a model's opinion rather than
     # a hard rule.
     INJECTION_PATTERNS = {
-      'instruction_override' => /\bignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+instructions?\b/i,
+      'instruction_override' => /\b(?:ignore|disregard)\s+(?:(?:all|any|the|your|those|these)\s+)?(?:previous|prior|above|earlier)\s+instructions?\b/i,
       'prompt_disclosure' => /\b(?:reveal|print|repeat|show|output)\s+(?:me\s+)?(?:your|the|its)?\s*
                               (?:system\s+prompt|initial\s+instructions|developer\s+message)\b/xi,
       'role_reset' => /\byou\s+are\s+now\s+(?:a|an|in)\b.{0,40}\b(?:mode|persona|dan|jailbreak)\b/i,

@@ -36,6 +36,7 @@ class TestHidden < Minitest::Test
     'template' => "<template>#{PLAIN}</template>",
     'invisible_style' => %(<div style="display:none">#{PLAIN}</div>),
     'hidden_attribute' => "<div hidden>#{PLAIN}</div>",
+    'hidden_input' => %(<input type="hidden" name="sys" value="#{PLAIN}">),
     'link_title' => %([the queue page](/queue "#{PLAIN}")),
     'image_alt' => "![#{PLAIN}](diagram.png)",
   }.freeze

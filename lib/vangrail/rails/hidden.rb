@@ -56,6 +56,11 @@ module Vangrail
           [^"']*["'][^>]*>(.*?)<\/
         /xmi,
         'hidden_attribute' => /<(\w+)\b[^>]*\bhidden\b[^>]*>(.*?)<\/\1>/mi,
+        'hidden_input' => /
+          <input\b(?=[^>]*\btype\s*=\s*["']?hidden["']?)
+                 [^>]*\bvalue\s*=\s*["']([^"']{12,})["']
+                 [^>]*>
+        /xi,
         # Markdown carries two of its own: a link title, and image alt text.
         'link_title' => /\[[^\]]*\]\([^)\s]+\s+["']([^"']{12,})["']\)/,
         'image_alt' => /!\[([^\]]{12,})\]\(/,
