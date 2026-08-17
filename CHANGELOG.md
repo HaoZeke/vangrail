@@ -73,6 +73,12 @@ below `Unreleased` is written by hand until it is released.
 
 ## [Unreleased]
 
+## v0.3.0 - 2026-08-17
+
+JSON CLI and loopback HTTP, optional Magnus kernel, and the
+review-driven protocol fixes. Tagged `v0.3.0` is the tree the
+draft describes.
+
 ### Added
 
 - `vangrail` CLI and `Vangrail::Server` speak the same JSON envelope as
