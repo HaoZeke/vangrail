@@ -62,7 +62,7 @@ module Vangrail
       return false unless rail
 
       result = rail.call(ctx[:text], ctx)
-      result.respond_to?(:allowed?) && result.allowed?
+      result.respond_to?(:allowed?) && result.allowed? && result.certain?
     end
   end
 end

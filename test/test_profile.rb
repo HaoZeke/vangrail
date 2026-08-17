@@ -22,13 +22,32 @@ class TestProfile < Minitest::Test
   def test_workspace_deny_wins_even_if_the_plan_named_the_tool
     convo = Vangrail::Conversation.new(engine, prior: 1e-3, profile: :workspace, tools: tools)
     convo.ask('Which GPU partitions exist?')
-    convo.intend(:cite, :delete_all)
+
+    assert_raises(Vangrail::PrivilegeError) { convo.intend(:cite, :delete_all) }
+
+    convo.intend(:cite)
     convo.screen([{ 'text' => 'The GPU partitions are gpu_a100 and gpu_h100.' }])
     refused = convo.invoke(:delete_all, arguments: 'x')
 
     assert_predicate refused, :blocked?
     assert_equal 'deny', refused.rail
     refute convo.invoked?(:delete_all)
+  end
+
+  def test_deny_is_subtracted_from_allow_at_construction
+    profile = Vangrail::Profile.new(name: :custom, allow: { delete_all: [], cite: %i[data] },
+                                    deny: %w[delete_*])
+
+    refute profile.allow.key?(:delete_all)
+    assert profile.allow.key?(:cite)
+    assert profile.denied?(:delete_all)
+  end
+
+  def test_tools_call_is_not_an_invoke
+    set = tools
+
+    assert_raises(Vangrail::PrivilegeError) { set.call(:cite, 'x', nil) }
+    assert_equal 'ok page', set.fire(:cite, 'ok page', nil)
   end
 
   def test_strict_refuses_a_mutating_tool

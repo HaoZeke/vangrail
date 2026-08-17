@@ -84,6 +84,17 @@ below `Unreleased` is written by hand until it is released.
 
 ### Fixed
 
+- CLI exit 2 on blocked, 3 on uncertain. HTTP sets `X-Vangrail-Status`
+  and `X-Vangrail-Certain`, and refuses a body over 4 MiB.
+- `Front#assess` will not let `context.prior` replace the named prior.
+- Default `instruction_override` matches `Ignore the previous instructions`.
+- `Hidden` reads `<input type="hidden" value="...">`.
+- `Actions.allowed_by?` requires `certain?`. Remote `/v1/checks` keeps
+  `certain`. `StreamGuard` does not mark an uncertain prefix checked.
+- `Conversation#result_from` blocks on the policy action, not on any fire.
+- `Tools#call` raises; `Conversation#invoke` uses `#fire`. `Profile`
+  subtracts deny from allow; `intend` and `admit?` refuse a denied name.
+
 ## v0.2.0 - 2026-08-16
 
 The rail protocol is `#decide`. `#call` scrubs bytes first and then

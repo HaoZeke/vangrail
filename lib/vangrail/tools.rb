@@ -39,7 +39,11 @@ module Vangrail
       @handlers.keys
     end
 
-    def call(name, arguments, conversation)
+    def call(_name, _arguments, _conversation)
+      raise PrivilegeError, 'use Conversation#invoke'
+    end
+
+    def fire(name, arguments, conversation)
       raise ArgumentError, "unknown tool #{name}" unless key?(name)
 
       @handlers[name.to_sym].handler.call(arguments, conversation)

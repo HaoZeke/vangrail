@@ -153,7 +153,7 @@ module Vangrail
       end
 
       unless result.modified?
-        @checked = buffer.length
+        @checked = buffer.length if result.certain?
         return nil
       end
 

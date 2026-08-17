@@ -124,8 +124,9 @@ module Vangrail
         raise ProtocolError, "/v1/checks answered status #{status.inspect}"
       end
 
+      certain = body.key?('certain') ? body['certain'] : true
       Result.new(status: status.to_sym, rail: body['rail'] || rail.to_s,
-                 content: body['content'], raw: body)
+                 content: body['content'], raw: body, certain: certain)
     end
 
     def from_completion(turn, rail)

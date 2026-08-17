@@ -151,6 +151,7 @@ module Vangrail
       names.each do |name|
         name = name.to_sym
         raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
+        raise PrivilegeError, "capability #{name} is denied by profile" if profile.denied?(name)
 
         @intended << name unless @intended.include?(name)
       end
@@ -172,6 +173,7 @@ module Vangrail
     def admit?(capability, arguments: nil)
       turn = last_user_turn
       return false unless turn
+      return false if profile.denied?(capability)
 
       args = case arguments
              when nil then nil
@@ -228,7 +230,7 @@ module Vangrail
         return result
       end
 
-      value = tools.call(name, arguments, self)
+      value = tools.fire(name, arguments, self)
       cell = value.is_a?(Cell) ? value : Cell.tool(value)
       result = Result.passed(rail: name.to_s)
       record_invocation(name, arguments, result, cell)
@@ -313,7 +315,7 @@ module Vangrail
     end
 
     def result_from(judgement)
-      if judgement.block? || judgement.fired.any?
+      if judgement.block?
         rail = judgement.fired.dig(0, :rail) || judgement.side.to_s
         return Result.blocked(rail: rail, certain: judgement.certain?)
       end

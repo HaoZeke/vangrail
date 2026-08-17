@@ -29,10 +29,12 @@ module Vangrail
 
     def initialize(name:, allow: {}, deny: [], readonly: false, strip_secrets: true)
       @name = name.to_sym
+      deny_list = Array(deny).map(&:to_s)
+      @deny = deny_list.map(&:freeze).freeze
       @allow = allow.transform_keys(&:to_sym)
                     .transform_values { |kinds| Array(kinds).map(&:to_sym) }
+                    .reject { |tool, _| self.class.glob_denied?(tool, deny_list) }
                     .freeze
-      @deny = Array(deny).map { |rule| rule.to_s.freeze }.freeze
       @readonly = readonly
       @strip_secrets = strip_secrets
     end
