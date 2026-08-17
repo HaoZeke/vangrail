@@ -157,7 +157,10 @@ class TestBuilder < Minitest::Test
     assert_includes without.rail_names(:context), 'semantic'
     # Asked for and unbuildable: the placeholder keeps the pass uncertain
     # instead of letting the offline rails answer for a check nobody ran.
-    refute_predicate without.check_context('Submit a batch job with sbatch.'), :certain?
+    missing = without.check_context('Submit a batch job with sbatch.')
+
+    refute_predicate missing, :certain?
+    assert_includes missing.reason, 'embedding model'
 
     with = engine(gateway_env.merge('GUARDRAILS_RAILS' => 'context,semantic',
                                     'GUARDRAILS_EMBED_MODEL' => 'some/embed'))

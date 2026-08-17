@@ -96,6 +96,11 @@ below `Unreleased` is written by hand until it is released.
   subtracts deny from allow; `intend` and `admit?` refuse a denied name.
 - Default input rails no longer first-block on `injection_patterns`
   (-1.6 bits). Set `GUARDRAILS_RAILS=patterns` or `all` to install it.
+- A later block keeps an earlier redaction in `content`, and is
+  uncertain if a prior rail was. The engine judges `Rail.usable`
+  text, not the raw bytes.
+- Hidden and Obfuscation keep `certain?` on a rewrite.
+- A missing Semantic rail names the embed gap, not a judge model.
 
 ## v0.2.0 - 2026-08-16
 

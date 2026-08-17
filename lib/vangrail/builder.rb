@@ -236,11 +236,15 @@ module Vangrail
     # `name` is what the rail would have been; `side` is where it would have
     # run. They are not the same thing, and conflating them is how a grounding
     # placeholder ends up claiming a side that does not exist.
-    def missing(name, side)
+    def missing(name, side, need: :judge)
       reason =
         if provider.nil?
           'no endpoint resolved: set GUARDRAILS_API_BASE, or start a local one'
-        elsif provider.available? && provider.model(:judge).nil?
+        elsif !provider.available?
+          "#{provider.name} is not available at #{provider.base_url}"
+        elsif need == :embed && !provider.embed?
+          'no embedding model; set GUARDRAILS_EMBED_MODEL'
+        elsif need == :judge && provider.model(:judge).nil?
           'no judge model; set LLMLITE_MODEL or GUARDRAILS_JUDGE_MODEL'
         else
           "#{provider.name} is not available at #{provider.base_url}"
@@ -295,7 +299,7 @@ module Vangrail
     # there. A provider serving no embedding model leaves the placeholder, so
     # the pass stays uncertain rather than resting on the offline rails.
     def semantic(side)
-      return missing('semantic', side) unless provider&.available? && provider.embed?
+      return missing('semantic', side, need: :embed) unless provider&.available? && provider.embed?
 
       Rails::Semantic.new(embeddings: provider.embeddings, sides: [side],
                           threshold: semantic_threshold)

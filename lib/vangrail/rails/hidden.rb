@@ -104,6 +104,7 @@ module Vangrail
                 if result.modified?
                   current = result.content.to_s
                   modified = [result, extra, carrier]
+                  uncertain ||= result unless result.certain?
                 elsif !result.certain?
                   uncertain ||= result
                 end
@@ -118,7 +119,8 @@ module Vangrail
         if modified
           result, extra, carrier = modified
           return modify(rewritten, categories: (result.categories || []) + extra,
-                        reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})")
+                        reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})",
+                        certain: result.certain? && uncertain.nil?)
         end
         return unchecked(uncertain.reason) if uncertain
 

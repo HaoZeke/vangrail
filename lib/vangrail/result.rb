@@ -76,18 +76,19 @@ module Vangrail
       @certain
     end
 
-    # The text to carry forward: the rewrite when there is one, otherwise what
-    # the caller passed in.
+    # The text to carry forward: a rewrite or a blocked body when the rail
+    # left one, otherwise what the caller passed in.
     def content_or(original)
-      modified? && !content.nil? ? content : original
+      content.nil? ? original : content
     end
 
     # A copy with a different rail name, for an engine reporting which of its
-    # rails produced a decision.
-    def with_rail(name)
+    # rails produced a decision. Optional content and certain override the
+    # fields a later rail must not be allowed to drop.
+    def with_rail(name, content: self.content, certain: certain?)
       self.class.new(
         status: status, rail: name, content: content, reason: reason, categories: categories,
-        model: model, latency_ms: latency_ms, raw: raw, certain: certain?
+        model: model, latency_ms: latency_ms, raw: raw, certain: certain
       )
     end
 

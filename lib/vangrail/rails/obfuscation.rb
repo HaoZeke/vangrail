@@ -136,6 +136,7 @@ module Vangrail
             if result.modified?
               viewed = result.content.to_s
               variant_modified = [result, extra, name]
+              uncertain ||= result unless result.certain?
             elsif !result.certain?
               uncertain ||= result
             end
@@ -148,7 +149,8 @@ module Vangrail
         if modified
           result, extra, name = modified
           return [modify(published, categories: (result.categories || []) + extra,
-                         reason: "#{result.reason} (hidden with #{name})"), nil]
+                         reason: "#{result.reason} (hidden with #{name})",
+                         certain: result.certain? && uncertain.nil?), nil]
         end
 
         [nil, uncertain]

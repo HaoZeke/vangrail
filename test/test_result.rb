@@ -25,8 +25,9 @@ class TestResult < Minitest::Test
     refute_predicate blocked, :allowed?
   end
 
-  def test_content_or_returns_the_rewrite_only_when_there_is_one
+  def test_content_or_returns_the_body_when_the_rail_left_one
     assert_equal 'edited', R.modified(rail: 'a', content: 'edited').content_or('original')
+    assert_equal 'redacted', R.blocked(rail: 'a', content: 'redacted').content_or('original')
     assert_equal 'original', R.passed(rail: 'a').content_or('original')
     assert_equal 'original', R.modified(rail: 'a', content: nil).content_or('original')
   end

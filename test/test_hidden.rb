@@ -117,6 +117,20 @@ class TestHidden < Minitest::Test
     assert_predicate result, :modified?
     assert_includes result.categories, 'hidden:comment'
     assert_includes result.content, '[redacted]'
+  end
+
+  def test_a_modified_uncertain_inner_rail_stays_uncertain
+    inner = Class.new(Vangrail::Rail) do
+      def decide(_text, _context)
+        modify('[redacted]', reason: 'judge down', certain: false)
+      end
+    end.new(name: 'inner', sides: [:context])
+    result = Vangrail::Rails::Hidden.new(rails: [inner])
+                                    .call("<!-- #{PLAIN} -->", side: :context)
+
+    assert_predicate result, :modified?
+    refute_predicate result, :certain?
+    assert_includes result.content, '[redacted]'
     refute_includes result.content, 'abcdefghijklmnopqrst'
   end
 

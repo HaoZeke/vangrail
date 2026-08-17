@@ -115,7 +115,7 @@ module Vangrail
       return Result.unchecked(rail: side, reason: "no #{side} rails configured") if rails.empty?
 
       ctx = context.merge(side: side)
-      current = text
+      current = Rail.usable(text)
       modified_by = nil
       uncertain = nil
       unbuilt = nil
@@ -124,7 +124,11 @@ module Vangrail
         next unless rail.applies_to?(side)
 
         result = invoke(rail, current, ctx)
-        return result.with_rail(rail.name) if result.blocked?
+        if result.blocked?
+          known = result.certain? && uncertain.nil? && unbuilt.nil?
+          kept = modified_by ? current : result.content
+          return result.with_rail(rail.name, content: kept, certain: known)
+        end
 
         if result.modified?
           current = result.content_or(current)

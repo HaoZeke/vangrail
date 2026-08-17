@@ -61,6 +61,30 @@ class TestEngine < Minitest::Test
 
     assert_predicate result, :blocked?
     assert_equal 'b', result.rail
+    assert_equal 'edited', result.content
+    assert_equal 'edited', result.content_or('text')
+  end
+
+  def test_a_block_after_an_uncertain_rail_is_not_a_certain_block
+    engine = Vangrail::Engine.new(
+      output: [scripted(R.unchecked(rail: 'missing', reason: 'no judge'), name: 'missing'),
+               scripted(R.blocked(rail: 'b', reason: 'policy'), name: 'b')],
+    )
+    result = engine.check_output('text')
+
+    assert_predicate result, :blocked?
+    refute_predicate result, :certain?
+  end
+
+  def test_output_is_judged_as_usable_utf8
+    secrets = Vangrail::Rails::Secrets.new
+    raw = "Set api_key=sk-abcdefghij\xFFklmnopqrstuvwx1234 in the file.".dup
+                                                                       .force_encoding(Encoding::ASCII_8BIT)
+    result = Vangrail::Engine.new(output: [secrets]).check_output(raw)
+
+    assert_predicate result, :modified?
+    refute_includes result.content, 'sk-live-9c2f1'
+    assert result.content.valid_encoding?
   end
 
   def test_rails_that_do_not_apply_to_the_side_are_skipped
