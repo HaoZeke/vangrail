@@ -32,6 +32,7 @@ Task-shaped, for when you know what you want.
 - [[file:howto/writing-a-rail.org][Write your own rail]]
 - [[file:howto/calling-from-another-language.org][Call vangrail from another language]]
 - [[file:howto/screening-documents.org][Screen retrieved documents]]
+- [[file:howto/using-llmlite.org][Run the model-backed rails on a local llmlite]]
 - [[file:howto/choosing-an-endpoint.org][Point the model-backed rails somewhere]]
 - [[file:howto/guarding-a-stream.org][Guard an answer while it streams]]
 - [[file:howto/guarding-a-conversation.org][Guard a conversation rather than a

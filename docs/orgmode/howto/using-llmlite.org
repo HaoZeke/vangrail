@@ -1,0 +1,130 @@
+#+TITLE: Run the Model-Backed Rails on a Local llmlite
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Run the Model-Backed Rails on a Local llmlite
+
+The deterministic rails need nothing. The model-backed ones need an
+OpenAI-compatible endpoint. The one this gem looks for first is a proxy on
+loopback: that is the =llmlite= provider.
+
+Use this when you have (or will start) a local server that speaks
+=/v1/chat/completions=, and you want the policy rails to call it instead of a
+shared gateway. No key leaves the machine. Nothing in this gem names a
+particular proxy binary: anything that answers on the port is the same
+provider.
+
+** What llmlite is here
+
+A TCP listener on =127.0.0.1:8760= serving an OpenAI-compatible API. The name
+is the preset, not a product. Ollama, llama.cpp, vLLM, or any other local
+proxy works if it speaks the same protocol.
+
+The probe is a connect, not a request. A proxy that is not running costs
+microseconds to rule out, which is why this one is tried first.
+
+It serves an instruct model, not a safety classifier. The builder therefore
+puts =Rails::SelfCheck= (a written policy in front of that model) on the
+input and output sides, not =Rails::GuardModel=. Same job, different means.
+
+** Start a proxy
+
+Anything that listens on the default port needs no configuration at all:
+
+#+begin_src bash
+# whatever you already run on 127.0.0.1:8760
+curl -sS http://127.0.0.1:8760/v1/models
+#+end_src
+
+If the proxy is on another loopback port, name it. Ollama's default is
+=11434=:
+
+#+begin_src bash
+export LLMLITE_PORT=11434
+export LLMLITE_MODEL=llama3.1
+#+end_src
+
+No model name is compiled into this gem. Without =LLMLITE_MODEL= (or
+=GUARDRAILS_JUDGE_MODEL=) the proxy can be up and the policy rails still
+report themselves missing: a guessed name would 404 on every check and look
+like a rail that ran.
+
+An API key is optional. Set =LLMLITE_API_KEY= only if the proxy requires
+one.
+
+** Point vangrail at it
+
+=from_env= tries llmlite first. With the proxy up and a model named:
+
+#+begin_src bash
+export LLMLITE_MODEL=llama3.1          # or whatever the proxy serves
+# export LLMLITE_PORT=8760             # this is the default
+# export LLMLITE_EMBED_MODEL=nomic-embed-text   # only if it also embeds
+#+end_src
+
+#+begin_src ruby
+engine = Vangrail.from_env
+Vangrail.provider.name        # => "llmlite"
+Vangrail.provider.available?  # => true
+Vangrail.provider.guard?      # => false
+engine.describe
+# => input=...+policy_input context=... output=...+policy_output on_error=allow
+#+end_src
+
+=policy_input= / =policy_output= are the =SelfCheck= rails. They are absent
+from =describe= when the model was not named or the proxy was down; a
+=Rails::Missing= sits in that slot instead, and =certain?= is false.
+
+** See a model rail actually run
+
+#+begin_src ruby
+result = engine.check_input('How do I submit a GPU job?')
+result.passed?    # => true
+result.certain?   # => true, once the policy rail reached a decision
+#+end_src
+
+A clean pass with =certain? == true= means the offline rails and the policy
+rail both ran. The same question with the proxy down still passes, and
+=certain?= is false:
+
+#+begin_example
+llmlite is not available at http://127.0.0.1:8760/v1
+#+end_example
+
+or, proxy up but no model named:
+
+#+begin_example
+no judge model; set LLMLITE_MODEL or GUARDRAILS_JUDGE_MODEL
+#+end_example
+
+That is the correct outcome, not a degraded one. The deterministic rails
+keep working. The application stops claiming a check it did not perform.
+
+** Embeddings, if the proxy serves them
+
+=Rails::Semantic= needs an embedding model. Name it, then calibrate before
+switching the rail on:
+
+#+begin_src bash
+export LLMLITE_EMBED_MODEL=nomic-embed-text
+export GUARDRAILS_RAILS=input,context,output,semantic
+ruby script/embedding_probe.rb
+#+end_src
+
+The probe prints a threshold that belongs to *this* embedding model, or
+tells you to leave the rail off. See
+[[file:calibrating-a-model-rail.org][Calibrate a model-backed threshold]].
+
+** The variables
+
+| Variable              | Effect                                         |
+|-----------------------+------------------------------------------------|
+| =LLMLITE_HOST=        | default =127.0.0.1=                            |
+| =LLMLITE_PORT=        | default =8760=; =GROK_SHIM_PORT= is also read  |
+| =LLMLITE_MODEL=       | instruct model; nothing is compiled in         |
+| =LLMLITE_EMBED_MODEL= | embedding model, if the proxy serves one       |
+| =LLMLITE_API_KEY=     | credential; nothing is compiled in             |
+
+A shared gateway, or a one-off =GUARDRAILS_API_BASE=, is the other way to
+name an endpoint:
+[[file:choosing-an-endpoint.org][Point the model-backed rails somewhere]].

@@ -12,7 +12,8 @@ endpoint, and there are four ways to name one.
 If something is listening on =127.0.0.1:8760= serving an OpenAI-compatible
 API, it is used without being asked. That is the built-in =llmlite= provider,
 and it is tried first because a loopback endpoint costs nothing per call, keeps
-rail traffic on the machine, and needs no shared credential.
+rail traffic on the machine, and needs no shared credential. The walkthrough
+is [[file:using-llmlite.org][Run the model-backed rails on a local llmlite]].
 
 #+begin_src bash
 LLMLITE_PORT=11434 LLMLITE_MODEL=llama3.1 ruby your_app.rb
