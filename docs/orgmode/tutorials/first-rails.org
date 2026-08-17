@@ -54,7 +54,7 @@ ruby -Ilib -e 'require "vangrail"; puts Vangrail::VERSION'
 #+end_src
 
 #+begin_example
-0.1.0
+0.3.0
 #+end_example
 
 If you saw a version number, you are ready. If you saw =cannot load such file=,
