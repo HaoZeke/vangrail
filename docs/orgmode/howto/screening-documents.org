@@ -90,3 +90,9 @@ and that is not the same as everything being clean.
 The default context rail is deterministic and offline, so screening a set of
 six passages costs microseconds and cannot fail because an endpoint is down.
 That is why it is on by default.
+
+** See also
+
+- [[file:../tutorials/first-rails.org][The ten-minute tutorial]] screens a set
+- [[file:writing-a-rail.org][Write your own rail]]
+- [[file:../explanation/coverage.org][What this covers, and what it does not]]

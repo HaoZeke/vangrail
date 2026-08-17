@@ -89,3 +89,9 @@ assistant turn is the text the reader saw, not the text the model produced. If
 an output rail redacted a token, the next turn is a follow-up to the redacted
 version. A log that says otherwise describes a conversation that did not
 happen.
+
+** See also
+
+- [[file:guarding-a-stream.org][Guard an answer while it streams]]
+- [[file:../explanation/evidence.org][Why blocked is not a probability]]
+- [[file:../explanation/three-statuses.org][Why there are three statuses]]

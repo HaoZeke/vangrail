@@ -128,3 +128,9 @@ tells you to leave the rail off. See
 A shared gateway, or a one-off =GUARDRAILS_API_BASE=, is the other way to
 name an endpoint:
 [[file:choosing-an-endpoint.org][Point the model-backed rails somewhere]].
+
+** See also
+
+- [[file:choosing-an-endpoint.org][Point the model-backed rails somewhere]]
+- [[file:calibrating-a-model-rail.org][Calibrate a model-backed threshold]]
+- [[file:../reference/environment.org][Environment variables]]

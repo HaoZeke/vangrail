@@ -1,5 +1,6 @@
 # Contributing
 
+The documentation tree is [docs/orgmode/index.org](docs/orgmode/index.org).
 The suite is stdlib minitest. There is no bundle.
 
 ```bash

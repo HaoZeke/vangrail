@@ -186,3 +186,9 @@ Every rail that could not reach a decision returns =passed= with =certain?=
 false. An engine whose endpoint is down keeps its deterministic rails and says
 so in every result. That is the one guarantee here worth calling a guarantee:
 nothing reports a clean check it did not perform.
+
+** See also
+
+- [[file:../tutorials/first-rails.org][The ten-minute tutorial]]
+- [[file:three-statuses.org][Why three statuses, and why certain? is separate]]
+- [[file:external-evaluation.org][Scored against somebody else's corpus]]

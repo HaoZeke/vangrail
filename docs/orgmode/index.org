@@ -4,21 +4,42 @@
 
 * vangrail
 
-[[file:../assets/vangrail-mark.svg]]
+[[file:../assets/vangrail-mark.jpg]]
+
+[[file:../assets/vangrail-icon.jpg]]
+
+/Vangrail/ is Dutch for the steel barrier at the edge of a road. It does not
+stop you driving; it stops one bad moment becoming a worse one.
 
 Guardrails that run inside a Ruby process. Input and output rails, plus rails
 for the documents a retrieval step just fetched, with no Python service
 anywhere in the path and nothing outside the standard library at runtime.
 
-/Vangrail/ is Dutch for the steel barrier at the edge of a road. It does not
-stop you driving; it stops one bad moment becoming a worse one.
+** Install
 
-A rail is an object with one method, returning one of three statuses. A regex
-check, a safety classifier, a Colang flow, and a call out to somebody's NeMo
-Guardrails server all use that protocol, sit in the same ordered list, and
-answer the same way.
+Ruby 3.1 or newer. There is no bundle.
 
-** Tutorials
+#+begin_src bash
+gem install vangrail
+#+end_src
+
+From a clone: =git clone https://github.com/HaoZeke/vangrail.git= then
+=ruby -Ilib -e 'require "vangrail"; puts Vangrail::VERSION'=.
+
+** It provides
+
+- a rail protocol: one object, one method, three statuses (=passed= /
+  =modified= / =blocked=) plus =certain?=
+- three sides: the question, the retrieved documents, and the model's answer
+- deterministic rails that need no network
+- model-backed rails that call a local proxy first, then whatever endpoint
+  you name
+
+A rail is an object with one method. A regex check, a safety classifier, a
+Colang flow, and a call out to somebody's NeMo Guardrails server all use that
+protocol, sit in the same ordered list, and answer the same way.
+
+** Getting started
 
 Start here if you have not used this before.
 
@@ -51,7 +72,8 @@ does, no argument for any of it.
 
 ** Explanation
 
-Why the design is shaped the way it is.
+Why the design is shaped the way it is. The measurements and the reading list
+live here, not on the README.
 
 - [[file:explanation/three-statuses.org][Why three statuses, and why certain? is
   separate]]

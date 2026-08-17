@@ -4,6 +4,8 @@
 
 * Stop an Injected Instruction in Ten Minutes
 
+[[file:../../assets/vangrail-icon.jpg]]
+
 ** Who this is for
 
 You write Ruby. You have an application that retrieves documents and puts them

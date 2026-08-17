@@ -121,3 +121,9 @@ The threshold belongs to the model. A proxy upgraded to a new embedding model, a
 quantisation swapped, or a gateway that silently repoints a model name are all
 reasons the number you measured stopped describing anything. Both probes are
 cheap; run them again rather than trusting a number whose model is gone.
+
+** See also
+
+- [[file:using-llmlite.org][Run the model-backed rails on a local llmlite]]
+- [[file:../explanation/detector-models.org][What detects an injection, and what it costs]]
+- [[file:../reference/environment.org][Environment variables]]

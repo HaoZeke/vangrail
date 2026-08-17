@@ -70,3 +70,9 @@ still gets sensible behaviour, since an unchecked result is allowed. The cost
 lands on the code that reports a posture: it has to read both. That is the
 right place for it to land, because that is the code making a claim about
 safety to somebody else.
+
+** See also
+
+- [[file:../tutorials/first-rails.org][The ten-minute tutorial]]
+- [[file:coverage.org][What this covers, and what it does not]]
+- [[file:evidence.org][Why blocked is not a probability]]

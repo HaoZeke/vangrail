@@ -97,3 +97,9 @@ result.reason    # => "llmlite is not available at http://127.0.0.1:8760/v1"
 
 That is the correct outcome, not a degraded one: the application keeps working
 and stops claiming a check it is not performing.
+
+** See also
+
+- [[file:using-llmlite.org][Run the model-backed rails on a local llmlite]]
+- [[file:calibrating-a-model-rail.org][Calibrate a model-backed threshold]]
+- [[file:../reference/environment.org][Environment variables]]
