@@ -10,6 +10,8 @@ module Vangrail
   # Loopback HTTP for step 2: other languages call this process, they do not
   # embed MRI. One connection at a time, stdlib only, same JSON as Front.
   class Server
+    MAX_BODY = 4 * 1024 * 1024
+
     ROUTES = {
       '/v1/check_input' => 'check_input',
       '/v1/check_output' => 'check_output',
@@ -79,12 +81,22 @@ module Vangrail
         key, value = line.split(':', 2)
         length = value.to_i if key.to_s.downcase == 'content-length'
       end
+      if length > MAX_BODY
+        text = JSON.generate('error' => 'body too large')
+        socket.write("HTTP/1.1 413 Payload Too Large\r\n")
+        socket.write("Content-Type: application/json\r\n")
+        socket.write("Content-Length: #{text.bytesize}\r\n")
+        socket.write("Connection: close\r\n\r\n")
+        socket.write(text)
+        return
+      end
       body = length.positive? ? socket.read(length) : ''
       status, payload = respond(verb, path, body)
       text = JSON.generate(payload)
       socket.write("HTTP/1.1 #{status} #{reason_phrase(status)}\r\n")
       socket.write("Content-Type: application/json\r\n")
       socket.write("Content-Length: #{text.bytesize}\r\n")
+      verdict_headers(payload).each { |key, value| socket.write("#{key}: #{value}\r\n") }
       socket.write("Connection: close\r\n\r\n")
       socket.write(text)
     end
@@ -104,7 +116,21 @@ module Vangrail
     end
 
     def parse_body(body)
+      raise ArgumentError, 'body too large' if body.to_s.bytesize > MAX_BODY
+
       body.to_s.strip.empty? ? {} : JSON.parse(body)
+    end
+
+    def verdict_headers(payload)
+      headers = {}
+      if payload['status']
+        headers['X-Vangrail-Status'] = payload['status'].to_s
+        headers['X-Vangrail-Certain'] = payload.fetch('certain', true).to_s
+      elsif payload.key?('certain')
+        headers['X-Vangrail-Status'] = 'screen'
+        headers['X-Vangrail-Certain'] = payload['certain'].to_s
+      end
+      headers
     end
 
     def reason_phrase(status)

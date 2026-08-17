@@ -43,8 +43,9 @@ module Vangrail
       name = command.to_s.tr('-', '_')
       return fail_usage("unknown command #{command}") unless Front::COMMANDS.include?(name)
 
-      write(front.dispatch(name, payload_for))
-      0
+      payload = front.dispatch(name, payload_for)
+      write(payload)
+      exit_status(payload)
     rescue ArgumentError, Error => e
       @stderr.puts(e.message)
       1
@@ -103,6 +104,16 @@ module Vangrail
 
     def write(payload)
       @stdout.puts(JSON.generate(payload))
+    end
+
+    # 0 is a certain allow. 2 is a block. 3 is an uncertain allow. A shell
+    # that only reads the process status must not treat a blocked or unchecked
+    # verdict as success.
+    def exit_status(payload)
+      return 2 if payload['status'] == 'blocked'
+      return 3 if payload['certain'] == false
+
+      0
     end
 
     def version
