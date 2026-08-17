@@ -59,7 +59,8 @@ module Vangrail
         /xi,
         # The sympathy wrapper: a relative, a bedtime story, a dying wish.
         'sentimental_wrapper' => /
-          \b(?:my\s+)?(?:grandmother|grandma|late\s+\w+)\b[^.\n]{0,60}
+          \b(?:my\s+)?(?:grandmother|grandma|grandfather|grandpa|mother|father|
+             mom|dad|late\s+\w+)\b[^.\n]{0,60}
           \b(?:used\s+to|would)\b[^.\n]{0,40}\b(?:read|tell|recite|whisper)\b
         /xi,
         # Fiction as a licence: the harmful part is what the character says.

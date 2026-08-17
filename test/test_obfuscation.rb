@@ -123,6 +123,13 @@ class TestObfuscation < Minitest::Test
 
   # The cheapest bypass there is: a joiner inside the word the pattern anchors
   # on. Stripped rather than blocked, because the strip costs a reader nothing.
+  def test_a_soft_hyphen_inside_the_verb_is_stripped_and_then_read
+    hidden = PLAIN.sub('Ignore', "I\u00ADgnore")
+    result = check(hidden)
+
+    assert_predicate result, :blocked?, 'the soft hyphen survived into the pattern match'
+  end
+
   def test_zero_width_characters_are_removed_and_then_the_text_is_read
     hidden = PLAIN.sub('Ignore', "I\u200Bg\u200Bn\u200Bore")
     result = check(hidden)

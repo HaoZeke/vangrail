@@ -101,6 +101,10 @@ below `Unreleased` is written by hand until it is released.
   text, not the raw bytes.
 - Hidden and Obfuscation keep `certain?` on a rewrite.
 - A missing Semantic rail names the embed gap, not a judge model.
+- Stem `ignoring`/`overriding` onto the lexicon verbs. InjectedInstructions
+  reads `prompt` and `system message`. ManyShot counts ChatML, JSON, and
+  Alpaca turns after stripping tokens. Obfuscation strips soft hyphen and
+  backspace. Jailbreak's sympathy wrapper names grandfather and parents.
 
 ## v0.2.0 - 2026-08-16
 

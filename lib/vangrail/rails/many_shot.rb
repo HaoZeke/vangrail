@@ -45,6 +45,12 @@ module Vangrail
       # is written when it is not using template tokens.
       TURN = /^\s{0,3}(?:###\s*)?(?:system|user|human|assistant|ai|bot|q|a|systeem|gebruiker|assistent|mens)\s*:\s*\S/i
 
+      # After template tokens are stripped, ChatML leftover is a bare role
+      # on its own line. JSON and Alpaca never used a colon header either.
+      CHATML_TURN = /^\s{0,3}(?:system|user|human|assistant|ai|bot)\s*$/i
+      JSON_TURN = /["']role["']\s*:\s*["'](?:system|user|human|assistant)["']/i
+      ALPACA_TURN = /^\#{1,3}\s*(?:instruction|response|input|system)\s*:/i
+
       attr_reader :max_turns, :placeholder
 
       def initialize(max_turns: 4, placeholder: '', name: 'many_shot', sides: %i[input context])
@@ -59,18 +65,24 @@ module Vangrail
 
       def decide(text, _context)
         body = text.to_s
-        turns = body.scan(TURN).size
+        stripped = body.gsub(TEMPLATE_TOKENS, placeholder)
+        turns = turn_count(stripped)
         if turns > max_turns
           return block(categories: ['many_shot'],
                        reason: "#{turns} conversation turns in one message")
         end
 
-        stripped = body.gsub(TEMPLATE_TOKENS, placeholder)
         return pass if stripped == body
 
         modify(stripped, categories: ['template_tokens'],
                          reason: 'removed chat template control tokens')
       end
+
+      def turn_count(body)
+        body.scan(TURN).size + body.scan(CHATML_TURN).size +
+          body.scan(JSON_TURN).size + body.scan(ALPACA_TURN).size
+      end
+      private :turn_count
     end
   end
 end

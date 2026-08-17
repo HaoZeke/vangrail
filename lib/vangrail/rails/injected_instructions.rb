@@ -41,7 +41,7 @@ module Vangrail
           (?:
             # Names the standing instruction, in any of its usual words.
             [^.\n]{0,40}\b(?:instructions?|guidelines?|rules?|directions?|directives?|
-                             system\s+prompt|everything\s+above)\b
+                             prompts?|system\s+(?:prompt|message)|everything\s+above)\b
             |
             # Cancels all of it, which is what an attacker does when they do
             # not know what they are cancelling.

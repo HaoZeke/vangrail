@@ -102,11 +102,20 @@ module Vangrail
       when /\A(.+)ies\z/ then "#{Regexp.last_match(1)}y"
       when /\A(.+ss)es\z/ then Regexp.last_match(1)
       when /\A(.+[^su])s\z/ then Regexp.last_match(1)
-      when /\A(.{3,})ing\z/ then Regexp.last_match(1)
-      when /\A(.{3,})ed\z/ then Regexp.last_match(1)
+      when /\A(.{3,})ing\z/ then restore_silent_e(Regexp.last_match(1))
+      when /\A(.{3,})ed\z/ then restore_silent_e(Regexp.last_match(1))
       when /\A(.{3,})ly\z/ then Regexp.last_match(1)
       else word
       end
+    end
+
+    # ignoring -> ignor -> ignore, so the lexicon can list the verb once.
+    # Doubled consonants stay a strip (running -> runn -> run).
+    def restore_silent_e(base)
+      return base[0..-2] if base.match?(/([^aeiou])\1\z/) && base.length > 3
+      return "#{base}e" if base.match?(/[^aeiou][aeiou][^aeiouy]\z/)
+
+      base
     end
 
     # The concepts an injection has to name, and the words that name them, per

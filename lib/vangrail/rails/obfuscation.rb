@@ -49,7 +49,7 @@ module Vangrail
       # move as a zero-width joiner with a cruder tool: they break a pattern
       # without changing what a model reads, and scrubbing restores validity
       # rather than the phrase. Legitimate text does not carry them.
-      INVISIBLE = /[​-‍⁠﻿᠎‪-‮⁦-⁩�]/
+      INVISIBLE = /[\u200B-\u200D\u2060\uFEFF\u180E\u202A-\u202E\u2066-\u2069\uFFFD\u00AD\u0008]/
 
       # A base64 run long enough to hold a sentence. Below this the decode is
       # noise, and a handbook is full of short tokens that happen to be in the
