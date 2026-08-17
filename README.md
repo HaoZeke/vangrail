@@ -250,8 +250,9 @@ from one rail firing.
 The base rate is no longer assumed. In 18,258 real documents, zero contained an
 instruction addressed to an assistant, which bounds it at **one in 9,506** with
 95% confidence — within six percent of the figure this section used to guess.
-Reaching even money from there takes 13.2 bits and the best context rail is
-worth 8.2, so one rail firing still does not justify a block.
+Reaching even money from there takes 13.2 bits. Similarity is 8.2 bits at
+the bound on the mixed 245 (BIPIA zeros plus house attacks); on BIPIA alone
+it is 0/125. One rail firing still does not justify a block.
 
 The table ships what the corpora can defend rather than the point estimate,
 because `bits(fired, confidence: 0.95)` is what `assess` now uses by default.

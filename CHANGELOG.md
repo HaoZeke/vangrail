@@ -94,6 +94,8 @@ below `Unreleased` is written by hand until it is released.
 - `Conversation#result_from` blocks on the policy action, not on any fire.
 - `Tools#call` raises; `Conversation#invoke` uses `#fire`. `Profile`
   subtracts deny from allow; `intend` and `admit?` refuse a denied name.
+- Default input rails no longer first-block on `injection_patterns`
+  (-1.6 bits). Set `GUARDRAILS_RAILS=patterns` or `all` to install it.
 
 ## v0.2.0 - 2026-08-16
 

@@ -41,13 +41,13 @@ module Vangrail
     # concepts, near-copies, the decoding pass, and the language posture.
     # `Config#engine(stdlib: true)` prepends the same list so a NeMo folder
     # does not certain-pass a question nothing here can read.
-    def self.deterministic(side)
+    def self.deterministic(side, patterns: true)
       side = side.to_sym
       return [] if side == :output
 
       core = [
         (Rails::InjectedInstructions.new if side == :context),
-        (if side == :input
+        (if side == :input && patterns
            Rails::Pattern.new(patterns: INJECTION_PATTERNS, name: 'injection_patterns',
                               sides: [side])
          end),
@@ -113,13 +113,13 @@ module Vangrail
       Config.load(config_dir).engine(provider: provider, on_error: on_error, cache: cache?)
     end
 
-    # The pattern rail runs whenever any input rail does. It costs microseconds
-    # and it is the only part of the input side that still works when the
-    # endpoint is down.
+    # Jailbreak, paraphrase, and the rest of the input floor run whenever
+    # input is on. The injection-pattern rail is opt-in (`patterns` or `all`):
+    # a hit is anti-informative as a block (-1.6 bits on the external mix).
     def input_rails
       return [] unless on?(:input) || on?(:patterns)
 
-      rails = self.class.deterministic(:input)
+      rails = self.class.deterministic(:input, patterns: on?(:patterns))
       # A question carrying the canary is too late to prevent and worth
       # knowing: the prompt is already out.
       rails << canary(:input) if canary_token
