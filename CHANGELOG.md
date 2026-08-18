@@ -90,6 +90,10 @@ below `Unreleased` is written by hand until it is released.
   one turn's tokens into another turn's cached answer.
 - (**cache**) A stored result's content is frozen, so a caller that appends to a
   shared rewrite fails where it wrote rather than hundreds of requests later.
+- (**result**) `Result#rewritten_by` names every rail that changed the text, and a
+  modified result carries their merged categories. `rail` still reports the last
+  rewriter. Reporting only the last one hid a redaction behind a later disclosure
+  mark, in the record whose purpose is to explain what was shown and why.
 - (**obfuscation**) `Obfuscation.scrub`, the invisible-character strip without
   the rails around it, for a fetch boundary that wants a payload gone before it
   reaches a corpus.

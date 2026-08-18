@@ -117,6 +117,8 @@ module Vangrail
       ctx = context.merge(side: side)
       current = Rail.usable(text)
       modified_by = nil
+      rewrites = []
+      rewrite_categories = []
       uncertain = nil
       unbuilt = nil
 
@@ -127,12 +129,17 @@ module Vangrail
         if result.blocked?
           known = result.certain? && uncertain.nil? && unbuilt.nil?
           kept = modified_by ? current : result.content
-          return result.with_rail(rail.name, content: kept, certain: known)
+          blocked = result.with_rail(rail.name, content: kept, certain: known)
+          # A block after a rewrite is still a pass where text was changed, and
+          # whoever reads the record needs both facts.
+          return rewrites.empty? ? blocked : blocked.with_rewrites(rewrites)
         end
 
         if result.modified?
           current = result.content_or(current)
           modified_by = rail.name
+          rewrites << rail.name
+          rewrite_categories.concat(Array(result.categories))
         end
         next if result.certain?
 
@@ -147,13 +154,19 @@ module Vangrail
         end
       end
 
-      finish(side, current, modified_by, uncertain || unbuilt)
+      finish(side, current, modified_by, uncertain || unbuilt,
+             rewrites: rewrites, categories: rewrite_categories.uniq)
     end
 
-    def finish(side, current, modified_by, uncertain)
+    # The reported rail is the last one that rewrote the text, and the chain and
+    # the categories are every rail that did. Reporting only the last one lost a
+    # redaction behind a later disclosure mark: same status, same content, and an
+    # audit record that no longer said a credential had been taken out.
+    def finish(side, current, modified_by, uncertain, rewrites: [], categories: [])
       if modified_by
         return Result.modified(rail: modified_by, content: current,
-                               certain: uncertain.nil?, reason: uncertain&.reason)
+                               certain: uncertain.nil?, reason: uncertain&.reason,
+                               categories: categories, rewritten_by: rewrites)
       end
       return Result.unchecked(rail: uncertain.rail || side, reason: uncertain.reason) if uncertain
 

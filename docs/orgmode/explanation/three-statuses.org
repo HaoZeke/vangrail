@@ -27,6 +27,30 @@ running before a policy rail means the policy rail judges the redacted text,
 which is the text that will actually be shown. Judging the original would be
 judging something nobody sees.
 
+Two rails can both rewrite one text, and then one name is not enough. =rail=
+reports the last rewriter, because that is what a caller routing on a single name
+reads, and =rewritten_by= lists every rail that changed the text in the order
+they ran, with their categories merged into =categories=. Reporting only the last
+one hid a redaction behind a later disclosure mark: same status, same content, and
+an audit record that had stopped saying a credential was taken out of the answer.
+
+#+BEGIN_SRC ruby
+require 'vangrail'
+
+engine = Vangrail::Engine.new(
+  output: [Vangrail::Rails::Secrets.new,
+           Vangrail::Rails::Watermark.new(key: 'k', issuer: 'surf/ask')],
+  cache: false
+)
+result = engine.check_output('Set api_key=sk-live-abcdefghijklmnop in the config.')
+
+result.rail          # => "watermark", the last rail to rewrite
+result.rewritten_by  # => ["secrets", "watermark"]
+#+END_SRC
+
+A block after a rewrite keeps the chain too: the turn was refused and text was
+changed on the way, and both belong in the record.
+
 ** certain? is not a status
 
 =certain?= answers a different question: did a rail actually reach this

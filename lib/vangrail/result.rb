@@ -21,10 +21,15 @@ module Vangrail
   class Result
     STATUSES = %i[passed modified blocked].freeze
 
-    attr_reader :status, :rail, :content, :reason, :categories, :model, :latency_ms, :raw
+    attr_reader :status, :rail, :content, :reason, :categories, :model, :latency_ms, :raw, :rewritten_by
 
+    # `rewritten_by` is every rail that changed the text, in the order they ran.
+    # `rail` stays the last one, because that is what a caller routing on a
+    # single name already reads, and a pass where a redaction was followed by a
+    # disclosure mark reported only the mark: the audit record whose purpose is
+    # to explain what the desk did lost the redaction entirely.
     def initialize(status:, rail:, content: nil, reason: nil, categories: [], model: nil,
-                   latency_ms: nil, raw: nil, certain: true)
+                   latency_ms: nil, raw: nil, certain: true, rewritten_by: [])
       status = status.to_sym
       raise ArgumentError, "status must be one of #{STATUSES.join(', ')}" unless STATUSES.include?(status)
 
@@ -37,6 +42,7 @@ module Vangrail
       @latency_ms = latency_ms
       @raw = raw
       @certain = certain
+      @rewritten_by = Array(rewritten_by).map(&:to_s)
     end
 
     def self.passed(rail:, **kwargs)
@@ -85,10 +91,21 @@ module Vangrail
     # A copy with a different rail name, for an engine reporting which of its
     # rails produced a decision. Optional content and certain override the
     # fields a later rail must not be allowed to drop.
+    # The same result with the rewrite chain replaced, for a caller that ran
+    # several rails and knows which of them changed the text.
+    def with_rewrites(names, categories: self.categories)
+      self.class.new(
+        status: status, rail: rail, content: content, reason: reason, categories: categories,
+        model: model, latency_ms: latency_ms, raw: raw, certain: certain?,
+        rewritten_by: names
+      )
+    end
+
     def with_rail(name, content: self.content, certain: certain?)
       self.class.new(
         status: status, rail: name, content: content, reason: reason, categories: categories,
-        model: model, latency_ms: latency_ms, raw: raw, certain: certain
+        model: model, latency_ms: latency_ms, raw: raw, certain: certain,
+        rewritten_by: rewritten_by
       )
     end
 
@@ -99,6 +116,7 @@ module Vangrail
         'rail' => rail&.to_s,
         'reason' => reason,
         'categories' => (categories unless categories.empty?),
+        'rewritten_by' => (rewritten_by unless rewritten_by.empty?),
         'model' => model,
         'latency_ms' => latency_ms,
       }.compact

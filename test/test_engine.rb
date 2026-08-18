@@ -232,4 +232,59 @@ class TestEngine < Minitest::Test
     refute_predicate result, :certain?
     assert_includes result.reason, 'no endpoint resolved'
   end
+
+  # A pass where two rails rewrote the text reported only the last of them, with
+  # no categories at all, so a redaction followed by a disclosure mark looked
+  # exactly like a mark on its own. The record whose purpose is to explain what
+  # the desk did had stopped saying a credential was taken out.
+  def test_every_rail_that_rewrote_the_text_is_named
+    engine = Vangrail::Engine.new(
+      output: [Vangrail::Rails::Secrets.new,
+               Vangrail::Rails::Watermark.new(key: 'k', issuer: 'issuer')],
+      cache: false
+    )
+    result = engine.check_output('Set api_key=sk-live-abcdefghijklmnop in the config.')
+
+    assert_predicate result, :modified?
+    assert_equal %w[secrets watermark], result.rewritten_by
+    assert_equal 'watermark', result.rail, 'the reported rail is no longer the last rewriter'
+    # Against the rail's own table rather than a literal, so the assertion
+    # follows a renamed category and names no provider here.
+    redaction = Vangrail::Rails::Secrets::DEFAULT_PATTERNS.keys
+    assert_operator (result.categories & redaction).length, :>=, 1,
+                    'the redacting rail contributed no category to the merged result'
+    assert_includes result.categories, 'watermark'
+    assert_equal %w[secrets watermark], result.to_h['rewritten_by']
+  end
+
+  def test_a_pass_with_one_rewrite_names_one
+    engine = Vangrail::Engine.new(output: [Vangrail::Rails::Secrets.new], cache: false)
+    result = engine.check_output('Set api_key=sk-live-abcdefghijklmnop in the config.')
+
+    assert_equal ['secrets'], result.rewritten_by
+  end
+
+  def test_a_clean_pass_names_none
+    engine = Vangrail::Engine.new(output: [Vangrail::Rails::Secrets.new], cache: false)
+    result = engine.check_output('Nothing sensitive here.')
+
+    assert_empty result.rewritten_by
+    refute result.to_h.key?('rewritten_by')
+  end
+
+  # A block after a rewrite is still a pass in which text was changed, and both
+  # facts belong in the report.
+  def test_a_block_after_a_rewrite_keeps_the_rewrite_in_the_report
+    engine = Vangrail::Engine.new(
+      output: [Vangrail::Rails::Secrets.new,
+               Vangrail::Rails::Pattern.new(patterns: { 'refuse' => /config/ }, name: 'refuser',
+                                            sides: [:output])],
+      cache: false
+    )
+    result = engine.check_output('Set api_key=sk-live-abcdefghijklmnop in the config.')
+
+    assert_predicate result, :blocked?
+    assert_equal 'refuser', result.rail
+    assert_equal ['secrets'], result.rewritten_by
+  end
 end
