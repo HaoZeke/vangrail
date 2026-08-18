@@ -370,12 +370,18 @@ attack, since a stripped payload never reaches a model; the decode is what turns
 rewrite naming a character class into a block naming the injection, which is the
 difference between a page somebody looks at and a page nobody does.
 
-Both need a run of four or more carriers and, after unreadable control bytes are
-dropped, at least eight printable characters. That is what keeps a
-disclosure mark from being reported as an injection: =Vangrail::Watermark= writes
-eleven bytes of HMAC in the selector carrier, and eleven bytes of HMAC are not
-printable, so a marked answer pasted back in as a question is stripped and not
-decoded.
+A run is read only if it decodes to something a person could have written, which
+is one rule tested three ways: four or more carriers, bytes that are valid UTF-8,
+and eight or more printable characters once unreadable control bytes have been
+dropped rather than used as a reason to abandon the run.
+
+The disclosure mark fails the second test, not the third, and the difference
+matters to anybody tuning the third. =Vangrail::Watermark= opens every payload
+with =MAGIC=, =0xA1 0x50=, and =0xA1= is a UTF-8 continuation byte, so it cannot
+begin a valid sequence and a mark can never decode as text. Measured over 80000
+selector runs from 40000 marks with different keys: none decoded. The printable
+floor is a second line of defence here and not the reason, so raising or lowering
+it does not put the mark at risk, and removing the encoding test would.
 
 =Obfuscation.scrub= is the strip on its own, without the rails around it, for a
 fetch boundary that wants a payload gone before it reaches a corpus:

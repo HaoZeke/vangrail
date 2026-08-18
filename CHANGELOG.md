@@ -94,9 +94,11 @@ below `Unreleased` is written by hand until it is released.
   block or in variation selectors, so an injection smuggled there is reported as a
   block naming the injection rather than as a rewrite naming a character class.
   Both read the text as it arrived, since for them the invisible characters are
-  the message; both need a run of four or more carriers and eight printable
-  characters after control bytes are dropped, which is what keeps the disclosure
-  mark out of the report.
+  the message; both need a run of four or more carriers, bytes that are valid
+  UTF-8, and eight printable characters after control bytes are dropped. What
+  keeps the disclosure mark out of the report is the encoding test rather than the
+  floor: its `MAGIC` opens with `0xA1`, a UTF-8 continuation byte, so a mark
+  cannot decode as text at all.
 - (**stream**) `StreamGuard` merges the rewrite chains of both passes, so a
   redaction applied mid-stream is still named at `finish` beside the mark.
 - (**engine**) A blocked-after-rewrite result carries the rewriting rails'

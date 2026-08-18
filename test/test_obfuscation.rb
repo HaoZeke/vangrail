@@ -228,6 +228,35 @@ class TestObfuscation < Minitest::Test
                      'a check never reads the carrier, so the mark assertion above is about nothing'
   end
 
+  # The test above passes for one key, and would pass for one key by luck. Eleven
+  # bytes of HMAC are unprintable most of the time rather than always: about one
+  # run in two thousand is all-ASCII by chance, and the printable floor is what
+  # would have to catch those.
+  #
+  # It never comes to that, and the reason is structural. Every payload opens with
+  # MAGIC, whose first byte is 0xA1, and 0xA1 is a UTF-8 continuation byte, so a
+  # marked run cannot decode as valid text whatever the HMAC happens to be. This
+  # pins that mechanism rather than the outcome for one key, because somebody
+  # tuning MIN_PAYLOAD needs to know it is not the thing standing between a
+  # disclosure mark and an injection report.
+  def test_no_key_makes_the_mark_decode
+    magic = Vangrail::Watermark::MAGIC
+
+    assert_equal 0xA1, magic.first, 'MAGIC no longer opens with a continuation byte'
+    refute_predicate magic.pack('C*').force_encoding(Encoding::UTF_8), :valid_encoding?,
+                     'MAGIC now begins a valid UTF-8 sequence, so the mark can decode'
+
+    rail = Vangrail::Rails::Obfuscation.new(rails: [])
+    decoded = (1..200).filter_map do |i|
+      marked = Vangrail::Watermark.mark('A handbook answer about quota limits.',
+                                        key: "key-#{i}", issuer: 'issuer')
+      variants = rail.variants(marked, only: Vangrail::Rails::Obfuscation::CARRIERS)
+      [i, variants] unless variants.empty?
+    end
+
+    assert_empty decoded, 'a mark decoded to a carrier payload, so the key decides whether it is reported'
+  end
+
   # One byte per selector: FE00 to FE0F for the low nibble range, the supplement
   # for the rest.
   def selector_payload(text)
