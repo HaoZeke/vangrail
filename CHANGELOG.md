@@ -97,6 +97,11 @@ below `Unreleased` is written by hand until it is released.
   the message; both need a run of four or more carriers and eight printable
   characters after control bytes are dropped, which is what keeps the disclosure
   mark out of the report.
+- (**stream**) `StreamGuard` merges the rewrite chains of both passes, so a
+  redaction applied mid-stream is still named at `finish` beside the mark.
+- (**engine**) A blocked-after-rewrite result carries the rewriting rails'
+  categories, and a rail is named as a rewriter only when the text changed rather
+  than when it said it did.
 - (**result**) `Result#rewritten_by` names every rail that changed the text, and a
   modified result carries their merged categories. `rail` still reports the last
   rewriter. Reporting only the last one hid a redaction behind a later disclosure

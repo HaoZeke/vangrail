@@ -131,15 +131,27 @@ module Vangrail
           kept = modified_by ? current : result.content
           blocked = result.with_rail(rail.name, content: kept, certain: known)
           # A block after a rewrite is still a pass where text was changed, and
-          # whoever reads the record needs both facts.
-          return rewrites.empty? ? blocked : blocked.with_rewrites(rewrites)
+          # whoever reads the record needs both facts, the rewriting rail's
+          # categories included: a credential redacted on the way to a refusal is
+          # the kind of thing an incident review is looking for.
+          return blocked if rewrites.empty?
+
+          return blocked.with_rewrites(rewrites,
+                                       categories: (blocked.categories + rewrite_categories).uniq)
         end
 
         if result.modified?
-          current = result.content_or(current)
-          modified_by = rail.name
-          rewrites << rail.name
-          rewrite_categories.concat(Array(result.categories))
+          rewritten = result.content_or(current)
+          # Named for changing the text, not for saying it did. A rail that
+          # reports a rewrite and returns the text unchanged is a bug in that
+          # rail, and repeating its claim in the record spreads it.
+          changed = rewritten != current
+          current = rewritten
+          modified_by = rail.name if changed
+          if changed
+            rewrites << rail.name
+            rewrite_categories.concat(Array(result.categories))
+          end
         end
         next if result.certain?
 

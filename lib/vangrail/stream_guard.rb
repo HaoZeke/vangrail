@@ -51,6 +51,11 @@ module Vangrail
       @checks = 0
       @blocked = nil
       @released = +''
+      # Rewrites happen in two places: the per-chunk pass, which runs its own
+      # Engine over the offline rails, and `finish`, which runs the caller's. A
+      # result from either one only knows about its own pass, so a redaction
+      # applied mid-stream was missing from the report at the end.
+      @rewritten_by = []
     end
 
     def blocked?
@@ -78,6 +83,7 @@ module Vangrail
       return @blocked if blocked?
 
       result = engine.check_output(buffer, **context)
+      result = merge_rewrites(result)
       @blocked = result if result.blocked?
       # Duplicated, because the buffer is appended to in place and a rewrite
       # hands back a string the rail may still own. A memoized rail returns the
@@ -123,6 +129,18 @@ module Vangrail
 
     private
 
+    # Every rail that rewrote the answer, across both passes. The union rather
+    # than the last pass's list, because a mid-stream redaction and an
+    # end-of-stream mark are both true of the answer the reader received.
+    def merge_rewrites(result)
+      return result unless result.respond_to?(:rewritten_by)
+
+      union = @rewritten_by | result.rewritten_by
+      return result if union == result.rewritten_by
+
+      result.with_rewrites(union)
+    end
+
     def buffer
       @buffer
     end
@@ -156,8 +174,8 @@ module Vangrail
       result = partial.check_output(buffer, **context)
 
       if result.blocked?
-        @blocked = result
-        return result
+        @blocked = merge_rewrites(result)
+        return @blocked
       end
 
       unless result.modified?
@@ -165,6 +183,7 @@ module Vangrail
         return nil
       end
 
+      @rewritten_by |= result.rewritten_by if result.respond_to?(:rewritten_by)
       @buffer = result.content_or(buffer).dup
       @checked = buffer.length
       result

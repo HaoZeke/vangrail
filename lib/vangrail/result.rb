@@ -91,8 +91,9 @@ module Vangrail
     # A copy with a different rail name, for an engine reporting which of its
     # rails produced a decision. Optional content and certain override the
     # fields a later rail must not be allowed to drop.
-    # The same result with the rewrite chain replaced, for a caller that ran
-    # several rails and knows which of them changed the text.
+    # The same result with the rewrite chain replaced, and its categories with it,
+    # for a caller that ran several rails and knows which of them changed the
+    # text.
     def with_rewrites(names, categories: self.categories)
       self.class.new(
         status: status, rail: rail, content: content, reason: reason, categories: categories,
