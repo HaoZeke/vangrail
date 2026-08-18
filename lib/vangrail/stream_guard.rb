@@ -127,15 +127,19 @@ module Vangrail
       buffer.length - @emitted >= @interval
     end
 
-    # Only the rails that decide without a network call, and only over the text
-    # that has arrived. A partial answer is not the same object a model rail was
-    # written to judge: half a sentence looks unsupported because its citation
-    # has not been generated yet, and blocking on that would refuse answers for
-    # arriving slowly.
+    # Only the rails that decide without a network call and can read a fragment,
+    # and only over the text that has arrived. A partial answer is not the same
+    # object a model rail was written to judge: half a sentence looks
+    # unsupported because its citation has not been generated yet, and blocking
+    # on that would refuse answers for arriving slowly. A rail that marks
+    # finished text is left out for the same reason from the other direction:
+    # what it would mark is not finished.
     def inspect_buffer
       @emitted = buffer.length
       @checks += 1
-      offline = engine.output_rails.select { |r| r.offline? && r.applies_to?(:output) }
+      offline = engine.output_rails.select do |r|
+        r.offline? && r.incremental? && r.applies_to?(:output)
+      end
       # Nothing can object mid-stream, so the text is as checked as it is going
       # to get before `finish`, and holding it back would stall the stream for
       # no reason.

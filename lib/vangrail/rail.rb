@@ -71,6 +71,18 @@ module Vangrail
 
     def quantifies? = false
 
+    # Can this rail decide on a fragment of the text it will eventually see.
+    # Nearly all can: a pattern that matches half an answer matches, and
+    # catching a credential in the half already on a reader's screen is the
+    # whole reason StreamGuard exists.
+    #
+    # A rail that marks or signs finished text cannot. A paragraph that is still
+    # arriving is not the object being marked, and marking it per chunk would
+    # rewrite text the reader has already been shown, once per chunk.
+    def incremental?
+      true
+    end
+
     # Does this rail need the network. Used to report a posture and to let a
     # caller build a model-free engine on purpose. The rare case is networked.
     def offline?

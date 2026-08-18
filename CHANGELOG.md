@@ -81,6 +81,9 @@ below `Unreleased` is written by hand until it is released.
   verify attribution. Code blocks are never marked. In the default rail set, last
   on the output side; `GUARDRAILS_WATERMARK_KEY` and
   `GUARDRAILS_WATERMARK_ISSUER` configure signing.
+- (**rail**) `Rail#incremental?`, true by default, false for a rail that can only
+  read finished text. `StreamGuard` runs the incremental offline rails per chunk
+  and the rest at `finish`.
 - (**obfuscation**) `Obfuscation.scrub`, the invisible-character strip without
   the rails around it, for a fetch boundary that wants a payload gone before it
   reaches a corpus.

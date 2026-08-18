@@ -591,7 +591,10 @@ Vangrail::Watermark.marked?(marked.content)                 # => true
 #+END_SRC
 
 Eleven invisible bytes per paragraph: two magic bytes, a version, and eight bytes
-of truncated HMAC over that paragraph. Anybody can read the magic and know the
+of truncated HMAC over that paragraph. It reports =incremental?= false, so
+=StreamGuard= leaves it out of the per-chunk checks and marks once at =finish=:
+a paragraph still arriving is not the object being marked, and marking per chunk
+would rewrite text already on the reader's screen. Anybody can read the magic and know the
 text was generated; the key holder recomputes the HMAC and knows it is theirs.
 Fenced and indented code is never marked. The format, the reasoning, and the
 robustness table are in

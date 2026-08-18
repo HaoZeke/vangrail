@@ -179,6 +179,30 @@ class TestWatermark < Minitest::Test
     assert_predicate rail.call(once.content, side: :output), :passed?
   end
 
+  # A stream is checked as it arrives, and the mark is not that kind of check.
+  # Marking per chunk would rewrite text already on the reader's screen, once
+  # per chunk, each mark covering a different half-finished paragraph.
+  def test_the_stream_guard_marks_at_the_end_and_not_per_chunk
+    engine = Vangrail::Engine.new(output: [rail])
+    guard = Vangrail::StreamGuard.new(engine)
+
+    ANSWER.scan(/.{1,60}/m).each do |chunk|
+      verdict = guard.push(chunk)
+      refute_predicate verdict, :modified? if verdict
+    end
+    refute W.marked?(guard.content)
+
+    final = guard.finish
+
+    assert_predicate final, :modified?
+    assert_predicate W.verify(final.content, key: KEY, issuer: ISSUER), :authentic?
+  end
+
+  def test_a_rail_reads_fragments_unless_it_says_otherwise
+    refute_predicate rail, :incremental?
+    assert_predicate Vangrail::Rails::Secrets.new, :incremental?
+  end
+
   # The two rails read the same carriers from opposite directions, and this is
   # the order that makes both correct: Obfuscation is input and context, the mark
   # is output. An answer pasted back in as a question loses its mark, which is

@@ -47,6 +47,14 @@ module Vangrail
         !key.nil? && !key.to_s.empty?
       end
 
+      # Not mid-stream. The mark covers a finished paragraph, and a paragraph
+      # that is still arriving would be marked once per chunk, each mark
+      # covering different words and each one rewriting text the reader can
+      # already see. StreamGuard marks at `finish`, where the answer is whole.
+      def incremental?
+        false
+      end
+
       # Same text, same key, same mark, so a repeat costs one HMAC and no
       # second run of selectors.
       def cache_key(text, _context)
