@@ -58,8 +58,15 @@ module Vangrail
 
     private
 
+    # A stored result is handed to every later caller with the same key, so its
+    # rewritten text is shared and must not be writable. Freezing turns a caller
+    # that appends to it into an immediate FrozenError rather than one turn's
+    # words appearing inside another turn's answer, hundreds of requests later
+    # and nowhere near the append.
     def store(key, result)
       return unless result.respond_to?(:certain?) && result.certain?
+
+      result.content.freeze if result.respond_to?(:content) && result.content.is_a?(String)
 
       @mutex.synchronize do
         # Ruby hashes keep insertion order, so the oldest key is the first one.

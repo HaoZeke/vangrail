@@ -84,6 +84,12 @@ below `Unreleased` is written by hand until it is released.
 - (**rail**) `Rail#incremental?`, true by default, false for a rail that can only
   read finished text. `StreamGuard` runs the incremental offline rails per chunk
   and the rest at `finish`.
+- (**stream**) `StreamGuard` duplicates a rail's rewrite before appending to it.
+  The buffer is appended to in place, and with a memoized rail the same Result
+  goes to the next caller with the same text, so one push after `finish` wrote
+  one turn's tokens into another turn's cached answer.
+- (**cache**) A stored result's content is frozen, so a caller that appends to a
+  shared rewrite fails where it wrote rather than hundreds of requests later.
 - (**obfuscation**) `Obfuscation.scrub`, the invisible-character strip without
   the rails around it, for a fetch boundary that wants a payload gone before it
   reaches a corpus.

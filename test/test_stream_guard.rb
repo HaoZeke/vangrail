@@ -207,4 +207,46 @@ class TestStreamGuard < Minitest::Test
     assert_predicate result, :passed?
     refute_predicate result, :certain?
   end
+
+  # A rewrite hands back a string the rail may still own, and this class appends
+  # to its buffer in place. With a memoized rail the same Result goes to the next
+  # caller with the same text, so an append after `finish` wrote one turn's
+  # tokens into another turn's cached answer: text from a different reader,
+  # served as an answer, with nothing in the log to suggest it.
+  #
+  # Reachable rather than theoretical: one push after finish, or one guard
+  # reused for a second answer.
+  def test_a_push_after_finish_cannot_reach_a_cached_answer
+    cache = Vangrail::ResultCache.new
+    engine = Vangrail::Engine.new(
+      output: [Vangrail::Rails::Watermark.new(key: 'k', issuer: 'issuer')],
+      cache: cache
+    )
+    answer = "The limit is 1000 SBU per project.\n"
+
+    guard = Vangrail::StreamGuard.new(engine)
+    guard.push(answer)
+    finished = guard.finish.content.dup
+    guard.push('and one more sentence.')
+
+    again = engine.check_output(answer)
+
+    assert_equal 1, cache.hits, 'the second check did not come from the cache, so this proves nothing'
+    assert_equal finished, again.content
+    refute_includes again.content, 'one more sentence'
+  end
+
+  # The other half, so a future caller that mutates a shared rewrite fails where
+  # it wrote rather than three hundred requests later.
+  def test_a_cached_rewrite_is_not_writable
+    cache = Vangrail::ResultCache.new
+    engine = Vangrail::Engine.new(
+      output: [Vangrail::Rails::Watermark.new(key: 'k', issuer: 'issuer')],
+      cache: cache
+    )
+    result = engine.check_output('Answers are marked in this deployment.')
+
+    assert_predicate result, :modified?
+    assert_raises(FrozenError) { result.content << ' appended by a careless caller' }
+  end
 end

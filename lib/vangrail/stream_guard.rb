@@ -79,7 +79,11 @@ module Vangrail
 
       result = engine.check_output(buffer, **context)
       @blocked = result if result.blocked?
-      @buffer = result.content_or(buffer) if result.modified?
+      # Duplicated, because the buffer is appended to in place and a rewrite
+      # hands back a string the rail may still own. A memoized rail returns the
+      # same Result to the next caller with the same text, so appending to its
+      # content puts one turn's tokens inside another turn's answer.
+      @buffer = result.content_or(buffer).dup if result.modified?
       @checked = buffer.length unless result.blocked?
       result
     end
@@ -161,7 +165,7 @@ module Vangrail
         return nil
       end
 
-      @buffer = result.content_or(buffer)
+      @buffer = result.content_or(buffer).dup
       @checked = buffer.length
       result
     end
