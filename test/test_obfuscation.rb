@@ -216,15 +216,38 @@ class TestObfuscation < Minitest::Test
     assert_predicate result, :modified?
     assert_includes result.categories, 'invisible_characters'
     refute_includes result.categories.join(' '), 'encoded:'
+
+    # The positive control, in the same test, because an absent category cannot
+    # tell a decoder that filtered the mark from a decoder that never ran: both
+    # produce this same clean result. A printable payload in the same carrier has
+    # to decode, or the assertion above is about nothing.
+    readable = 'sbatch job.sh ' + 'the datasets page'.each_char.map do |c|
+      b = c.ord
+      [b < 0x10 ? 0xFE00 + b : 0xE0100 + (b - 0x10)].pack('U')
+    end.join
+
+    assert_includes rail.variants(readable).map(&:first), :selectors,
+                    'the selector decoder read nothing at all, so the mark test proves nothing'
+    refute_includes rail.variants(marked).map(&:first), :selectors
   end
 
   # A run too short to hold a sentence decodes to noise, and a rail reading noise
   # reports on noise.
   def test_a_short_carrier_run_is_stripped_without_being_reported
-    result = check("How do I check my quota?\u{FE01}\u{FE02}\u{E0100}")
+    short = "How do I check my quota?\u{FE01}\u{FE02}\u{E0100}"
+    result = check(short)
 
     assert_predicate result, :modified?
     refute_includes result.categories.join(' '), 'encoded:'
+    refute_includes rail.variants(short).map(&:first), :selectors
+    # Same control as above: the run length is what is being tested, so a longer
+    # run of the same carrier has to be read.
+    long = 'How do I check my quota?' + 'the datasets page'.each_char.map do |c|
+      b = c.ord
+      [b < 0x10 ? 0xFE00 + b : 0xE0100 + (b - 0x10)].pack('U')
+    end.join
+
+    assert_includes rail.variants(long).map(&:first), :selectors
   end
 
   # The strip still happens, and the emoji the payload was hung off survives it.
