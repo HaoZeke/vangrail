@@ -74,6 +74,13 @@ below `Unreleased` is written by hand until it is released.
 ## [Unreleased]
 
 #### Features
+- (**watermark**) `Vangrail::Watermark` and `Rails::Watermark`: a machine-readable
+  mark on generated answers, as Article 50(2) of the AI Act requires. Eleven
+  invisible bytes per paragraph, two of them fixed public magic so anybody can
+  detect the disclosure and eight of them a truncated HMAC so the issuer can
+  verify attribution. Code blocks are never marked. In the default rail set, last
+  on the output side; `GUARDRAILS_WATERMARK_KEY` and
+  `GUARDRAILS_WATERMARK_ISSUER` configure signing.
 - (**obfuscation**) `Obfuscation.scrub`, the invisible-character strip without
   the rails around it, for a fetch boundary that wants a payload gone before it
   reaches a corpus.

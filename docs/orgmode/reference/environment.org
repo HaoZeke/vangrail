@@ -19,7 +19,15 @@ unchecked.
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
 =secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=,
-=semantic=, =perplexity=, =bayes=. The default set is =input,context,output=.
+=semantic=, =perplexity=, =bayes=, =watermark=. The default set is
+=input,context,output,watermark=.
+
+=watermark= is in the default set because Article 50(2) of the AI Act is an
+obligation rather than a preference, and a mark nobody switched on is a mark that
+is not there. Naming a list without it turns it off, which is right for a caller
+guarding text no model generated. =GUARDRAILS_WATERMARK_KEY= signs the mark and
+=GUARDRAILS_WATERMARK_ISSUER= names the signer; with neither, the mark still says
+the text was generated.
 
 Two are off unless asked for. =multiturn= adds =Rails::Escalation= and
 =Rails::Trajectory=, which read conversation history and would otherwise report

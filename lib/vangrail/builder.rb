@@ -4,9 +4,13 @@ module Vangrail
   # Reads the environment into an engine. A class rather than a method so each
   # decision is separable and testable on its own.
   class Builder
-    DEFAULT_RAILS = %i[input context output].freeze
+    # Watermark is in the defaults rather than opt-in. Article 50(2) of the AI
+    # Act is not a preference a deployment expresses, and a mark nobody switched
+    # on is a mark that is not there. Naming a list without it turns it off, for
+    # a caller guarding text that no model generated.
+    DEFAULT_RAILS = %i[input context output watermark].freeze
     ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
-                   markup budget semantic perplexity bayes linear].freeze
+                   markup budget semantic perplexity bayes linear watermark].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -184,7 +188,22 @@ module Vangrail
       rails << exfiltration if link_hosts || on?(:links)
       rails << judged(:output) if on?(:output)
       rails << grounding if on?(:grounding)
+      # Last, always. A redaction applied after the mark leaves a mark covering
+      # words that are no longer in the text, and it would then fail its own
+      # verification.
+      rails << Rails::Watermark.new(key: watermark_key, issuer: watermark_issuer) if on?(:watermark)
       rails.compact
+    end
+
+    # The signing key, and who the signature says signed. Neither is required:
+    # with no key the mark still says the text was generated, which is the half
+    # of Article 50(2) that needs no secret, and the key adds attribution.
+    def watermark_key
+      present(env['GUARDRAILS_WATERMARK_KEY'])
+    end
+
+    def watermark_issuer
+      present(env['GUARDRAILS_WATERMARK_ISSUER'])
     end
 
     # The hosts an answer may link to. Not defaulted to anything, because the

@@ -575,6 +575,53 @@ host, which covers =data:=, =file:=, =javascript:=, and =//collector=.
 Redacts rather than blocks, and the link text survives so the reader still
 learns what was being pointed at.
 
+** Rails::Watermark
+
+Marks the answer as generated, in a format a machine can read. Output side, in
+the default rail set, and last in the output list.
+
+#+BEGIN_SRC ruby
+require 'vangrail'
+
+rail = Vangrail::Rails::Watermark.new(key: 'a shared secret', issuer: 'surf/handbook-ask')
+marked = rail.call('Your grant is 1000 SBU on the CPU nodes.', side: :output)
+
+marked.modified?                                            # => true
+Vangrail::Watermark.marked?(marked.content)                 # => true
+#+END_SRC
+
+Eleven invisible bytes per paragraph: two magic bytes, a version, and eight bytes
+of truncated HMAC over that paragraph. Anybody can read the magic and know the
+text was generated; the key holder recomputes the HMAC and knows it is theirs.
+Fenced and indented code is never marked. The format, the reasoning, and the
+robustness table are in
+[[file:../explanation/watermarking.org][Marking generated text]].
+
+| Variable                       | Effect                                    |
+|--------------------------------+-------------------------------------------|
+| =GUARDRAILS_WATERMARK_KEY=     | signs the mark; without it the tag is zero |
+| =GUARDRAILS_WATERMARK_ISSUER=  | who the signature says signed             |
+
+Reading a mark back out:
+
+#+BEGIN_SRC ruby
+require 'vangrail'
+
+marked = Vangrail::Watermark.mark('Your grant is 1000 SBU.', key: 'k', issuer: 'surf/ask')
+report = Vangrail::Watermark.verify(marked, key: 'k', issuer: 'surf/ask')
+
+report.marked?      # => true, and true for anybody, key or no key
+report.authentic?   # => true only for this key and issuer
+report.coverage     # => 1.0, the share of paragraphs carrying our mark
+#+END_SRC
+
+=Vangrail::Watermark.strip= removes marks and nothing else, which is what a test
+fixture and a diff both want.
+
+The result is =modified=, because the rail rewrote the text. An interface that
+warns a reader about edited answers should route on the =watermark= category
+rather than on the status: this is disclosure, not redaction.
+
 ** Rails::Markup
 
 Removes markup that does something when the answer is rendered. Output side,

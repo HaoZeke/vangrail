@@ -1,0 +1,136 @@
+#+TITLE: Marking Generated Text, and What the Mark Can Promise
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Marking Generated Text, and What the Mark Can Promise
+
+Article 50(2) of the AI Act puts a duty on the provider of a generative system:
+the output is marked in a machine-readable format and detectable as artificially
+generated or manipulated, by solutions that are effective, interoperable, robust
+and reliable as far as technically feasible. Article 50(4) puts a separate duty
+on whoever publishes such text to inform the public: say so, visibly, to the
+reader.
+
+Two duties, two mechanisms. The visible sentence belongs in the application's
+page and no library can write it for you. The machine-readable mark is a property
+of the bytes, and that is =Vangrail::Watermark=.
+
+** Why the sampler-side schemes are not available to an application
+
+The watermarking literature is about token selection. The green-list scheme
+(doi:10.48550/arXiv.2301.10226) splits the vocabulary with a keyed hash and tilts
+the logits toward one half. SynthID scores candidate tokens in a tournament.
+Aaronson's construction derives the sampling randomness from the key. All three
+produce a statistical bias a key-holder can measure over enough tokens, and all
+three require the party doing the sampling to implement them.
+
+An application calling an OpenAI-compatible endpoint does not sample. Under
+bring-your-own-key it does not even know which sampler ran: the reader supplies
+the endpoint, the model, and the key. There is no hook, and there is no artifact
+in the returned text to measure, so a rail claiming to detect these on someone
+else's output would be a rail reporting =certain?= falsely. If a provider ships a
+detector endpoint, that is a networked rail against their API and it answers
+about their models, not about ours.
+
+What the application does own is the text after it arrives. So the mark goes
+there, which has one property the sampler-side schemes cannot offer: it is
+identical whichever model answered.
+
+** Why the model is not asked to sign its own output
+
+The obvious cheap version is a system-prompt instruction: end every answer with a
+marker. It fails exactly where the obligation bites. A small model drops it. A
+long context buries it. A reader asking for one line gets one line. A provider
+trims trailing whitespace and the marker with it. Nothing about that is
+reliable, and reliability is in the text of the article.
+
+Post-processing is deterministic. The rail runs after the model, on every answer,
+in the same code path for every endpoint.
+
+** The format
+
+Eleven bytes, appended to a paragraph's last character, one byte per Unicode
+variation selector:
+
+| Offset | Bytes | Meaning                                          |
+|--------+-------+--------------------------------------------------|
+|      0 |     2 | =0xA1 0x50=, fixed and public                    |
+|      2 |     1 | format version, currently =1=                    |
+|      3 |     8 | HMAC-SHA256 truncated to eight bytes, or all zero |
+
+Byte values map to code points: =0x00= to =0x0F= as =U+FE00= to =U+FE0F=, and
+=0x10= to =0xFF= as =U+E0100= to =U+E01EF=. Sixteen selectors in the BMP and 240
+in the supplement is exactly 256, which is why the encoding is one byte per
+selector and not something cleverer.
+
+The HMAC covers the paragraph it is attached to, canonicalised: marks removed,
+whitespace runs collapsed to single spaces, ends trimmed. The message is
+=vangrail/watermark/v1=, the issuer string, and the canonical paragraph, joined
+by newlines.
+
+** What each half promises
+
+The split between the magic bytes and the tag is the whole design.
+
+Anybody holding the text can find =0xA1 0x50= and a version byte and know the
+text was generated. No key, no agreement, no request to us: eleven lines of code
+against the table above. That is the only reading of "interoperable" that means
+anything, because a detector only we can run is not a disclosure.
+
+The issuer recomputes the HMAC and learns something stronger: this text is ours,
+and the mark was not lifted off one answer and pasted onto other words. A mark
+without the tag would be copyable, and a copyable mark is a disclosure rather
+than an attribution. Both are useful and they are not the same claim, so they are
+separate fields.
+
+With no key configured the tag is eight zero bytes. The disclosure half still
+works, which is the half the article requires, and a library that did nothing
+until somebody provisioned a secret would ship turned off.
+
+** Robustness, stated rather than implied
+
+| Channel                                       | Mark survives |
+|-----------------------------------------------+---------------|
+| copy-paste between a browser and an editor    | yes           |
+| a mail client that keeps Unicode              | yes           |
+| a paragraph rewrapped or requoted             | yes           |
+| one paragraph quoted out of six               | yes, on that paragraph |
+| retyping, or a transcription                  | no            |
+| an ASCII-only pipeline, or a format-character strip | no      |
+
+The rewrap row is why the tag covers a canonicalised paragraph rather than the
+whole answer: an answer-wide hash breaks the moment anybody quotes half of it,
+and quoting half of it is what people do.
+
+No text watermark survives retyping, and no published scheme claims otherwise,
+including the sampler-side ones. "As far as technically feasible" is doing real
+work in the article, and the honest report of that limit is this table rather
+than silence.
+
+** Code is never marked
+
+A variation selector inside a shell command is a command that fails, or worse,
+one that runs and does something else. Fenced blocks and indented blocks come
+back byte for byte, which costs a little coverage on an answer that is mostly
+code and is not negotiable on a handbook whose readers copy commands into a
+terminal.
+
+** The two rails read the same carriers from opposite directions
+
+=Rails::Obfuscation= strips invisible characters from questions and from
+retrieved documents, and its =INVISIBLE= table plus =VARIATION_SELECTOR_RUN=
+covers exactly the carrier this mark uses. That is not a conflict, it is the
+order: the strip is =:input= and =:context=, the mark is =:output=. Text arriving
+from outside loses its invisible characters; text leaving gains ours.
+
+One consequence worth knowing: an answer pasted back into the same system as a
+question arrives unmarked, because the inbound strip ran. That is the right trade
+in both directions. Verification therefore happens at the boundary, before the
+scrub, or on text that never went through it.
+
+** Where the mark does not go
+
+Not in a header, not in a JSON field, not in an HTML attribute. Those are fine
+and an application should have them too, and none of them survive a copy out of a
+browser into a ticket, which is the journey the obligation is about. The mark
+travels with the words or it does not travel.

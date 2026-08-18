@@ -82,6 +82,8 @@ live here, not on the README.
 - [[file:explanation/evidence.org][Why blocked is not a probability]]
 - [[file:explanation/external-evaluation.org][Scored against somebody else's corpus]]
 - [[file:explanation/detector-models.org][What detects an injection, and what it costs]]
+- [[file:explanation/watermarking.org][Marking generated text, and what the mark
+  can promise]]
 - [[file:explanation/coverage.org][What this covers, and what it does not]]
 
 ** Elsewhere
