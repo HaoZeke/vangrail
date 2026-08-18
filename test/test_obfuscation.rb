@@ -195,11 +195,7 @@ class TestObfuscation < Minitest::Test
   # One byte per selector, which is also what the disclosure mark uses on the way
   # out. Same decode, same report.
   def test_a_variation_selector_payload_is_decoded_and_read
-    payload = PLAIN.each_char.map do |c|
-      b = c.ord
-      [b < 0x10 ? 0xFE00 + b : 0xE0100 + (b - 0x10)].pack('U')
-    end.join
-    result = check("Cluster notes. sbatch job.sh#{payload}")
+    result = check("Cluster notes. sbatch job.sh#{selector_payload(PLAIN)}")
 
     assert_predicate result, :blocked?
     assert_includes result.categories, 'encoded:selectors'
@@ -219,16 +215,26 @@ class TestObfuscation < Minitest::Test
 
     # The positive control, in the same test, because an absent category cannot
     # tell a decoder that filtered the mark from a decoder that never ran: both
-    # produce this same clean result. A printable payload in the same carrier has
-    # to decode, or the assertion above is about nothing.
-    readable = 'sbatch job.sh ' + 'the datasets page'.each_char.map do |c|
+    # produce this same clean result.
+    #
+    # Through `check` rather than through `variants`, because the control has to
+    # travel the path the absence travelled. A control calling `variants`
+    # directly passes even when nothing consults the carrier variants during a
+    # check, which is exactly the bug this rail had: the decoders ran against the
+    # stripped text, found nothing, and every status stayed clean.
+    payload = selector_payload(PLAIN)
+
+    assert_predicate check("Cluster notes. #{payload}"), :blocked?,
+                     'a check never reads the carrier, so the mark assertion above is about nothing'
+  end
+
+  # One byte per selector: FE00 to FE0F for the low nibble range, the supplement
+  # for the rest.
+  def selector_payload(text)
+    text.each_char.map do |c|
       b = c.ord
       [b < 0x10 ? 0xFE00 + b : 0xE0100 + (b - 0x10)].pack('U')
     end.join
-
-    assert_includes rail.variants(readable).map(&:first), :selectors,
-                    'the selector decoder read nothing at all, so the mark test proves nothing'
-    refute_includes rail.variants(marked).map(&:first), :selectors
   end
 
   # A run too short to hold a sentence decodes to noise, and a rail reading noise
@@ -239,15 +245,9 @@ class TestObfuscation < Minitest::Test
 
     assert_predicate result, :modified?
     refute_includes result.categories.join(' '), 'encoded:'
-    refute_includes rail.variants(short).map(&:first), :selectors
-    # Same control as above: the run length is what is being tested, so a longer
-    # run of the same carrier has to be read.
-    long = 'How do I check my quota?' + 'the datasets page'.each_char.map do |c|
-      b = c.ord
-      [b < 0x10 ? 0xFE00 + b : 0xE0100 + (b - 0x10)].pack('U')
-    end.join
-
-    assert_includes rail.variants(long).map(&:first), :selectors
+    # The run length is what is being tested, so a longer run of the same carrier
+    # has to be read, through the same call.
+    assert_predicate check("How do I check my quota? #{selector_payload(PLAIN)}"), :blocked?
   end
 
   # The strip still happens, and the emoji the payload was hung off survives it.
