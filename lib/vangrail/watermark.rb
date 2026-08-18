@@ -9,18 +9,20 @@ module Vangrail
   # Article 50(2) of the AI Act requires providers of generative systems to mark
   # their output in a machine-readable format, detectable as artificially
   # generated, by solutions that are effective, interoperable, robust and
-  # reliable as far as technically feasible. Article 50(4) puts a matching
-  # disclosure duty on whoever publishes such text to inform the public. The
-  # first is a property of the bytes and belongs here. The second is a sentence
-  # a reader can see and belongs in the application's page.
+  # reliable as far as technically feasible. Recital 133 names watermarks and
+  # cryptographic provenance among the techniques meant. The second
+  # subparagraph of Article 50(4) adds a narrower duty on the deployer, for text
+  # published to inform the public, met by a sentence a reader can see. This is
+  # the first duty: a property of the bytes.
   #
-  # None of the sampler-side schemes can do this job for us. A green-list tilt
-  # (doi:10.48550/arXiv.2301.10226), SynthID's tournament sampling, and the
-  # Aaronson construction all live inside token selection, and an application
-  # holding a key for somebody else's endpoint does not get to touch it. Under
-  # bring-your-own-key it is not even one endpoint. What the application does
-  # own is the text after it arrives, so the mark goes there: deterministic,
-  # identical for every model, and unaffected by which provider answered.
+  # None of the sampler-side schemes can do this job for us. The green-list tilt
+  # (doi:10.48550/arXiv.2301.10226), tournament sampling
+  # (doi:10.1038/s41586-024-08025-4), and the cryptographic construction
+  # (doi:10.48550/arXiv.2306.09194) all live inside token selection, and an
+  # application holding a key for somebody else's endpoint does not get to touch
+  # it. Under bring-your-own-key it is not even one endpoint. What the
+  # application does own is the text after it arrives, so the mark goes there:
+  # deterministic, identical for every model, whichever provider answered.
   #
   # Asking the model to sign its own output is the other non-answer. It fails on
   # exactly the cases the obligation is about: a small model, a long context, a
@@ -45,7 +47,9 @@ module Vangrail
   #
   #   anybody      finds MAGIC and VERSION and knows the text is generated. No
   #                key, no agreement with us, eleven lines of code against the
-  #                published layout. That is what interoperable has to mean.
+  #                published layout. That is what interoperable has to mean, and
+  #                it is the same argument the publicly-detectable schemes make
+  #                on the sampler side (doi:10.48550/arXiv.2310.18491).
   #   the issuer   recomputes the HMAC and knows the text is theirs, and that
   #                the mark was not lifted off another answer and pasted on.
   #
@@ -57,9 +61,11 @@ module Vangrail
   # == What it does not survive
   #
   # Retyping, a transcription, an ASCII-only pipeline, or any tool that strips
-  # format characters. There is no text mark that survives those and no scheme
-  # that claims otherwise, which is why the Article 50(4) sentence is visible
-  # and this is not the whole answer to provenance on its own.
+  # format characters. A distributional mark degrades under paraphrase and can
+  # still be measured (doi:10.48550/arXiv.2306.04634); this one disappears,
+  # leaving no partial signal. Nothing published survives a determined rewrite
+  # either (doi:10.48550/arXiv.2303.13408), which is why a visible sentence in
+  # the application is the other half and this is not provenance on its own.
   #
   # Code is never marked. A variation selector inside a shell command is a
   # command that fails, or worse, one that runs differently, so fenced and

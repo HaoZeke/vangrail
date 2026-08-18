@@ -4,12 +4,37 @@
 
 * Marking Generated Text, and What the Mark Can Promise
 
-Article 50(2) of the AI Act puts a duty on the provider of a generative system:
-the output is marked in a machine-readable format and detectable as artificially
-generated or manipulated, by solutions that are effective, interoperable, robust
-and reliable as far as technically feasible. Article 50(4) puts a separate duty
-on whoever publishes such text to inform the public: say so, visibly, to the
-reader.
+Article 50(2) of the AI Act puts a duty on the provider of a generative system,
+and it is worth reading in its own words:
+
+#+BEGIN_QUOTE
+Providers of AI systems, including general-purpose AI systems, generating
+synthetic audio, image, video or text content, shall ensure that the outputs of
+the AI system are marked in a machine-readable format and detectable as
+artificially generated or manipulated.
+#+END_QUOTE
+
+The paragraph goes on to require that the technical solutions be effective,
+interoperable, robust and reliable as far as this is technically feasible, taking
+into account the specificities and limitations of content types, the costs of
+implementation, and the generally acknowledged state of the art. It names no
+technique. Recital 133 is where the examples live: "watermarks, metadata
+identifications, cryptographic methods for proving provenance and authenticity of
+content, logging methods, fingerprints or other techniques", to be applied at the
+system or the model level.
+
+A second duty sits in the second subparagraph of Article 50(4), on the deployer
+rather than the provider:
+
+#+BEGIN_QUOTE
+Deployers of an AI system that generates or manipulates text which is published
+with the purpose of informing the public on matters of public interest shall
+disclose that the content has been artificially generated or manipulated.
+#+END_QUOTE
+
+That one is a sentence a reader can see, and it does not apply where the content
+went through human review and a person or organisation holds editorial
+responsibility for publishing it.
 
 Two duties, two mechanisms. The visible sentence belongs in the application's
 page and no library can write it for you. The machine-readable mark is a property
@@ -17,12 +42,18 @@ of the bytes, and that is =Vangrail::Watermark=.
 
 ** Why the sampler-side schemes are not available to an application
 
-The watermarking literature is about token selection. The green-list scheme
-(doi:10.48550/arXiv.2301.10226) splits the vocabulary with a keyed hash and tilts
-the logits toward one half. SynthID scores candidate tokens in a tournament.
-Aaronson's construction derives the sampling randomness from the key. All three
-produce a statistical bias a key-holder can measure over enough tokens, and all
-three require the party doing the sampling to implement them.
+The watermarking literature is about token selection. Kirchenbauer et al.,
+/A Watermark for Large Language Models/ (doi:10.48550/arXiv.2301.10226), split
+the vocabulary with a keyed hash and tilt the logits toward one half, and a
+key-holder measures the resulting skew. Dathathri et al., /Scalable watermarking
+for identifying large language model outputs/, Nature 634, 818-823
+(doi:10.1038/s41586-024-08025-4), replace the tilt with tournament sampling,
+which preserves the model's distribution while leaving the same kind of
+detectable trace. Christ, Gunn and Zamir, /Undetectable Watermarks for Language
+Models/ (doi:10.48550/arXiv.2306.09194), give the cryptographic version, where
+the sampling randomness itself comes from a pseudorandom function and the output
+is computationally indistinguishable from unwatermarked text. Every one of them
+is implemented by whoever runs the sampler.
 
 An application calling an OpenAI-compatible endpoint does not sample. Under
 bring-your-own-key it does not even know which sampler ran: the reader supplies
@@ -75,7 +106,11 @@ The split between the magic bytes and the tag is the whole design.
 Anybody holding the text can find =0xA1 0x50= and a version byte and know the
 text was generated. No key, no agreement, no request to us: eleven lines of code
 against the table above. That is the only reading of "interoperable" that means
-anything, because a detector only we can run is not a disclosure.
+anything, because a detector only we can run is not a disclosure. Fairoze et al.,
+/Publicly-Detectable Watermarking for Language Models/
+(doi:10.48550/arXiv.2310.18491), make the same split on the sampler side: they
+sign the generation so that verification needs no secret, precisely because a
+keyed-detector-only scheme cannot serve a public disclosure duty.
 
 The issuer recomputes the HMAC and learns something stronger: this text is ours,
 and the mark was not lifted off one answer and pasted onto other words. A mark
@@ -102,10 +137,25 @@ The rewrap row is why the tag covers a canonicalised paragraph rather than the
 whole answer: an answer-wide hash breaks the moment anybody quotes half of it,
 and quoting half of it is what people do.
 
-No text watermark survives retyping, and no published scheme claims otherwise,
-including the sampler-side ones. "As far as technically feasible" is doing real
-work in the article, and the honest report of that limit is this table rather
-than silence.
+A format-character mark is weaker than a distributional one in one specific way
+and it is worth naming rather than glossing. A green-list or tournament mark
+degrades gracefully: Kirchenbauer et al., /On the Reliability of Watermarks for
+Large Language Models/ (doi:10.48550/arXiv.2306.04634), measure survival under
+human and machine paraphrase, and Zhao et al., /Provable Robust Watermarking for
+AI-Generated Text/ (doi:10.48550/arXiv.2306.17439), give bounds under edit
+distance. This mark does not degrade, it disappears: one pass through a tool that
+normalises to ASCII removes it entirely, and there is no partial signal left to
+measure.
+
+What the distributional schemes buy with that robustness is a sampler hook we do
+not have. What they do not buy is immunity: Krishna et al., /Paraphrasing evades
+detectors of AI-generated text, but retrieval is an effective defense/
+(doi:10.48550/arXiv.2303.13408), and Sadasivan et al., /Can AI-Generated Text be
+Reliably Detected?/ (doi:10.48550/arXiv.2303.11156), both show a paraphrase pass
+defeating detectors, and the second argues an accuracy ceiling as models approach
+human text. No scheme in the literature survives a determined rewrite, so "as far
+as technically feasible" is doing real work in the article, and the honest report
+of that limit is this table rather than silence.
 
 ** Code is never marked
 
@@ -128,9 +178,82 @@ question arrives unmarked, because the inbound strip ran. That is the right trad
 in both directions. Verification therefore happens at the boundary, before the
 scrub, or on text that never went through it.
 
+The carrier is the same one the attack literature is about. Boucher et al.,
+/Bad Characters: Imperceptible NLP Attacks/ (doi:10.1109/SP46214.2022.9833641),
+use invisible characters, homoglyphs, and reorderings to make text a model and a
+reader disagree about, and Boucher and Anderson, /Trojan Source: Invisible
+Vulnerabilities/ (doi:10.48550/arxiv.2111.00169), do the same to source code with
+bidi controls. That is not an argument against the carrier, since there is nowhere
+else in plain text to put a machine-readable mark, but it does set the
+expectation: a pipeline hardened against those papers strips our mark too, and
+should. A mark is a disclosure, not a defence, and it has no business surviving a
+sanitiser.
+
 ** Where the mark does not go
 
 Not in a header, not in a JSON field, not in an HTML attribute. Those are fine
 and an application should have them too, and none of them survive a copy out of a
 browser into a ticket, which is the journey the obligation is about. The mark
 travels with the words or it does not travel.
+
+** Who the obligation binds
+
+The two duties land differently, and conflating them is how a compliance file ends
+up asserting more than the code does.
+
+Article 50(2) is about marking, it binds the provider of the generative system,
+and it has no public-interest qualifier and no editorial-review exception. An
+application built on somebody else's model is ordinarily the provider of its own
+system and a deployer of the model underneath, so this is the duty that reaches a
+desk running an assistant over its own documentation. It is also the one this
+library implements.
+
+The text half of Article 50(4) is narrower on both sides. It binds the deployer,
+it covers text published to inform the public on matters of public interest, and
+it lifts where a human reviewed the content and somebody holds editorial
+responsibility for publishing it. Whether an answer shown to one reader who asked
+a question is published to inform the public is a real question with a real answer
+and this is not the document that settles it.
+
+Which paragraph applies to a given deployment, and under which supervisory
+authority, belongs to whoever owns the compliance file. What a library can do is
+make the mark exist and publish the format, so that the determination is not also
+an engineering project.
+
+The legislation is Regulation (EU) 2024/1689,
+[[http://data.europa.eu/eli/reg/2024/1689/oj][data.europa.eu/eli/reg/2024/1689/oj]].
+Article 50 carries the transparency obligations and Recitals 132 to 137 carry the
+reasoning behind them.
+
+** Reading
+
+Watermarking schemes, all sampler-side:
+
+- Kirchenbauer, Geiping, Wen, Katz, Miers and Goldstein, /A Watermark for Large
+  Language Models/, ICML 2023, doi:10.48550/arXiv.2301.10226.
+- Dathathri et al., /Scalable watermarking for identifying large language model
+  outputs/, Nature 634, 818-823, 2024, doi:10.1038/s41586-024-08025-4.
+- Christ, Gunn and Zamir, /Undetectable Watermarks for Language Models/, 2023,
+  doi:10.48550/arXiv.2306.09194.
+- Fairoze, Garg, Jha, Mahloujifar, Mahmoody and Wang, /Publicly-Detectable
+  Watermarking for Language Models/, 2023, doi:10.48550/arXiv.2310.18491.
+- Zhao, Ananth, Li and Wang, /Provable Robust Watermarking for AI-Generated
+  Text/, 2023, doi:10.48550/arXiv.2306.17439.
+
+What the robustness actually is:
+
+- Kirchenbauer et al., /On the Reliability of Watermarks for Large Language
+  Models/, 2023, doi:10.48550/arXiv.2306.04634.
+- Krishna, Song, Karpinska, Wieting and Iyyer, /Paraphrasing evades detectors of
+  AI-generated text, but retrieval is an effective defense/, 2023,
+  doi:10.48550/arXiv.2303.13408.
+- Sadasivan, Kumar, Balasubramanian, Wang and Feizi, /Can AI-Generated Text be
+  Reliably Detected?/, 2023, doi:10.48550/arXiv.2303.11156.
+
+The carrier, read as an attack:
+
+- Boucher, Shumailov, Anderson and Papernot, /Bad Characters: Imperceptible NLP
+  Attacks/, IEEE Symposium on Security and Privacy 2022,
+  doi:10.1109/SP46214.2022.9833641.
+- Boucher and Anderson, /Trojan Source: Invisible Vulnerabilities/, 2021,
+  doi:10.48550/arxiv.2111.00169.
