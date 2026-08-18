@@ -395,3 +395,85 @@ class TestObfuscation < Minitest::Test
     refute r.applies_to?(:output)
   end
 end
+
+# A rewrite this rail cannot put back on the page.
+#
+# The rail reported `modified` and handed back the text unchanged, so a caller
+# reading content_or forwarded a credential while the record beside it said the
+# credential had been removed. The report and the bytes disagreed, and the bytes
+# were the dangerous half.
+class TestAnUnappliableRewrite < Minitest::Test
+  include GuardrailsTest
+
+  # U+FB01, the fi ligature, so the fold that finds the credential is not
+  # length-preserving and there is no span to splice.
+  PAGE = "The conﬁg says api_key=sk-live-abcdefghijklmnop here."
+  CREDENTIAL = 'sk-live-abcdefghijklmnop'
+
+  def rail
+    Vangrail::Rails::Obfuscation.new(rails: [Vangrail::Rails::Secrets.new(sides: [:context])],
+                                     sides: [:context])
+  end
+
+  def test_a_credential_it_cannot_redact_is_refused_rather_than_forwarded
+    result = rail.call(PAGE, side: :context)
+
+    assert_predicate result, :blocked?
+    assert_includes result.categories, 'unrewritable'
+    assert_operator (result.categories & Vangrail::Rails::Secrets::DEFAULT_PATTERNS.keys).length,
+                    :>=, 1, 'the block does not say what it found'
+    assert_includes result.reason, 'could not be applied'
+  end
+
+  # The control: an imitation that is length for length, so the fold maps back
+  # one to one and the splice lands where it should. Without this the block above
+  # would also be produced by a rail that had stopped rewriting anything at all.
+  #
+  # The Cyrillic а in "sаys" is the imitation; the credential itself is intact,
+  # because it has to be for the child rail to match it in the folded text.
+  def test_an_imitation_the_fold_maps_one_to_one_is_still_redacted
+    result = rail.call('The config sаys api_key=sk-live-abcdefghijklmnop here.', side: :context)
+
+    assert_predicate result, :modified?
+    refute_includes result.content, CREDENTIAL
+    assert_includes result.content, '[redacted]'
+    assert_includes result.content, 'sаys', 'the rewrite edited text outside the credential'
+  end
+
+  # Fourteen characters of a real page were deleted, and the trigger was length
+  # equality between the visible text and a payload whose length the attacker
+  # chooses. For a carrier the decoded string is the smuggled payload and has no
+  # relation to the visible text, so there is nothing to splice.
+  VISIBLE = 'Quota is 200 GB on the home filesystem.!!'
+
+  def tagged(payload)
+    VISIBLE + payload.each_char.map { |c| [0xE0000 + c.ord].pack('U') }.join
+  end
+
+  def test_a_carrier_payload_never_edits_the_visible_text
+    ['api_key=sk-live-abcdefghij', # shorter than the page
+     ('api_key=sk-live-abcdefghijklmnop' + ' x' * 5)[0, VISIBLE.length], # the same length
+     "api_key=sk-live-abcdefghijklmnop#{' padding' * 6}"].each do |payload|
+      result = rail.call(tagged(payload), side: :context)
+
+      assert_predicate result, :modified?
+      assert_equal VISIBLE, result.content,
+                   "a #{payload.length}-character payload edited the page (visible is #{VISIBLE.length})"
+      assert_includes result.reason, 'removed an invisible payload'
+    end
+  end
+
+  # And the payload is still read: the report names what it carried, so a page
+  # somebody has to look at is distinguishable from a stray selector.
+  def test_what_the_payload_carried_is_still_named
+    result = rail.call(tagged('api_key=sk-live-abcdefghijklmnop'), side: :context)
+
+    # Against the rail's own table rather than a literal, which also keeps a
+    # provider-shaped string out of a test file.
+    secret_categories = Vangrail::Rails::Secrets::DEFAULT_PATTERNS.keys
+
+    assert_operator (result.categories & secret_categories).length, :>=, 1,
+                    'the report does not say what the payload carried'
+    assert_includes result.categories, 'encoded:tags'
+  end
+end

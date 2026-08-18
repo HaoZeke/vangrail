@@ -201,17 +201,69 @@ module Vangrail
           end
           next if variant_modified.nil? || modified
 
-          published = apply_rewrite(published, name, decoded, viewed)
+          rewritten = rewrite_for(published, name, decoded, viewed)
+          # A rewrite that cannot be put back on the page is not a rewrite. The
+          # rail used to report `modified` and hand back the text unchanged, so a
+          # caller reading `content_or` forwarded a credential while the record
+          # beside it said the credential had been removed. Refusing is the only
+          # honest answer: the sensitive text is there, in a form this rail cannot
+          # neutralise, and passing it on is the one thing that must not happen.
+          if rewritten.nil?
+            result, extra, = variant_modified
+            return [block(categories: (result.categories || []) + extra + ['unrewritable'],
+                          reason: "#{result.reason}, and the rewrite could not be applied " \
+                                  "to the text as written (hidden with #{name})"), nil]
+          end
+
+          published = rewritten
           modified = variant_modified
         end
         if modified
           result, extra, name = modified
           return [modify(published, categories: (result.categories || []) + extra,
-                         reason: "#{result.reason} (hidden with #{name})",
+                         reason: reason_for(name, result),
                          certain: result.certain? && uncertain.nil?), nil]
         end
 
         [nil, uncertain]
+      end
+
+      # What the reader is told. For a carrier the rail did not edit the visible
+      # text at all: it removed an invisible payload, and what the payload said is
+      # why. Saying "redacted a credential" over an untouched page would name the
+      # wrong operation.
+      def reason_for(name, result)
+        return "#{result.reason} (hidden with #{name})" unless CARRIERS.include?(name)
+
+        "removed an invisible payload, which carried: #{result.reason} (#{name})"
+      end
+
+      # The page with the child's rewrite on it, or nil when there is no faithful
+      # way to put it there.
+      def rewrite_for(published, name, decoded, rewrite)
+        # A carrier payload is not in the visible text, so there is nothing to
+        # splice and the strip has already removed it. Splicing anyway deleted
+        # real page text whenever the payload happened to be as long as the page:
+        # "Quota is 200 GB on the home filesystem." came back as "Quota
+        # is[redacted]system.", and the payload's length is the attacker's choice.
+        return published if CARRIERS.include?(name)
+
+        candidate = apply_rewrite(published, name, decoded, rewrite)
+        return nil if candidate == published && rewrite != decoded
+
+        # Verified rather than assumed. The splice heuristics work on lengths and
+        # substrings, and a rewrite that lands in the wrong place leaves the thing
+        # it was supposed to remove exactly where it was.
+        neutralised?(candidate, name) ? candidate : nil
+      end
+
+      # Does the objection survive the rewrite. Same transform, same rails: if a
+      # child still objects to the decoded form of the candidate, the rewrite did
+      # not do its job.
+      def neutralised?(candidate, name)
+        decoded = apply(name, candidate) || candidate
+        rails.none? { |rail| rail.call(decoded, side: :context).blocked? } &&
+          rails.none? { |rail| rail.call(decoded, side: :context).modified? }
       end
 
       # Puts the child's rewrite back on the page the reader will see.
@@ -330,14 +382,26 @@ module Vangrail
         pieces.empty? ? nil : pieces.join("\n")
       end
 
+      # Control bytes a payload cannot be read through, dropped rather than used as
+      # a reason to give up on the run. One U+E0000 in front of an ASCII payload
+      # decodes to a leading NUL, and rejecting the whole run for it turned a
+      # block into a rewrite: the injection was still in the page and the report
+      # named a character class. A prefix byte is the attacker's cheapest move and
+      # it must not be the one that works.
+      UNREADABLE = "\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F"
+
+      # At least this many readable characters. Below it a decode is noise, and a
+      # rail reading four characters reports on noise.
+      MIN_PAYLOAD = 8
+
       def readable_bytes(bytes)
         text = bytes.pack('C*').force_encoding(Encoding::UTF_8)
         return nil unless text.valid_encoding?
+
+        text = text.delete(UNREADABLE)
         return nil if text.strip.empty?
         return nil if text.count("^ -~\n\t").positive?
-        # A handful of readable characters is not a sentence, and a rail reading
-        # three of them reports on noise.
-        return nil if text.length < 8
+        return nil if text.length < MIN_PAYLOAD
 
         text
       end

@@ -94,8 +94,9 @@ below `Unreleased` is written by hand until it is released.
   block or in variation selectors, so an injection smuggled there is reported as a
   block naming the injection rather than as a rewrite naming a character class.
   Both read the text as it arrived, since for them the invisible characters are
-  the message; both need a printable run of four or more, which is what keeps the
-  disclosure mark out of the report.
+  the message; both need a run of four or more carriers and eight printable
+  characters after control bytes are dropped, which is what keeps the disclosure
+  mark out of the report.
 - (**result**) `Result#rewritten_by` names every rail that changed the text, and a
   modified result carries their merged categories. `rail` still reports the last
   rewriter. Reporting only the last one hid a redaction behind a later disclosure
