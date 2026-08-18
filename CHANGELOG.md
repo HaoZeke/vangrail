@@ -73,6 +73,18 @@ below `Unreleased` is written by hand until it is released.
 
 ## [Unreleased]
 
+#### Features
+- (**obfuscation**) `Obfuscation.scrub`, the invisible-character strip without
+  the rails around it, for a fetch boundary that wants a payload gone before it
+  reaches a corpus.
+
+#### Fixes
+- (**obfuscation**) `INVISIBLE` covers the carriers it did not: the tags block at
+  U+E0000-E007F, the combining grapheme joiner, the invisible math operators, and
+  the directional marks the bidi set left out. Variation selectors are matched by
+  run of two or more, which catches a byte-per-selector payload and leaves an
+  emoji presentation selector alone.
+
 ## v0.3.0 - 2026-08-17
 
 JSON CLI and loopback HTTP, optional Magnus kernel, and the

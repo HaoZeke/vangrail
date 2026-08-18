@@ -336,7 +336,7 @@ Vangrail::Rails::Obfuscation.new(
 
 | Transform      | What it undoes                                             |
 |----------------+------------------------------------------------------------|
-| =:invisible=   | zero-width joiners and bidi overrides, stripped and reported |
+| =:invisible=   | every carrier with no rendered form, stripped and reported  |
 | =:confusables= | mixed-script words folded back to the ASCII they imitate   |
 | =:confusables_all= | the same fold applied without the mixed-word test      |
 | =:rot13=       | the rotation                                                |
@@ -346,6 +346,33 @@ Vangrail::Rails::Obfuscation.new(
 A block names both the rail and the encoding: =encoded:base64= alongside the
 inner rail's own categories. Invisible characters on their own are a =modified=
 result, not a block, because stripping them costs a reader nothing.
+
+=:invisible= covers five families: the zero-width separators, the soft hyphen and
+the combining grapheme joiner, the bidi controls and marks that make the rendered
+order and the stored order disagree, the invisible math operators, and the tags
+block at U+E0000-E007F. The tags block is the one with room in it: 128 code
+points that render as nothing and map straight onto ASCII, usually hung off a
+single emoji so the visible text is one character long.
+
+Variation selectors are the exception, and they are matched by run rather than by
+character. =U+FE0F= after an emoji base asks for the emoji presentation, so
+stripping it turns a warning sign into a dingbat on every page carrying one. Two
+in a row is a different thing: no base character takes a second selector, and a
+byte-per-selector payload is a run, so =VARIATION_SELECTOR_RUN= needs two before
+it removes anything and there is no threshold to tune.
+
+=Obfuscation.scrub= is the strip on its own, without the rails around it, for a
+fetch boundary that wants a payload gone before it reaches a corpus:
+
+#+BEGIN_SRC ruby
+require 'vangrail'
+
+clean = Vangrail::Rails::Obfuscation.scrub("sbatch\u200B job.sh")
+#+END_SRC
+
+A payload that never enters the corpus cannot be missed later by whoever reads
+the diff, which is the failure this addresses: invisible characters survive
+review because review is reading.
 
 =offline?= and =cache_key= follow whatever it wraps, so wrapping a model rail
 gives a rail that is not offline and not memoizable.

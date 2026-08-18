@@ -41,15 +41,48 @@ module Vangrail
     # blobs and hashes a cluster handbook is full of. A blob either decodes to
     # text a rail objects to, or it does not.
     class Obfuscation < Rail
-      # Zero-width and bidi control characters. The first four are the invisible
-      # separators; the bidi set is the trojan-source family, where the rendered
-      # order and the stored order disagree.
-      # The last one is the replacement character, which is what a scrub leaves
-      # where an invalid byte was. Garbage bytes inside a keyword are the same
-      # move as a zero-width joiner with a cruder tool: they break a pattern
-      # without changing what a model reads, and scrubbing restores validity
-      # rather than the phrase. Legitimate text does not carry them.
-      INVISIBLE = /[\u200B-\u200D\u2060\uFEFF\u180E\u202A-\u202E\u2066-\u2069\uFFFD\u00AD\u0008]/
+      # Characters with no rendered form, written as escapes: a table of
+      # invisible characters spelled with invisible characters cannot be
+      # reviewed, and this one is a security boundary.
+      #
+      # Four families and two stragglers:
+      #
+      #   separators      zero-width space and joiners, the word joiner, the
+      #                   byte-order mark, the Mongolian vowel separator, the
+      #                   soft hyphen, the combining grapheme joiner
+      #   bidi controls   the trojan-source family, where the rendered order
+      #                   and the stored order disagree
+      #   invisible ops   invisible times, invisible function application, and
+      #                   their neighbours, which carry meaning inside MathML
+      #                   and none at all in prose
+      #   tags            U+E0000-E007F, deprecated as language tags and now
+      #                   the carrier with the most room in it: 128 code points
+      #                   that render as nothing and map straight onto ASCII,
+      #                   usually hung off one ordinary emoji so the visible
+      #                   text is a single character long
+      #
+      # Two stragglers belong to no family. The replacement character is what a
+      # scrub leaves where an invalid byte was, and the backspace is a control
+      # character a terminal acts on rather than draws. Garbage bytes and a
+      # backspace inside a keyword are a zero-width joiner with a cruder tool:
+      # removing them restores the phrase. Legitimate text carries neither.
+      INVISIBLE = Regexp.new(
+        '[\\u{0008}\\u{00AD}\\u{034F}\\u{061C}\\u{180E}\\u{200B}-\\u{200F}' \
+        '\\u{202A}-\\u{202E}\\u{2060}-\\u{206F}\\u{FEFF}\\u{FFFD}' \
+        '\\u{E0000}-\\u{E007F}]'
+      )
+
+      # Variation selectors, which are the one invisible carrier with an honest
+      # use: FE0F after an emoji base asks for the emoji presentation, and
+      # stripping it would turn a warning sign into a dingbat on every page
+      # that carries one.
+      #
+      # What has no honest use is two of them in a row. No base character takes
+      # a second variation selector, and a payload needs one per byte, so the
+      # run length separates the two cases without a threshold to tune. The
+      # supplement is in here because the byte encoding needs 256 values and
+      # the sixteen selectors in the BMP only give it sixteen.
+      VARIATION_SELECTOR_RUN = /[\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]{2,}/
 
       # A base64 run long enough to hold a sentence. Below this the decode is
       # noise, and a handbook is full of short tokens that happen to be in the
@@ -71,6 +104,15 @@ module Vangrail
         @transforms = Array(transforms).map(&:to_sym)
       end
 
+      # Every carrier removed, in one place, because the rewrite handed back to
+      # the caller and the text the delegate rails read have to be the same
+      # string. Public because a fetch boundary wants the scrub without the
+      # rails: an invisible payload that never reaches the corpus cannot be
+      # missed later by a reviewer reading a diff.
+      def self.scrub(text)
+        text.to_s.gsub(INVISIBLE, '').gsub(VARIATION_SELECTOR_RUN, '')
+      end
+
       # Only if everything it delegates to is. A wrapper around a model rail
       # inherits the model rail's posture.
       def offline?
@@ -83,7 +125,7 @@ module Vangrail
 
       def decide(text, context)
         body = text.to_s
-        stripped = body.gsub(INVISIBLE, '')
+        stripped = self.class.scrub(body)
 
         hit, uncertain = first_objection(body, stripped, context)
         return hit if hit
@@ -92,7 +134,7 @@ module Vangrail
         return pass if stripped == body
 
         modify(stripped, categories: ['invisible_characters'],
-                         reason: 'removed zero-width or bidi control characters')
+                         reason: 'removed zero-width, bidi, or tag characters')
       end
 
       # The decoded forms of a text, labelled. Public because an application
@@ -195,7 +237,7 @@ module Vangrail
 
       def apply(name, body)
         case name
-        when :invisible then body.gsub(INVISIBLE, '')
+        when :invisible then self.class.scrub(body)
         when :confusables then defold(body)
         when :confusables_all then Confusables.fold_all(body)
         when :rot13 then body.tr('A-Za-z', 'N-ZA-Mn-za-m')

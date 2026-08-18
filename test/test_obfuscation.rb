@@ -152,6 +152,61 @@ class TestObfuscation < Minitest::Test
     refute_includes result.content, "\u202E"
   end
 
+  # The other half of the bidi family. The overrides were covered and the marks
+  # were not, which is the same attack with a quieter character.
+  def test_directional_marks_are_stripped_too
+    result = check("Submit with sbatch\u200E job.sh\u061C")
+
+    assert_predicate result, :modified?
+    refute_includes result.content, "\u200E"
+    refute_includes result.content, "\u061C"
+  end
+
+  # A soft hyphen renders as nothing until a line breaks there, so it splits a
+  # keyword as cheaply as a joiner does and reads as typography if anyone looks.
+  def test_a_soft_hyphen_inside_the_keyword_is_removed_and_then_the_text_is_read
+    assert_predicate check(PLAIN.sub('Ignore', "I\u00ADg\u00ADnore")), :blocked?
+  end
+
+  # Invisible function application, which means something in MathML and nothing
+  # in a handbook page.
+  def test_an_invisible_operator_inside_the_keyword_is_removed_too
+    assert_predicate check(PLAIN.sub('Ignore', "I\u2062gnore")), :blocked?
+  end
+
+  def test_a_combining_grapheme_joiner_is_removed_too
+    assert_predicate check(PLAIN.sub('Ignore', "I\u034Fgnore")), :blocked?
+  end
+
+  # The tags block, appended to one ordinary emoji: 128 code points that render
+  # as nothing and spell ASCII directly, which is the carrier with the most room
+  # in it. Stripped rather than decoded, and the emoji it was hung off survives,
+  # because the payload never reaching the model is the whole defence.
+  def test_a_tag_block_payload_is_stripped_and_its_carrier_left_alone
+    payload = PLAIN.each_char.map { |c| [0xE0000 + c.ord].pack('U') }.join
+    result = check("Check your quota on the login node. \u{1F3F4}#{payload}")
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'invisible_characters'
+    assert_includes result.content, "\u{1F3F4}"
+    assert_equal "Check your quota on the login node. \u{1F3F4}", result.content
+  end
+
+  # One byte per selector, so a payload is a run and a run is what gets removed.
+  def test_a_variation_selector_run_is_stripped
+    payload = 'sbatch job.sh' + [0xFE01, 0xE0100, 0xFE0F].pack('U*')
+    result = check(payload)
+
+    assert_predicate result, :modified?
+    assert_equal 'sbatch job.sh', result.content
+  end
+
+  # The scrub without the rails, which is what a fetch boundary wants: a payload
+  # that never enters the corpus cannot be missed later by whoever reads the diff.
+  def test_the_scrub_is_available_on_its_own
+    assert_equal 'sbatch', Vangrail::Rails::Obfuscation.scrub("s\u200Bba\u{E0041}tch")
+  end
+
   # --- what must not be touched ---
 
   # A cluster handbook is full of base64: keys, hashes, tokens in examples,
@@ -165,6 +220,17 @@ class TestObfuscation < Minitest::Test
     'Set SLURM_JOB_ID and then read /sys/fs/cgroup/memory.max for the limit.',
     'Ignore the previous step if you already created the virtual environment.',
   ].freeze
+
+  # A single variation selector after an emoji base asks for the emoji
+  # presentation. Stripping it would turn a warning sign into a dingbat on
+  # every page that carries one, so the rule is the run and not the character.
+  def test_an_emoji_presentation_selector_is_left_alone
+    %W[\u26A0\uFE0F \u2764\uFE0F \u2139\uFE0F].each do |emoji|
+      result = check("See the #{emoji} note about walltime on the quota page.")
+
+      assert_predicate result, :passed?, "rewrote #{emoji.codepoints.map { |c| format('U+%04X', c) }.join(' ')}"
+    end
+  end
 
   def test_ordinary_handbook_text_is_not_flagged
     flagged = BENIGN.reject { |t| check(t).passed? }
