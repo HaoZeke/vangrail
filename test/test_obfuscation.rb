@@ -178,12 +178,60 @@ class TestObfuscation < Minitest::Test
     assert_predicate check(PLAIN.sub('Ignore', "I\u034Fgnore")), :blocked?
   end
 
-  # The tags block, appended to one ordinary emoji: 128 code points that render
-  # as nothing and spell ASCII directly, which is the carrier with the most room
-  # in it. Stripped rather than decoded, and the emoji it was hung off survives,
-  # because the payload never reaching the model is the whole defence.
-  def test_a_tag_block_payload_is_stripped_and_its_carrier_left_alone
+  # A payload in the tags block is decoded and read, not only removed. The strip
+  # already denies the attack, since the model never sees it; what the decode
+  # buys is a report that names the injection instead of a rewrite naming a
+  # character class, and `kb/` is scraped, so a page that smuggled an instruction
+  # once will do it again.
+  def test_a_tag_block_payload_is_decoded_and_the_injection_is_named
     payload = PLAIN.each_char.map { |c| [0xE0000 + c.ord].pack('U') }.join
+    result = check("Check your quota on the login node. \u{1F3F4}#{payload}")
+
+    assert_predicate result, :blocked?
+    assert_includes result.categories, 'encoded:tags'
+    assert_includes result.reason, 'hidden with tags'
+  end
+
+  # One byte per selector, which is also what the disclosure mark uses on the way
+  # out. Same decode, same report.
+  def test_a_variation_selector_payload_is_decoded_and_read
+    payload = PLAIN.each_char.map do |c|
+      b = c.ord
+      [b < 0x10 ? 0xFE00 + b : 0xE0100 + (b - 0x10)].pack('U')
+    end.join
+    result = check("Cluster notes. sbatch job.sh#{payload}")
+
+    assert_predicate result, :blocked?
+    assert_includes result.categories, 'encoded:selectors'
+  end
+
+  # The disclosure mark is eleven bytes of HMAC in the same carrier, and it is not
+  # an injection. Reported as the rewrite it is rather than decoded into a rail's
+  # lap as a string of control characters.
+  def test_our_own_disclosure_mark_is_not_read_as_an_injection
+    marked = Vangrail::Watermark.mark('A handbook answer about quota limits and nothing else.',
+                                      key: 'k', issuer: 'issuer')
+    result = check(marked)
+
+    assert_predicate result, :modified?
+    assert_includes result.categories, 'invisible_characters'
+    refute_includes result.categories.join(' '), 'encoded:'
+  end
+
+  # A run too short to hold a sentence decodes to noise, and a rail reading noise
+  # reports on noise.
+  def test_a_short_carrier_run_is_stripped_without_being_reported
+    result = check("How do I check my quota?\u{FE01}\u{FE02}\u{E0100}")
+
+    assert_predicate result, :modified?
+    refute_includes result.categories.join(' '), 'encoded:'
+  end
+
+  # The strip still happens, and the emoji the payload was hung off survives it.
+  def test_a_tag_block_payload_is_stripped_and_its_carrier_left_alone
+    # Benign bytes in the carrier, so the decode has nothing to object to and the
+    # rewrite is what is left to check.
+    payload = 'the datasets page'.each_char.map { |c| [0xE0000 + c.ord].pack('U') }.join
     result = check("Check your quota on the login node. \u{1F3F4}#{payload}")
 
     assert_predicate result, :modified?

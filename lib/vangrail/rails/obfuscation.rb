@@ -97,7 +97,8 @@ module Vangrail
 
       attr_reader :rails, :transforms
 
-      def initialize(rails:, transforms: %i[invisible confusables confusables_all rot13 base64 nfkc],
+      def initialize(rails:, transforms: %i[invisible tags selectors confusables confusables_all
+                                            rot13 base64 nfkc],
                      name: 'obfuscation', sides: %i[input context])
         super(name: name, sides: sides)
         @rails = Array(rails)
@@ -137,11 +138,19 @@ module Vangrail
                          reason: 'removed zero-width, bidi, or tag characters')
       end
 
+      # Transforms whose input is the text as it arrived rather than the text with
+      # its invisible characters removed, because for these two the invisible
+      # characters carry the message.
+      CARRIERS = %i[tags selectors].freeze
+
       # The decoded forms of a text, labelled. Public because an application
       # that logs a blocked page wants to show what it decoded to.
-      def variants(text)
+      def variants(text, only: nil, except: nil)
         body = text.to_s
-        transforms.filter_map do |name|
+        wanted = transforms
+        wanted &= Array(only) if only
+        wanted -= Array(except) if except
+        wanted.filter_map do |name|
           decoded = apply(name, body)
           next if decoded.nil? || decoded == body || decoded.strip.empty?
 
@@ -158,9 +167,16 @@ module Vangrail
         candidates = []
         # The stripped text is a variant in its own right when anything was
         # removed: "i<zwj>gnore previous instructions" is the whole attack, and
-        # every other transform runs after the removal rather than instead of it.
+        # the transforms that undo an encoding of the visible text run after the
+        # removal rather than instead of it.
         candidates << [:invisible, stripped] unless stripped == body
-        candidates.concat(variants(stripped))
+        # The carrier decoders are the exception, and it is not a small one: for
+        # them the invisible characters are the payload rather than padding
+        # around it, so they read the text as it arrived. Reading the stripped
+        # text meant decoding a string from which the whole message had just been
+        # deleted, and finding nothing every time.
+        candidates.concat(variants(body, only: CARRIERS))
+        candidates.concat(variants(stripped, except: CARRIERS))
 
         published = stripped
         modified = nil
@@ -238,6 +254,8 @@ module Vangrail
       def apply(name, body)
         case name
         when :invisible then self.class.scrub(body)
+        when :tags then decode_tags(body)
+        when :selectors then decode_selectors(body)
         when :confusables then defold(body)
         when :confusables_all then Confusables.fold_all(body)
         when :rot13 then body.tr('A-Za-z', 'N-ZA-Mn-za-m')
@@ -266,6 +284,64 @@ module Vangrail
       # valid base64, or that decodes to bytes rather than text, contributes
       # nothing rather than failing the whole pass: a handbook page carrying one
       # hash and one payload should still have the payload read.
+      # The tags block, read as the ASCII it encodes. U+E0000 plus n is code point
+      # n, which is the whole scheme: 128 code points that render as nothing and
+      # spell a sentence directly.
+      #
+      # The strip already denies the attack, since the payload never reaches a
+      # model. What this buys is a report that names the injection rather than a
+      # rewrite naming a character class, which is the difference between a page
+      # somebody looks at and a page nobody does. `kb/` is scraped, and a page
+      # that smuggled an instruction once will do it again.
+      TAGS = /[\u{E0000}-\u{E007F}]{4,}/
+
+      def decode_tags(body)
+        decode_runs(body, TAGS) { |c| c.ord - 0xE0000 }
+      end
+
+      # Variation selectors, read as the bytes they carry: FE00 to FE0F for 0x00
+      # to 0x0F and the supplement for the rest. Four or more, because a payload
+      # is a run and two or three selectors carry nothing worth reading.
+      #
+      # This is also the encoding Vangrail::Watermark uses on the way out, so a
+      # marked answer pasted back in as a question decodes to eleven bytes of
+      # HMAC. Those are not printable text, and the printability test below drops
+      # them: the disclosure mark is not an injection and must not be reported as
+      # one.
+      SELECTORS = /[\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]{4,}/
+
+      def decode_selectors(body)
+        decode_runs(body, SELECTORS) do |c|
+          cp = c.ord
+          cp < 0xE0100 ? cp - 0xFE00 : (cp - 0xE0100) + 0x10
+        end
+      end
+
+      # Each run turned into bytes and kept only if it reads as text. A run that
+      # decodes to a key, a hash, or a truncated payload contributes nothing and
+      # would otherwise hand a rail a string of control characters to judge.
+      def decode_runs(body, pattern)
+        pieces = body.scan(pattern).filter_map do |run|
+          bytes = run.each_char.map { |c| yield(c) }
+          next if bytes.any? { |b| b.negative? || b > 0xFF }
+
+          readable_bytes(bytes)
+        end
+        pieces.empty? ? nil : pieces.join("\n")
+      end
+
+      def readable_bytes(bytes)
+        text = bytes.pack('C*').force_encoding(Encoding::UTF_8)
+        return nil unless text.valid_encoding?
+        return nil if text.strip.empty?
+        return nil if text.count("^ -~\n\t").positive?
+        # A handful of readable characters is not a sentence, and a rail reading
+        # three of them reports on noise.
+        return nil if text.length < 8
+
+        text
+      end
+
       def decode_base64(body)
         pieces = body.scan(BASE64).filter_map { |run| readable(run) }
         pieces.empty? ? nil : pieces.join("\n")

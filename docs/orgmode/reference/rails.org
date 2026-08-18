@@ -337,6 +337,8 @@ Vangrail::Rails::Obfuscation.new(
 | Transform      | What it undoes                                             |
 |----------------+------------------------------------------------------------|
 | =:invisible=   | every carrier with no rendered form, stripped and reported  |
+| =:tags=        | a tags-block payload, read as the ASCII it spells           |
+| =:selectors=   | a variation-selector payload, read as the bytes it carries  |
 | =:confusables= | mixed-script words folded back to the ASCII they imitate   |
 | =:confusables_all= | the same fold applied without the mixed-word test      |
 | =:rot13=       | the rotation                                                |
@@ -360,6 +362,19 @@ stripping it turns a warning sign into a dingbat on every page carrying one. Two
 in a row is a different thing: no base character takes a second selector, and a
 byte-per-selector payload is a run, so =VARIATION_SELECTOR_RUN= needs two before
 it removes anything and there is no threshold to tune.
+
+=:tags= and =:selectors= are the two transforms that read the text as it arrived
+rather than with its invisible characters removed, because for them those
+characters are the message and not padding around it. The strip already denies the
+attack, since a stripped payload never reaches a model; the decode is what turns a
+rewrite naming a character class into a block naming the injection, which is the
+difference between a page somebody looks at and a page nobody does.
+
+Both need a run of four or more and text that reads as text. That is what keeps a
+disclosure mark from being reported as an injection: =Vangrail::Watermark= writes
+eleven bytes of HMAC in the selector carrier, and eleven bytes of HMAC are not
+printable, so a marked answer pasted back in as a question is stripped and not
+decoded.
 
 =Obfuscation.scrub= is the strip on its own, without the rails around it, for a
 fetch boundary that wants a payload gone before it reaches a corpus:
