@@ -118,6 +118,26 @@ class TestEvidence < Minitest::Test
     assert_in_delta Math.log2((1 - detection_low) / (1 - false_alarm_high)), high, 1e-9
   end
 
+  def test_confident_positive_evidence_uses_the_lower_joint_endpoint
+    low, = STRONG.bits_interval(true, confidence: 0.95)
+
+    assert_in_delta low, STRONG.bits(true, confidence: 0.95), 1e-9
+  end
+
+  def test_confident_negative_evidence_uses_the_upper_joint_endpoint
+    _, high = STRONG.bits_interval(false, confidence: 0.95)
+
+    assert_in_delta high, STRONG.bits(false, confidence: 0.95), 1e-9
+  end
+
+  def test_an_interval_that_crosses_zero_contributes_no_confident_evidence
+    coin = Vangrail::Evidence.new(rail: 'coin', attacks_caught: 50, attacks: 100,
+                                  benign_flagged: 50, benign: 100)
+
+    assert_in_delta 0.0, coin.bits(true, confidence: 0.95), 1e-12
+    assert_in_delta 0.0, coin.bits(false, confidence: 0.95), 1e-12
+  end
+
   def test_the_conservative_reading_weakens_silence_as_well_as_hits
     point = STRONG.bits(false)
     defensible = STRONG.bits(false, confidence: 0.95)
