@@ -220,4 +220,40 @@ class TestReferenceMonitor < Minitest::Test
     assert_predicate decision, :allowed?
     assert_includes plan.audit.events.map(&:type), :confirmation
   end
+
+  def test_risk_can_restrict_a_grant_but_cannot_create_one
+    request_cell = request(:search)
+    call_for = lambda do |plan|
+      Vangrail::Call.new(
+        tool: :search,
+        request: request_cell,
+        arguments: {},
+        conversation_id: plan.id,
+      )
+    end
+    empty_plan = Vangrail::Plan.new(id: 'empty')
+    empty_monitor = Vangrail::ReferenceMonitor.new(empty_plan)
+
+    no_grant = empty_monitor.authorize(
+      call_for.call(empty_plan),
+      risk: Vangrail::Result.passed(rail: 'risk'),
+    )
+
+    assert_equal :no_grant, no_grant.reason_code
+
+    plan = Vangrail::Plan.new(id: 'granted')
+    plan.read(:search, arguments: {})
+    monitor = Vangrail::ReferenceMonitor.new(plan)
+    blocked = monitor.authorize(
+      call_for.call(plan),
+      risk: Vangrail::Result.blocked(rail: 'risk'),
+    )
+    uncertain = monitor.authorize(
+      call_for.call(plan),
+      risk: Vangrail::Result.unchecked(rail: 'risk', reason: 'reader unavailable'),
+    )
+
+    assert_equal :risk_blocked, blocked.reason_code
+    assert_equal :risk_uncertain, uncertain.reason_code
+  end
 end
