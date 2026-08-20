@@ -90,6 +90,20 @@ class TestEvidence < Minitest::Test
     assert_operator defensible, :>, 0
   end
 
+  def test_a_fired_likelihood_interval_has_simultaneous_posterior_mass
+    confidence = 0.95
+    tail = (1 - confidence) / 4
+    detection_low = Vangrail::Beta.quantile(tail, 90.5, 10.5)
+    detection_high = Vangrail::Beta.quantile(1 - tail, 90.5, 10.5)
+    false_alarm_low = Vangrail::Beta.quantile(tail, 1.5, 99.5)
+    false_alarm_high = Vangrail::Beta.quantile(1 - tail, 1.5, 99.5)
+
+    low, high = STRONG.bits_interval(true, confidence: confidence)
+
+    assert_in_delta Math.log2(detection_low / false_alarm_high), low, 1e-9
+    assert_in_delta Math.log2(detection_high / false_alarm_low), high, 1e-9
+  end
+
   def test_the_conservative_reading_weakens_silence_as_well_as_hits
     point = STRONG.bits(false)
     defensible = STRONG.bits(false, confidence: 0.95)
