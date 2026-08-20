@@ -201,8 +201,9 @@ module Vangrail
       reachable = remaining.filter_map { |rail| evidence[rail.name] }
       return false if reachable.empty?
 
-      best = reachable.sum { |entry| entry.bits(true) }
-      worst = reachable.sum { |entry| entry.bits(false) }
+      ranges = reachable.map { |entry| [entry.bits(true), entry.bits(false)].minmax }
+      worst = ranges.sum(&:first)
+      best = ranges.sum(&:last)
       policy = escalation[:policy]
       odds = Posterior.to_odds(posterior)
 
