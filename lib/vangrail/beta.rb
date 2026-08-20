@@ -92,13 +92,13 @@ module Vangrail
       h
     end
 
-    def fraction_step(numerator, c, d)
-      d = 1 + (numerator * d)
-      d = TINY if d.abs < TINY
-      c = 1 + (numerator / c)
-      c = TINY if c.abs < TINY
-      d = 1 / d
-      [c, d, d * c]
+    def fraction_step(numerator, coefficient, denominator)
+      denominator = 1 + (numerator * denominator)
+      denominator = TINY if denominator.abs < TINY
+      coefficient = 1 + (numerator / coefficient)
+      coefficient = TINY if coefficient.abs < TINY
+      denominator = 1 / denominator
+      [coefficient, denominator, denominator * coefficient]
     end
   end
 end
