@@ -47,6 +47,31 @@ module Vangrail
       @mutex.synchronize { @events.dup.freeze }
     end
 
+    def record_call_attempt(call)
+      record(
+        :call_attempt,
+        call_id: call.id,
+        tool: call.tool,
+        conversation_id: call.conversation_id,
+        request: call.request,
+        arguments: call.fields,
+        sink: call.sink,
+        confirmed: call.confirmed?,
+        transaction: call.transaction?,
+      )
+    end
+
+    def record_authorization(call:, allowed:, grant: nil, reason_code: nil, reason: nil)
+      record(
+        :authorization,
+        call_id: call.id,
+        grant_id: grant&.id,
+        allowed: allowed,
+        reason_code: reason_code,
+        reason: reason,
+      )
+    end
+
     def to_h
       { 'events' => events.map(&:to_h) }
     end

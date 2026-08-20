@@ -53,12 +53,12 @@ module Vangrail
       raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
 
       handler_arguments = call ? call.arguments.raw : arguments
-      refusal = preauthorization_refusal(name, handler_arguments, call)
-      return refusal if refusal
-
       call ||= build_call(name, arguments, sink: sink, confirmed: confirmed,
                                            transaction: transaction,
                                            idempotency_key: idempotency_key)
+      refusal = preauthorization_refusal(name, handler_arguments, call)
+      return refusal if refusal
+
       authorization = monitor.authorize(call)
       return authorization_refusal(name, handler_arguments, call, authorization) if authorization.denied?
 
@@ -115,6 +115,7 @@ module Vangrail
 
       verdict = hook.call(name, arguments, self)
       if verdict.is_a?(Result)
+        audit_adapter_decision(call, verdict.rail, verdict.reason, allowed: verdict.allowed?)
         record_invocation(name, arguments, verdict, nil, call: call)
         return verdict
       end
@@ -124,9 +125,20 @@ module Vangrail
     end
 
     def refuse(name, arguments, rail, reason, call: nil, authorization: nil)
+      audit_adapter_decision(call, rail, reason, allowed: false) if call && authorization.nil?
       Result.blocked(rail: rail, reason: reason).tap do |result|
         record_invocation(name, arguments, result, nil, call: call, authorization: authorization)
       end
+    end
+
+    def audit_adapter_decision(call, reason_code, reason, allowed:)
+      plan.audit.record_call_attempt(call)
+      plan.audit.record_authorization(
+        call: call,
+        allowed: allowed,
+        reason_code: reason_code,
+        reason: reason,
+      )
     end
 
     def record_invocation(name, arguments, result, cell, call: nil, authorization: nil)

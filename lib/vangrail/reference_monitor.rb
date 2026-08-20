@@ -126,17 +126,7 @@ module Vangrail
       raise ArgumentError, 'call must be a Call' unless call.is_a?(Call)
 
       @mutex.synchronize do
-        audit.record(
-          :call_attempt,
-          call_id: call.id,
-          tool: call.tool,
-          conversation_id: call.conversation_id,
-          request: call.request,
-          arguments: call.fields,
-          sink: call.sink,
-          confirmed: call.confirmed?,
-          transaction: call.transaction?,
-        )
+        audit.record_call_attempt(call)
         preliminary = preliminary_denial(call)
         return audited(preliminary) if preliminary
 
@@ -283,10 +273,9 @@ module Vangrail
     end
 
     def audited(authorization)
-      audit.record(
-        :authorization,
-        call_id: authorization.call.id,
-        grant_id: authorization.grant&.id,
+      audit.record_authorization(
+        call: authorization.call,
+        grant: authorization.grant,
         allowed: authorization.allowed?,
         reason_code: authorization.reason_code,
         reason: authorization.reason,
