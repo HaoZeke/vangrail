@@ -9,6 +9,7 @@ class TestJointRisk < Minitest::Test
       'id' => 'joint-test-v1',
       'posterior_method' => 'laplace_diagonal',
       'training_prevalence' => 0.5,
+      'normalization' => { 'id' => 'vangrail-nlp-v1' },
       'feature_schema' => %w[lexical.score encoder.score],
       'readers' => {
         'lexical' => { 'model_id' => 'lexical-v1', 'feature_schema' => ['score'] },
