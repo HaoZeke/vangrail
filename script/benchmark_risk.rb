@@ -70,21 +70,32 @@ module Vangrail
       rows
     end
 
-    def measure(kernel, implementation, shape, work, &operation)
-      warmup.times { operation.call }
-      raw = Array.new(samples) do
+    def measure(kernel, implementation, shape, work)
+      warmup_index = 0
+      while warmup_index < warmup
+        yield
+        warmup_index += 1
+      end
+      raw = []
+      sample_index = 0
+      while sample_index < samples
         GC.start
         allocated_before = GC.stat(:total_allocated_objects)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         value = nil
-        iterations.times { value = operation.call }
+        iteration = 0
+        while iteration < iterations
+          value = yield
+          iteration += 1
+        end
         elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-        {
+        raw << {
           'latency_ms' => elapsed * 1000.0 / iterations,
           'allocated_objects' => (GC.stat(:total_allocated_objects) - allocated_before).fdiv(iterations),
           'rss_kib' => resident_memory_kib,
           'result_checksum' => checksum(value),
         }
+        sample_index += 1
       end
       {
         'kernel' => kernel,
