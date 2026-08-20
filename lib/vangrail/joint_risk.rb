@@ -104,7 +104,7 @@ module Vangrail
       validate_ranges!(features)
 
       eta = linear_predictor(features, context)
-      variance = posterior_variance(features)
+      variance = posterior_variance(features, context)
       eta, variance = calibrate(eta, variance)
       eta += prior_offset(prior)
       radius = normal_quantile((1 + confidence) / 2.0) * Math.sqrt(variance)
@@ -204,7 +204,7 @@ module Vangrail
       [calibration.fetch('intercept') + (slope * eta), calibrated_variance]
     end
 
-    def posterior_variance(features)
+    def posterior_variance(features, context)
       covariance = artifact.covariance_diagonal
       variance = covariance.fetch('intercept', 0.0)
       artifact.feature_schema.each do |name|
@@ -214,6 +214,9 @@ module Vangrail
         left, right = name.split('*', 2)
         value = features.fetch(left) * features.fetch(right)
         variance += covariance.fetch(name, 0.0) * (value**2)
+      end
+      context.each do |name, value|
+        variance += covariance.fetch("#{name}:#{value}", 0.0)
       end
       variance
     end

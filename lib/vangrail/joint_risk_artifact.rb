@@ -178,7 +178,7 @@ module Vangrail
       validate_numeric_table!('coefficients', data['coefficients'], allowed: feature_schema,
                                                                     exact: true)
       validate_interactions!
-      allowed = ['intercept'] + feature_schema + interactions.keys
+      allowed = ['intercept'] + feature_schema + interactions.keys + context_offsets.keys
       validate_numeric_table!('covariance_diagonal', data['covariance_diagonal'], allowed: allowed,
                                                                                   nonnegative: true)
       validate_numeric_table!('context_offsets', data['context_offsets'])
