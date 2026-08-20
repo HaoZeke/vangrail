@@ -150,7 +150,9 @@ module Vangrail
         allow.each do |tool, origins|
           next unless tools.readonly?(tool)
 
-          plan.read(tool, arguments: { value: Array(origins).map(&:to_sym) })
+          allowed = Array(origins).map(&:to_sym)
+          constraint = allowed.one? ? allowed.first : allowed
+          plan.read(tool, arguments: { value: constraint })
         end
       end
     end
