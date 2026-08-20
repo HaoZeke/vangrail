@@ -168,11 +168,12 @@ class TestBayesTraining < Minitest::Test
 
       assert_path_exists manifest_path
       manifest = JSON.parse(File.read(manifest_path))
+
       assert_equal 'vangrail-bayes-split-v1', manifest.fetch('schema')
       assert_equal Digest::SHA256.file(output).hexdigest, manifest.dig('artifact', 'sha256')
       assert_equal 96, manifest.fetch('cases').size
       assert_equal 96, manifest.fetch('cases').map { |row| row.fetch('id') }.uniq.size
-      assert manifest.fetch('cases').all? { |row| row.fetch('sha256').match?(/\A[0-9a-f]{64}\z/) }
+      assert(manifest.fetch('cases').all? { |row| row.fetch('sha256').match?(/\A[0-9a-f]{64}\z/) })
     end
   end
 end
