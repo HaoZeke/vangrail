@@ -38,6 +38,9 @@ module Vangrail
     LIMIT = 4000
     BUCKETS = 2**18
     STRIDE = 2
+    FNV_OFFSET = 2_166_136_261
+    FNV_PRIME = 16_777_619
+    FNV_MASK = 0xFFFFFFFF
     # A hostile file names its own table size. Array.new of that number is
     # the allocation, so the bound has to sit in front of it.
     MAX_BUCKETS = 2**20
@@ -87,9 +90,7 @@ module Vangrail
     # feature indices move between runs cannot be saved, and the failure would
     # look like a classifier that trained perfectly and predicts at random.
     def self.bucket(feature, buckets = BUCKETS)
-      hash = 2_166_136_261
-      feature.each_byte { |byte| hash = ((hash ^ byte) * 16_777_619) & 0xFFFFFFFF }
-      hash % buckets
+      hash_bytes(FNV_OFFSET, feature) % buckets
     end
 
     # Word stems, adjacent stem pairs, and character four-grams taken every
@@ -131,15 +132,106 @@ module Vangrail
     private :score_ruby
 
     def self.features_from(words, normalised, buckets, stride)
-      grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
-      chars = if normalised.length > 4
-                (0..(normalised.length - 4)).step(stride).map { |i| "c:#{normalised[i, 4]}" }
-              else
-                []
-              end
-      (grams + chars).tally.transform_values { |count| [count, 3].min }
-                     .each_with_object(Hash.new(0)) { |(feature, count), acc| acc[bucket(feature, buckets)] += count }
+      raise ArgumentError, 'stride must be positive' unless stride.is_a?(Integer) && stride.positive?
+
+      features = Hash.new(0)
+      add_word_features(features, words, buckets)
+      add_pair_features(features, words, buckets)
+      add_character_features(features, normalised, buckets, stride)
+      features
     end
+
+    def self.add_word_features(features, words, buckets)
+      counts = Hash.new(0)
+      words.each do |word|
+        count = counts[word]
+        next if count >= 3
+
+        counts[word] = count + 1
+        features[bucket(word, buckets)] += 1
+      end
+    end
+    private_class_method :add_word_features
+
+    def self.add_pair_features(features, words, buckets)
+      counts = {}
+      index = 0
+      while index + 1 < words.length
+        left = words[index]
+        right = words[index + 1]
+        right_counts = counts[left] ||= Hash.new(0)
+        count = right_counts[right]
+        if count < 3
+          right_counts[right] = count + 1
+          features[bucket_pair(left, right, buckets)] += 1
+        end
+        index += 1
+      end
+    end
+    private_class_method :add_pair_features
+
+    def self.add_character_features(features, normalised, buckets, stride)
+      offsets = character_offsets(normalised)
+      characters = offsets ? offsets.length - 1 : normalised.bytesize
+      return if characters <= 4
+
+      counts = Hash.new(0)
+      index = 0
+      while index <= characters - 4
+        gram = if offsets
+                 normalised.byteslice(offsets[index], offsets[index + 4] - offsets[index])
+               else
+                 normalised.byteslice(index, 4)
+               end
+        count = counts[gram]
+        if count < 3
+          counts[gram] = count + 1
+          features[bucket_character_gram(gram, buckets)] += 1
+        end
+        index += stride
+      end
+    end
+    private_class_method :add_character_features
+
+    def self.character_offsets(text)
+      return if text.ascii_only?
+
+      offset = 0
+      text.each_codepoint.with_object([0]) do |codepoint, offsets|
+        offset += utf8_bytes(codepoint)
+        offsets << offset
+      end
+    end
+    private_class_method :character_offsets
+
+    def self.utf8_bytes(codepoint)
+      return 1 if codepoint <= 0x7F
+      return 2 if codepoint <= 0x7FF
+      return 3 if codepoint <= 0xFFFF
+
+      4
+    end
+    private_class_method :utf8_bytes
+
+    def self.bucket_pair(left, right, buckets)
+      hash = hash_bytes(FNV_OFFSET, left)
+      hash = ((hash ^ 32) * FNV_PRIME) & FNV_MASK
+      hash_bytes(hash, right) % buckets
+    end
+    private_class_method :bucket_pair
+
+    def self.bucket_character_gram(gram, buckets)
+      hash = ((FNV_OFFSET ^ 99) * FNV_PRIME) & FNV_MASK
+      hash = ((hash ^ 58) * FNV_PRIME) & FNV_MASK
+      hash_bytes(hash, gram) % buckets
+    end
+    private_class_method :bucket_character_gram
+
+    def self.hash_bytes(hash, text)
+      text.each_byte { |byte| hash = ((hash ^ byte) * FNV_PRIME) & FNV_MASK }
+      hash
+    end
+    private_class_method :hash_bytes
 
     def native_table
       return @native_table if defined?(@native_table)
