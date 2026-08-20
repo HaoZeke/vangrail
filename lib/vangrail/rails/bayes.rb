@@ -62,7 +62,9 @@ module Vangrail
         # 8 ordinary pages between 0 and the threshold). A score there is
         # not a decision. Above the threshold no held-out benign document
         # landed, and at or below 0 no held-out attack did.
-        return unchecked('score sits in a band the calibration cannot separate', raw: payload) if overlap?(score)
+        if uncertain_score?(score)
+          return unchecked('score sits in a band the calibration cannot separate', raw: payload)
+        end
         return pass(raw: payload) if score <= threshold
 
         block(categories: ['bayes'], raw: payload,
@@ -70,7 +72,7 @@ module Vangrail
                                                                                         bits: evidence))
       end
 
-      def overlap?(score)
+      def uncertain_score?(score)
         score.positive? && score <= threshold
       end
 
