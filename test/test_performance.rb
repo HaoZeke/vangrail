@@ -20,7 +20,9 @@ class TestPerformance < Minitest::Test
 
   def test_report_keeps_raw_cost_samples_for_each_named_kernel
     assert_equal 'vangrail-risk-performance-v1', report.fetch('schema')
-    assert_equal %w[features prepare ruby_score], report.fetch('profiles').map { |row| row.fetch('kernel') }.uniq.sort
+    expected = %w[features prepare ruby_score]
+    expected << 'native_score' if Vangrail::Native.available?
+    assert_equal expected.sort, report.fetch('profiles').map { |row| row.fetch('kernel') }.uniq.sort
 
     report.fetch('profiles').each do |profile|
       assert_equal 2, profile.fetch('samples').size
