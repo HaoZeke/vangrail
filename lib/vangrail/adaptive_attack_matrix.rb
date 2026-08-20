@@ -29,7 +29,9 @@ module Vangrail
 
     attr_reader :data, :sha256
 
-    def initialize(raw, source_sha256: nil)
+    def initialize(raw = nil, source_sha256: nil, **fields)
+      raw = fields if raw.nil?
+      raise ArtifactError, 'adaptive attack matrix fields are ambiguous' unless fields.empty? || raw.equal?(fields)
       raise ArtifactError, 'adaptive attack matrix must be a hash' unless raw.is_a?(Hash)
 
       @data = stringify(raw)
