@@ -118,6 +118,12 @@ class TestEvidence < Minitest::Test
     assert_in_delta Math.log2((1 - detection_low) / (1 - false_alarm_high)), high, 1e-9
   end
 
+  def test_a_likelihood_interval_requires_an_open_unit_confidence
+    [0.0, 1.0, -0.1, 1.1, Float::NAN].each do |confidence|
+      assert_raises(ArgumentError) { STRONG.bits_interval(true, confidence: confidence) }
+    end
+  end
+
   def test_confident_positive_evidence_uses_the_lower_joint_endpoint
     low, = STRONG.bits_interval(true, confidence: 0.95)
 
