@@ -97,9 +97,8 @@ module Vangrail
     end
 
     def execute_authorized(name, arguments, call, authorization)
-      value = tools.fire(name, arguments, self)
+      cell = tools.dispatch(name, arguments, self, authorization: authorization)
       monitor.finish(call, success: true)
-      cell = value.is_a?(Cell) ? value : Cell.tool(value)
       result = Result.passed(rail: name.to_s)
       record_invocation(name, arguments, result, cell, call: call, authorization: authorization)
       result

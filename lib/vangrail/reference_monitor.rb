@@ -117,6 +117,7 @@ module Vangrail
       @audit = @plan.audit
       @usage = Hash.new(0)
       @authorized = {}
+      @claimed = {}
       @finished = {}
       @completed = []
       @mutex = Mutex.new
@@ -156,6 +157,18 @@ module Vangrail
         audit.record(:handler_outcome, call_id: call.id, tool: call.tool,
                                        success: @finished[call.id])
         @finished[call.id]
+      end
+    end
+
+    def claim(authorization)
+      return false unless authorization.is_a?(Authorization)
+
+      @mutex.synchronize do
+        call_id = authorization.call.id
+        return false unless @authorized[call_id].equal?(authorization)
+        return false if @claimed[call_id] || @finished.key?(call_id)
+
+        @claimed[call_id] = true
       end
     end
 
