@@ -135,8 +135,10 @@ class TestReferenceMonitor < Minitest::Test
 
     assert_equal :ordering, monitor.authorize(cite).reason_code
     search_decision = monitor.authorize(search)
+
     assert_predicate search_decision, :allowed?
     monitor.finish(search, success: false)
+
     assert_equal :ordering, monitor.authorize(cite).reason_code
 
     successful_search = Vangrail::Call.new(

@@ -212,7 +212,10 @@ module Vangrail
     def hash_constraint_denial(cell, constraint)
       return :argument_constraint unless (constraint.keys - CONSTRAINT_KEYS).empty?
       return :argument_type unless type_matches?(cell.raw, constraint[:type])
-      return origin_denial(cell, constraint[:origins]) if constraint.key?(:origins) && origin_denial(cell, constraint[:origins])
+      if constraint.key?(:origins)
+        origin_reason = origin_denial(cell, constraint[:origins])
+        return origin_reason if origin_reason
+      end
       return :argument_literal if constraint.key?(:equals) && cell.raw != constraint[:equals]
       return :argument_value if constraint.key?(:in) && !Array(constraint[:in]).include?(cell.raw)
       return :argument_value if constraint.key?(:pattern) && !constraint[:pattern].match?(cell.raw.to_s)
@@ -222,7 +225,7 @@ module Vangrail
 
     def type_matches?(value, expected)
       return true if expected.nil?
-      return value == true || value == false if expected == :boolean
+      return [true, false].include?(value) if expected == :boolean
 
       type = expected.is_a?(Class) ? expected : TYPES[expected.to_sym]
       type && value.is_a?(type)
@@ -232,7 +235,9 @@ module Vangrail
       return deny(call, :sink, 'call sink is outside the grant') unless sink_allowed?(call, grant)
       return deny(call, :integrity, 'request integrity is outside the grant') unless integrity_allowed?(call, grant)
       return deny(call, :confirmation, 'call requires confirmation') if grant.confirmation_required? && !call.confirmed?
-      return deny(call, :transaction, 'call requires a transaction') if grant.transaction_required? && !call.transaction?
+      if grant.transaction_required? && !call.transaction?
+        return deny(call, :transaction, 'call requires a transaction')
+      end
       if grant.effect != :read && call.idempotency_key.to_s.empty?
         return deny(call, :idempotency, 'side-effecting call requires an idempotency key')
       end
