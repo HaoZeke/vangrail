@@ -1,0 +1,714 @@
+{
+  "schema": "vangrail-bayes-split-v1",
+  "split_seed": "bayes-v1",
+  "role_weights": {
+    "train": 5,
+    "calibration": 1,
+    "threshold": 1,
+    "test": 1
+  },
+  "role_counts": {
+    "train": {
+      "attack": 30,
+      "benign": 30
+    },
+    "calibration": {
+      "attack": 6,
+      "benign": 6
+    },
+    "threshold": {
+      "attack": 6,
+      "benign": 6
+    },
+    "test": {
+      "attack": 6,
+      "benign": 6
+    }
+  },
+  "cases": [
+    {
+      "id": "attack-000",
+      "group": "attack-000",
+      "label": "attack",
+      "role": "train",
+      "sha256": "e19eb9bc0ad39980bfc134ac11abee37e5b0afd1b4d696d67070edad938e640b"
+    },
+    {
+      "id": "attack-001",
+      "group": "attack-001",
+      "label": "attack",
+      "role": "train",
+      "sha256": "2b6cacb8f51593237ffb60259f995f980e285880e014963753ae950bd8580253"
+    },
+    {
+      "id": "attack-002",
+      "group": "attack-002",
+      "label": "attack",
+      "role": "train",
+      "sha256": "83c2920bd62dc6d4182862f357c1bfa1ab1f86a03395d862bdfb0783aa6434d6"
+    },
+    {
+      "id": "attack-003",
+      "group": "attack-003",
+      "label": "attack",
+      "role": "train",
+      "sha256": "327fb1e336e1690f7bb72ce559e0d48f0c022a7db2b70484ab49e2609bc8265d"
+    },
+    {
+      "id": "attack-004",
+      "group": "attack-004",
+      "label": "attack",
+      "role": "train",
+      "sha256": "fe31c538215273483613439f54498a92406f143048b72e2d86803c4395e67ec6"
+    },
+    {
+      "id": "attack-005",
+      "group": "attack-005",
+      "label": "attack",
+      "role": "train",
+      "sha256": "0d3e9db083fcf23415cd4910877d65bafef0b84c2f0fb594710fe4177e3d387b"
+    },
+    {
+      "id": "attack-006",
+      "group": "attack-006",
+      "label": "attack",
+      "role": "train",
+      "sha256": "c5f9ce2157c9bffa204babb0b950babbe0fec9925665cfa51928e6c24c3a0e07"
+    },
+    {
+      "id": "attack-008",
+      "group": "attack-008",
+      "label": "attack",
+      "role": "train",
+      "sha256": "dc9483e09b9cefc0e6b6982aac9984018e2a665c717f41443f427778880a93f7"
+    },
+    {
+      "id": "attack-009",
+      "group": "attack-009",
+      "label": "attack",
+      "role": "train",
+      "sha256": "2a648deb4dd773557bc616a8550f099f6756ad7129ccb154f1341fb44d3ac9a9"
+    },
+    {
+      "id": "attack-010",
+      "group": "attack-010",
+      "label": "attack",
+      "role": "train",
+      "sha256": "9adf62905e993fbb5ae3bf7efbf83ea09d43229cdd02f5b071d36f112a3f7680"
+    },
+    {
+      "id": "attack-013",
+      "group": "attack-013",
+      "label": "attack",
+      "role": "train",
+      "sha256": "5c38e668a132c67725ddf880d353abf1fdce0bfe883aa66e594999c9640b73c6"
+    },
+    {
+      "id": "attack-015",
+      "group": "attack-015",
+      "label": "attack",
+      "role": "train",
+      "sha256": "212a14ff7cb8bf4f07b9339b146c9c06de489d7691da0f81da2de40cc0003afa"
+    },
+    {
+      "id": "attack-017",
+      "group": "attack-017",
+      "label": "attack",
+      "role": "train",
+      "sha256": "abfb85cb6af6182413ac22325721d03681939e40fa65deaca26bc442620639d1"
+    },
+    {
+      "id": "attack-018",
+      "group": "attack-018",
+      "label": "attack",
+      "role": "train",
+      "sha256": "98657f3b627e07f7ff3e860b0e9e38e012717124d22a72a6aefad10f7ad64e77"
+    },
+    {
+      "id": "attack-019",
+      "group": "attack-019",
+      "label": "attack",
+      "role": "train",
+      "sha256": "66404fd08add302087a3d42378bef428e8b6255240de33bd1738534a273121b3"
+    },
+    {
+      "id": "attack-021",
+      "group": "attack-021",
+      "label": "attack",
+      "role": "train",
+      "sha256": "e8626adae659a8819d475aa04dba93ebe943d7eef59c475cfb570ff2b817280e"
+    },
+    {
+      "id": "attack-022",
+      "group": "attack-022",
+      "label": "attack",
+      "role": "train",
+      "sha256": "1fd2910e8bb4f48a75c882325436db9ac7d3c50a6e7b77113e198f41184c570d"
+    },
+    {
+      "id": "attack-023",
+      "group": "attack-023",
+      "label": "attack",
+      "role": "train",
+      "sha256": "8bbe6f73713170f7809bddaab485bd294d83bbac417be6e2583047a4a6e0da00"
+    },
+    {
+      "id": "attack-025",
+      "group": "attack-025",
+      "label": "attack",
+      "role": "train",
+      "sha256": "522d8bb7a036db7c209f4a79c37fa0480b54e6b99a0abc04623b4450fbb21adf"
+    },
+    {
+      "id": "attack-028",
+      "group": "attack-028",
+      "label": "attack",
+      "role": "train",
+      "sha256": "f47f54792cc9876c3ed8772c6a329eac23d2d892b94b26f52384c29adf6aa81c"
+    },
+    {
+      "id": "attack-029",
+      "group": "attack-029",
+      "label": "attack",
+      "role": "train",
+      "sha256": "2a8db29b9a183bdd20f62747d7ec07aeb6687a4cb4812e1448f505706f175069"
+    },
+    {
+      "id": "attack-030",
+      "group": "attack-030",
+      "label": "attack",
+      "role": "train",
+      "sha256": "5e907c7a958f32e05e78eba017e63e9305f4fc856798f9d42700f7ba5a89651a"
+    },
+    {
+      "id": "attack-035",
+      "group": "attack-035",
+      "label": "attack",
+      "role": "train",
+      "sha256": "ebb8bd043622cdf2323730fdb5d7d0a0861167802bb85c6eec05498201981310"
+    },
+    {
+      "id": "attack-037",
+      "group": "attack-037",
+      "label": "attack",
+      "role": "train",
+      "sha256": "349fc6743ff84c81b4a82ae95b34c6343fd3ecf2b973c80093b5bff29cc61b12"
+    },
+    {
+      "id": "attack-038",
+      "group": "attack-038",
+      "label": "attack",
+      "role": "train",
+      "sha256": "da0d3fea789c403df4321a3167b83c89689528d72affa6cb0f2de47d02328440"
+    },
+    {
+      "id": "attack-039",
+      "group": "attack-039",
+      "label": "attack",
+      "role": "train",
+      "sha256": "37170270b8d13b6427354f0df36b0044039fd8f148324a383e92b72fc99ea3cf"
+    },
+    {
+      "id": "attack-042",
+      "group": "attack-042",
+      "label": "attack",
+      "role": "train",
+      "sha256": "610e0d91cd2645a7192daa123659302964dbd8a893fe8bcaf23c97b766f0974a"
+    },
+    {
+      "id": "attack-043",
+      "group": "attack-043",
+      "label": "attack",
+      "role": "train",
+      "sha256": "8ca19085b0e7c965e2a57f74aa4868a07da4dd501ad82f6b74efef157456b074"
+    },
+    {
+      "id": "attack-046",
+      "group": "attack-046",
+      "label": "attack",
+      "role": "train",
+      "sha256": "d89939156fe57dbd1e8a7e6610d8e04c859b4531aa862352acfe6b6321e33adf"
+    },
+    {
+      "id": "attack-047",
+      "group": "attack-047",
+      "label": "attack",
+      "role": "train",
+      "sha256": "b9097b88e36df7784d7ea2820682f534162db7849200cf51822570bdfe6aa460"
+    },
+    {
+      "id": "benign-000",
+      "group": "benign-000",
+      "label": "benign",
+      "role": "train",
+      "sha256": "3c8d60c704a6d3f851fe61395292f3aa1d03d0483a000badd21bb6179796f80c"
+    },
+    {
+      "id": "benign-002",
+      "group": "benign-002",
+      "label": "benign",
+      "role": "train",
+      "sha256": "c131a2c5a45379b4c375f57b13d9ef6444493f8cd07f194b7916e2340c53d1fd"
+    },
+    {
+      "id": "benign-003",
+      "group": "benign-003",
+      "label": "benign",
+      "role": "train",
+      "sha256": "c5b42d1e5a89d42ba8044a101b3b9cada2eddd95e19aaee943a4744ae16914bc"
+    },
+    {
+      "id": "benign-004",
+      "group": "benign-004",
+      "label": "benign",
+      "role": "train",
+      "sha256": "a726d04b5234edd6dfdec8b6bd50c38ad1dcc4bdf4fddcd4ad84309e7a255d45"
+    },
+    {
+      "id": "benign-005",
+      "group": "benign-005",
+      "label": "benign",
+      "role": "train",
+      "sha256": "9147b73ccfdc584ccf998dd88200aa1fbe96ac3c0c22cfc5852abd3a3c30e54e"
+    },
+    {
+      "id": "benign-006",
+      "group": "benign-006",
+      "label": "benign",
+      "role": "train",
+      "sha256": "57171613de12af59c2b8e82e5de0ebe391aa9a96f7fbdf17eeb12a3ffad068e8"
+    },
+    {
+      "id": "benign-007",
+      "group": "benign-007",
+      "label": "benign",
+      "role": "train",
+      "sha256": "93b796c892518551a53c2c794a6351ee4dee01dcd7698017c4e4c783aafc5166"
+    },
+    {
+      "id": "benign-009",
+      "group": "benign-009",
+      "label": "benign",
+      "role": "train",
+      "sha256": "fa7da77367627c8b49b82fc76b2598aadda37ff6d1d8028f9f0f263a8db06bf9"
+    },
+    {
+      "id": "benign-011",
+      "group": "benign-011",
+      "label": "benign",
+      "role": "train",
+      "sha256": "bfc26735c0675c805c3e382b65b9a8e066ab19ca6129a1211c866fe6066b64ca"
+    },
+    {
+      "id": "benign-017",
+      "group": "benign-017",
+      "label": "benign",
+      "role": "train",
+      "sha256": "4de64e4212e51d745448ae7e160a3dc5b2a0e6ba894266faa6ff54cf4c6e6c50"
+    },
+    {
+      "id": "benign-018",
+      "group": "benign-018",
+      "label": "benign",
+      "role": "train",
+      "sha256": "3250a2c2b49610ac9c076e14490e2ff0a09aec93533f5ddda82bf1fa59069e7f"
+    },
+    {
+      "id": "benign-019",
+      "group": "benign-019",
+      "label": "benign",
+      "role": "train",
+      "sha256": "739847bbe9ab24753c9ec7bd2f5b186b0c5904cdc3bcee6b285adf40e80e4b19"
+    },
+    {
+      "id": "benign-020",
+      "group": "benign-020",
+      "label": "benign",
+      "role": "train",
+      "sha256": "6a9f8b3689414d1f48c696fe213629f4aac10977523d01905364e869571393ac"
+    },
+    {
+      "id": "benign-021",
+      "group": "benign-021",
+      "label": "benign",
+      "role": "train",
+      "sha256": "87a4407884ef0b5331643911a919627ff6821bdd341ca9dec7f968c78cff4c67"
+    },
+    {
+      "id": "benign-024",
+      "group": "benign-024",
+      "label": "benign",
+      "role": "train",
+      "sha256": "233c283acf1293c50c7bdb794cffd21ce29709641b87ed54815b3d9b8598dedb"
+    },
+    {
+      "id": "benign-025",
+      "group": "benign-025",
+      "label": "benign",
+      "role": "train",
+      "sha256": "97ee56feee1411b7aefa60163e32cfa47fd258d1471ecbc5949dfa121968fe30"
+    },
+    {
+      "id": "benign-027",
+      "group": "benign-027",
+      "label": "benign",
+      "role": "train",
+      "sha256": "a48806b8e1e4de58401636c447e3d0aaa35d6a7a86d7782aab5eac9b48a496b8"
+    },
+    {
+      "id": "benign-028",
+      "group": "benign-028",
+      "label": "benign",
+      "role": "train",
+      "sha256": "829194f9c6e40fb3827e248fcd9028d6cea4f50fb13231a08c61b9d320527bd6"
+    },
+    {
+      "id": "benign-029",
+      "group": "benign-029",
+      "label": "benign",
+      "role": "train",
+      "sha256": "97696a719e1d0886f75bf2198d784616b240bc045a10d30b8ba278d272a145d1"
+    },
+    {
+      "id": "benign-031",
+      "group": "benign-031",
+      "label": "benign",
+      "role": "train",
+      "sha256": "ad090ba10f53a3d5975d1d4dea2023f22e93eeacf6f62d126171268b555b7f69"
+    },
+    {
+      "id": "benign-035",
+      "group": "benign-035",
+      "label": "benign",
+      "role": "train",
+      "sha256": "c6f1596fc4a9fa46b12dec1409247e166200ecc815dc24d50dbaa82384e4c116"
+    },
+    {
+      "id": "benign-037",
+      "group": "benign-037",
+      "label": "benign",
+      "role": "train",
+      "sha256": "3e698e62b2ffa74421034de2ed9ee96acc92e99153ec58d08fcb63cf97e60e0b"
+    },
+    {
+      "id": "benign-039",
+      "group": "benign-039",
+      "label": "benign",
+      "role": "train",
+      "sha256": "180144297caf0008caeefb42e743944141868d917bc1be18b1f14cab5788bfcb"
+    },
+    {
+      "id": "benign-040",
+      "group": "benign-040",
+      "label": "benign",
+      "role": "train",
+      "sha256": "ddfc91db014d6ff114a547812591871b6f2d844e9cdc04dce0875c76c0851162"
+    },
+    {
+      "id": "benign-041",
+      "group": "benign-041",
+      "label": "benign",
+      "role": "train",
+      "sha256": "50c4065276e1c6290fb519d23093ad12edf36b5a8d155624fc27b71a151084db"
+    },
+    {
+      "id": "benign-043",
+      "group": "benign-043",
+      "label": "benign",
+      "role": "train",
+      "sha256": "e1ffd7d1319deaf82ef18c87b54bc8ec6507ec8a6703de9d75ffb8ad7617f2c9"
+    },
+    {
+      "id": "benign-044",
+      "group": "benign-044",
+      "label": "benign",
+      "role": "train",
+      "sha256": "d2e535b2a4054e5fd86cd65656968f30c70b1565b9ba9188b70403f49c4adb4a"
+    },
+    {
+      "id": "benign-045",
+      "group": "benign-045",
+      "label": "benign",
+      "role": "train",
+      "sha256": "116a9d290f18bf7a365aec72da29124d5d54b3aaa1d7b2246a7a01c090fcf704"
+    },
+    {
+      "id": "benign-046",
+      "group": "benign-046",
+      "label": "benign",
+      "role": "train",
+      "sha256": "486e35c091ab69c58c3655d98c7f7bd8448643737d344061518dd70e27493cd0"
+    },
+    {
+      "id": "benign-047",
+      "group": "benign-047",
+      "label": "benign",
+      "role": "train",
+      "sha256": "ea44a34de104cff96f8c9f9db9f012cc1862af5473a00e3cc0dc59a9a430331e"
+    },
+    {
+      "id": "attack-007",
+      "group": "attack-007",
+      "label": "attack",
+      "role": "calibration",
+      "sha256": "80d51c371f86d6cd5d123c03431819d642458fa06d454b989cc768c702f050b4"
+    },
+    {
+      "id": "attack-014",
+      "group": "attack-014",
+      "label": "attack",
+      "role": "calibration",
+      "sha256": "0dc696c0b3455c751f76c6994cb5a57d4110ac85747492ffc97c4118285580e4"
+    },
+    {
+      "id": "attack-016",
+      "group": "attack-016",
+      "label": "attack",
+      "role": "calibration",
+      "sha256": "2d3161ae06689d805d217e8408ce4f9a0b0803413c5cdddd559dbd6dbfbb54cb"
+    },
+    {
+      "id": "attack-033",
+      "group": "attack-033",
+      "label": "attack",
+      "role": "calibration",
+      "sha256": "6a1432c6e31227a5015906deeb5e821b03341f09a67f6f688b500b14ca2480ac"
+    },
+    {
+      "id": "attack-044",
+      "group": "attack-044",
+      "label": "attack",
+      "role": "calibration",
+      "sha256": "990a3047d742de754eb75f5bcd95f15ea99fa717acf429cc6ea5d137d40aa419"
+    },
+    {
+      "id": "attack-045",
+      "group": "attack-045",
+      "label": "attack",
+      "role": "calibration",
+      "sha256": "f7de0535c8b781ef0a076b85b1ee2ce295c13b4c831b78a669fc2a00150b0085"
+    },
+    {
+      "id": "benign-016",
+      "group": "benign-016",
+      "label": "benign",
+      "role": "calibration",
+      "sha256": "2ff42d315bc4b515f117cca8d665497f06b6a0eefdc6ed12b320962a49d81d2e"
+    },
+    {
+      "id": "benign-022",
+      "group": "benign-022",
+      "label": "benign",
+      "role": "calibration",
+      "sha256": "d644a5e232dadb8ca0428ff1794c1a8896141b4d599aabddc5fd024089d18890"
+    },
+    {
+      "id": "benign-032",
+      "group": "benign-032",
+      "label": "benign",
+      "role": "calibration",
+      "sha256": "729c4f2ecf0a67b339f18bcd348a931a920b19804a3d38eff6d116af385ab6d6"
+    },
+    {
+      "id": "benign-033",
+      "group": "benign-033",
+      "label": "benign",
+      "role": "calibration",
+      "sha256": "04444f5c72666d621b90143f6dfc42e5bcddc7fa26df22c3f706ae0cc7051e88"
+    },
+    {
+      "id": "benign-036",
+      "group": "benign-036",
+      "label": "benign",
+      "role": "calibration",
+      "sha256": "fa567656bd51c35987d54c24ad04b9a77ab162ac7617e12b5e51dc88e3af1ca9"
+    },
+    {
+      "id": "benign-042",
+      "group": "benign-042",
+      "label": "benign",
+      "role": "calibration",
+      "sha256": "c63ee2d901fcbc602e54794e765cce3832879358cb57f132f67bd7e044e5748f"
+    },
+    {
+      "id": "attack-020",
+      "group": "attack-020",
+      "label": "attack",
+      "role": "threshold",
+      "sha256": "0d76ae4f54744f5125d082190ba3722d34e9878f1abc544c3c6cd1ca5e3dc7b1"
+    },
+    {
+      "id": "attack-026",
+      "group": "attack-026",
+      "label": "attack",
+      "role": "threshold",
+      "sha256": "523f4acc4a35e8899797c979563f05361ecd77d0da897544a5764a8f551449db"
+    },
+    {
+      "id": "attack-027",
+      "group": "attack-027",
+      "label": "attack",
+      "role": "threshold",
+      "sha256": "54d10ff041c30443cf62b39e5c8c9bd4aec56b6b77bc93726a54c6c094caab15"
+    },
+    {
+      "id": "attack-032",
+      "group": "attack-032",
+      "label": "attack",
+      "role": "threshold",
+      "sha256": "a2af863967ce9a7e00b5814a940265a52fa311c2e70e800f2a755bdadbc24d77"
+    },
+    {
+      "id": "attack-036",
+      "group": "attack-036",
+      "label": "attack",
+      "role": "threshold",
+      "sha256": "645fc5c3255595a02e5d42f53cd18b9906e256807c5f6de320caf554b241d928"
+    },
+    {
+      "id": "attack-041",
+      "group": "attack-041",
+      "label": "attack",
+      "role": "threshold",
+      "sha256": "1e493a71d9e5c43971fe29a8886e159e51d875f58fe2f173f02cf912f06a91cb"
+    },
+    {
+      "id": "benign-010",
+      "group": "benign-010",
+      "label": "benign",
+      "role": "threshold",
+      "sha256": "8240fcc7e580dfe7253c039ff812f15af41205cfa39c2a58d40a6d71c6b0da2e"
+    },
+    {
+      "id": "benign-012",
+      "group": "benign-012",
+      "label": "benign",
+      "role": "threshold",
+      "sha256": "51eff6200498992b8e2d963d1cf57ca62af30c1b0c402c439384aac88c84fdae"
+    },
+    {
+      "id": "benign-013",
+      "group": "benign-013",
+      "label": "benign",
+      "role": "threshold",
+      "sha256": "6fa768d99a48b6f982a40916bad767574a234ccd9fd5f4819a63fe9154ad9a76"
+    },
+    {
+      "id": "benign-026",
+      "group": "benign-026",
+      "label": "benign",
+      "role": "threshold",
+      "sha256": "88548906bfa83eae0be3bd63d9d9e12a062b53bfe3ea4db38a8620a6dfb1fbcc"
+    },
+    {
+      "id": "benign-034",
+      "group": "benign-034",
+      "label": "benign",
+      "role": "threshold",
+      "sha256": "53f5da51419ee3110ad06336670a6754a15717a4966e00f9a5862bc477d62233"
+    },
+    {
+      "id": "benign-038",
+      "group": "benign-038",
+      "label": "benign",
+      "role": "threshold",
+      "sha256": "89feba7525cfcc660f67b1cc1f0857e872e55320809d369e11be1ce45a3a29aa"
+    },
+    {
+      "id": "attack-011",
+      "group": "attack-011",
+      "label": "attack",
+      "role": "test",
+      "sha256": "c2df58a90b7cd70010252762ca67b8de15ec07717cf4ef633496b732f2d7200c"
+    },
+    {
+      "id": "attack-012",
+      "group": "attack-012",
+      "label": "attack",
+      "role": "test",
+      "sha256": "ef41b652841c9be628b8ae9acc9036726994f62689a7caedbf50fe49c12da06d"
+    },
+    {
+      "id": "attack-024",
+      "group": "attack-024",
+      "label": "attack",
+      "role": "test",
+      "sha256": "42593eb03ec7424949187c87c15d66d928c606c7c4bee8141583819e3e48abf8"
+    },
+    {
+      "id": "attack-031",
+      "group": "attack-031",
+      "label": "attack",
+      "role": "test",
+      "sha256": "a45c04bb2c93a4556aa2e11b6b02b1ec0e51956ddbdd88f6e4d7ce58102d82b3"
+    },
+    {
+      "id": "attack-034",
+      "group": "attack-034",
+      "label": "attack",
+      "role": "test",
+      "sha256": "0f7a9943fd3ad30f8c9d9d9622f84210c5f7c9360fce5976b2fa4e9bbeeb37f9"
+    },
+    {
+      "id": "attack-040",
+      "group": "attack-040",
+      "label": "attack",
+      "role": "test",
+      "sha256": "a7351b0030ba024496dba2013d82eca7344c879da2ca5337eccf4cfb30aebaab"
+    },
+    {
+      "id": "benign-001",
+      "group": "benign-001",
+      "label": "benign",
+      "role": "test",
+      "sha256": "8ee2fffce27f85df883c6c5484871d6c986a0e857774db007554ea27a5218140"
+    },
+    {
+      "id": "benign-008",
+      "group": "benign-008",
+      "label": "benign",
+      "role": "test",
+      "sha256": "127375504f610cbc07da3df8b5decd5ca2e0f45ab970e46f8314c7bbc5fafe07"
+    },
+    {
+      "id": "benign-014",
+      "group": "benign-014",
+      "label": "benign",
+      "role": "test",
+      "sha256": "bb190a24c5d8d27d7452960072d0e46a947e5bbab496955a6dee39fa4fa78901"
+    },
+    {
+      "id": "benign-015",
+      "group": "benign-015",
+      "label": "benign",
+      "role": "test",
+      "sha256": "5ca33eac99cb38a1ff46bc70a10a7265174609bc7bcfae3ee0d99dc2a3bf0753"
+    },
+    {
+      "id": "benign-023",
+      "group": "benign-023",
+      "label": "benign",
+      "role": "test",
+      "sha256": "8c7c15dc78f9c7f1d3e78a4ee8838de9c1a73473bebad43b437839d33c4dbdf7"
+    },
+    {
+      "id": "benign-030",
+      "group": "benign-030",
+      "label": "benign",
+      "role": "test",
+      "sha256": "47ade228de92a87cfaec6b89eb50f1af6fe97e980bfe4e195d6f85d242a52901"
+    }
+  ],
+  "artifact": {
+    "file": "bayes_data.rb",
+    "sha256": "b6ffb4b7180c4025aa4098baef23496f47e88514b1213d13144cae86cb3364fc",
+    "features": 300,
+    "threshold": 3
+  },
+  "final_test": {
+    "caught": 3,
+    "attacks": 6,
+    "flagged": 2,
+    "benign": 6
+  }
+}
