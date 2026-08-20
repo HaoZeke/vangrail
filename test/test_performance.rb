@@ -24,10 +24,10 @@ class TestPerformance < Minitest::Test
 
     report.fetch('profiles').each do |profile|
       assert_equal 2, profile.fetch('samples').size
-      assert profile.fetch('samples').all? { |sample| sample.fetch('latency_ms').nonnegative? }
-      assert profile.fetch('samples').all? { |sample| sample.fetch('allocated_objects').nonnegative? }
-      assert profile.dig('summary', 'latency_ms', 'median').nonnegative?
-      assert profile.dig('summary', 'latency_ms', 'p95').nonnegative?
+      assert(profile.fetch('samples').all? { |sample| sample.fetch('latency_ms') >= 0 })
+      assert(profile.fetch('samples').all? { |sample| sample.fetch('allocated_objects') >= 0 })
+      assert_operator profile.dig('summary', 'latency_ms', 'median'), :>=, 0
+      assert_operator profile.dig('summary', 'latency_ms', 'p95'), :>=, 0
       assert_equal 0, profile.dig('transport', 'endpoint_calls')
       assert_equal 0, profile.dig('transport', 'bytes_transferred')
     end
@@ -56,7 +56,7 @@ class TestPerformance < Minitest::Test
     else
       assert_equal 'unavailable', parity.fetch('status')
       assert_match(/vangrail-native/, parity.fetch('reason'))
-      refute ENV['VANGRAIL_REQUIRE_NATIVE']
+      refute ENV.fetch('VANGRAIL_REQUIRE_NATIVE', nil)
     end
   end
 
@@ -66,13 +66,13 @@ class TestPerformance < Minitest::Test
       command = [
         Gem.ruby, File.expand_path('../script/benchmark_risk.rb', __dir__),
         '--lengths', '64', '--samples', '1', '--iterations', '1', '--warmup', '0',
-        '--buckets', '128', '--no-startup', '--output', path,
+        '--buckets', '128', '--no-startup', '--output', path
       ]
       stdout, stderr, status = Open3.capture3(*command)
 
       assert_predicate status, :success?, stderr
       assert_equal JSON.parse(stdout), JSON.parse(File.read(path))
-      refute File.exist?("#{path}.tmp")
+      refute_path_exists "#{path}.tmp"
     end
   end
 
