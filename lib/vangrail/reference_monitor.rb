@@ -5,6 +5,7 @@ require 'digest'
 require_relative 'audit'
 require_relative 'origin'
 require_relative 'plan'
+require_relative 'result'
 
 module Vangrail
   # Immutable attempt to exercise one tool grant.
@@ -167,7 +168,7 @@ module Vangrail
       @mutex = Mutex.new
     end
 
-    def authorize(call)
+    def authorize(call, risk: nil)
       raise ArgumentError, 'call must be a Call' unless call.is_a?(Call)
 
       @mutex.synchronize do
@@ -176,7 +177,7 @@ module Vangrail
         return audited(preliminary) if preliminary
 
         denials = plan.grants_for(call.tool).map do |grant|
-          denial = grant_denial(call, grant)
+          denial = grant_denial(call, grant, risk)
           next denial if denial
 
           @usage[grant.id] += 1
@@ -284,7 +285,7 @@ module Vangrail
       deny(call, :capability, "request lacks capability #{call.tool}")
     end
 
-    def grant_denial(call, grant)
+    def grant_denial(call, grant, risk)
       return deny(call, :argument_schema, 'argument names do not match the grant') unless schema_matches?(call, grant)
 
       call.fields.each do |name, cell|
@@ -292,7 +293,7 @@ module Vangrail
         return deny(call, reason, "argument #{name} violates its grant") if reason
       end
 
-      policy_denial(call, grant)
+      policy_denial(call, grant, risk)
     end
 
     def schema_matches?(call, grant)
@@ -349,7 +350,7 @@ module Vangrail
       type && value.is_a?(type)
     end
 
-    def policy_denial(call, grant)
+    def policy_denial(call, grant, risk)
       return deny(call, :sink, 'call sink is outside the grant') unless sink_allowed?(call, grant)
       return deny(call, :integrity, 'request integrity is outside the grant') unless integrity_allowed?(call, grant)
       if grant.confirmation_required? && !valid_confirmation?(call)
@@ -358,6 +359,8 @@ module Vangrail
       if grant.transaction_required? && !valid_transaction?(call)
         return deny(call, :transaction, 'call requires a prepared transaction')
       end
+      risk_reason = risk_denial(call, risk)
+      return risk_reason if risk_reason
       if grant.effect != :read && call.idempotency_key.to_s.empty?
         return deny(call, :idempotency, 'side-effecting call requires an idempotency key')
       end
@@ -389,6 +392,15 @@ module Vangrail
     def valid_transaction?(call)
       prepared = @transactions[call.id]
       prepared&.prepared? && prepared.fingerprint == call.fingerprint
+    end
+
+    def risk_denial(call, risk)
+      return nil if risk.nil?
+      return deny(call, :risk_invalid, 'risk restriction has an invalid type') unless risk.is_a?(Result)
+      return deny(call, :risk_blocked, 'risk policy blocked the call') if risk.blocked?
+      return deny(call, :risk_uncertain, 'risk policy could not clear the call') unless risk.certain?
+
+      nil
     end
 
     def deny(call, code, reason)
