@@ -100,14 +100,8 @@ module Vangrail
     # mass by the union bound.
     def bits_interval(fired, confidence:)
       tail = (1 - confidence) / 4.0
-      detection_low = bounds[[:detection_quantile, tail]] ||=
-        Beta.quantile(tail, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
-      detection_high = bounds[[:detection_quantile, 1 - tail]] ||=
-        Beta.quantile(1 - tail, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
-      false_alarm_low = bounds[[:false_alarm_quantile, tail]] ||=
-        Beta.quantile(tail, benign_flagged + 0.5, benign - benign_flagged + 0.5)
-      false_alarm_high = bounds[[:false_alarm_quantile, 1 - tail]] ||=
-        Beta.quantile(1 - tail, benign_flagged + 0.5, benign - benign_flagged + 0.5)
+      detection_low, detection_high = rate_interval(:detection, attacks_caught, attacks, tail)
+      false_alarm_low, false_alarm_high = rate_interval(:false_alarm, benign_flagged, benign, tail)
 
       ratios = if fired
                  [detection_low / false_alarm_high, detection_high / false_alarm_low]
@@ -166,6 +160,15 @@ module Vangrail
     end
 
     private
+
+    def rate_interval(name, hits, total, tail)
+      [rate_quantile(name, hits, total, tail), rate_quantile(name, hits, total, 1 - tail)]
+    end
+
+    def rate_quantile(name, hits, total, probability)
+      bounds[[name, probability]] ||=
+        Beta.quantile(probability, hits + 0.5, total - hits + 0.5)
+    end
 
     def entropy(prior)
       -((prior * Math.log2(prior)) + ((1 - prior) * Math.log2(1 - prior)))
