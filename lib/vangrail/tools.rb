@@ -103,7 +103,7 @@ module Vangrail
         conversation.monitor.prepare_transaction(call, prepared)
       end
     rescue StandardError
-      entry&.transaction&.rollback&.call(payload, conversation) if defined?(payload)
+      entry.transaction.rollback.call(payload, conversation) if defined?(payload) && entry&.transaction
       raise
     end
 

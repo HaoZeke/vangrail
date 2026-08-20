@@ -19,6 +19,34 @@ class TestReferenceMonitorIntegration < Minitest::Test
     )
   end
 
+  def transactional_tools(events)
+    Vangrail::Tools.new.tap do |tools|
+      tools.register_transactional(
+        :send_email,
+        prepare: lambda do |arguments, _conversation|
+          events << [:prepare, arguments]
+          arguments
+        end,
+        commit: lambda do |prepared, _conversation|
+          events << [:commit, prepared]
+          'sent'
+        end,
+        rollback: ->(prepared, _conversation) { events << [:rollback, prepared] },
+      )
+    end
+  end
+
+  def send_email_call(plan, arguments, transaction: true, key: 'mail-7')
+    Vangrail::Call.new(
+      tool: :send_email,
+      request: Vangrail::Cell.user('Send the status message.', capabilities: :send_email),
+      arguments: arguments,
+      conversation_id: plan.id,
+      transaction: transaction,
+      idempotency_key: key,
+    )
+  end
+
   def test_an_explicit_plan_routes_calls_through_the_monitor
     received = []
     tools = Vangrail::Tools.new.tap do |registry|
@@ -111,40 +139,17 @@ class TestReferenceMonitorIntegration < Minitest::Test
 
   def test_transactional_tools_prepare_authorize_and_commit
     events = []
-    tools = Vangrail::Tools.new
-    tools.register_transactional(
-      :send_email,
-      prepare: lambda do |arguments, _conversation|
-        events << [:prepare, arguments]
-        arguments
-      end,
-      commit: lambda do |prepared, _conversation|
-        events << [:commit, prepared]
-        'sent'
-      end,
-      rollback: ->(prepared, _conversation) { events << [:rollback, prepared] },
-    )
+    tools = transactional_tools(events)
     plan = Vangrail::Plan.new(id: 'conversation-7')
     plan.write(:send_email, arguments: { body: :data }, transaction: true)
     conversation = Vangrail::Conversation.new(engine, plan: plan, tools: tools)
     conversation.ask('Send the status message.')
-    build_call = lambda do |arguments, transaction: true, key: 'mail-7'|
-      Vangrail::Call.new(
-        tool: :send_email,
-        request: Vangrail::Cell.user('Send the status message.', capabilities: :send_email),
-        arguments: arguments,
-        conversation_id: plan.id,
-        transaction: transaction,
-        idempotency_key: key,
-      )
-    end
-
-    allowed = conversation.invoke(build_call.call({ body: Vangrail::Cell.data('status') }))
+    allowed = conversation.invoke(send_email_call(plan, { body: Vangrail::Cell.data('status') }))
     bad_schema = conversation.invoke(
-      build_call.call({ body: 'status', extra: 'delete all' }, key: 'mail-8'),
+      send_email_call(plan, { body: 'status', extra: 'delete all' }, key: 'mail-8'),
     )
     unprepared = conversation.invoke(
-      build_call.call({ body: 'status' }, transaction: false, key: 'mail-9'),
+      send_email_call(plan, { body: 'status' }, transaction: false, key: 'mail-9'),
     )
 
     assert_predicate allowed, :allowed?
