@@ -2,11 +2,14 @@
 # frozen_string_literal: true
 
 require 'digest'
+require 'fileutils'
 require 'json'
 require 'open3'
 require 'optparse'
+require 'tempfile'
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require_relative '../lib/vangrail'
+require_relative 'performance_report_table'
 
 module Vangrail
   # Reproducible latency, allocation, memory, and parity measurements for the
@@ -469,34 +472,100 @@ module Vangrail
   end
 end
 
-if $PROGRAM_NAME == __FILE__
-  options = {
-    lengths: Vangrail::RiskBenchmark::DEFAULT_LENGTHS,
-    samples: 9,
-    iterations: 20,
-    warmup: 5,
-    buckets: Vangrail::LinearModel::BUCKETS,
-    startup: true,
-  }
-  output = nil
-  OptionParser.new do |parser|
-    parser.banner = 'Usage: ruby script/benchmark_risk.rb [options]'
-    parser.on('--lengths LIST', 'comma-separated character lengths') do |value|
-      options[:lengths] = value.split(',').map { |item| Integer(item, 10) }
+module Vangrail
+  # Command-line materialization of raw and rendered performance reports.
+  class RiskBenchmarkCli
+    def self.run(argv, stdout: $stdout, stderr: $stderr)
+      new(stdout: stdout, stderr: stderr).run(argv)
     end
-    parser.on('--samples N', Integer) { |value| options[:samples] = value }
-    parser.on('--iterations N', Integer) { |value| options[:iterations] = value }
-    parser.on('--warmup N', Integer) { |value| options[:warmup] = value }
-    parser.on('--buckets N', Integer) { |value| options[:buckets] = value }
-    parser.on('--[no-]startup', 'measure library startup in a subprocess') { |value| options[:startup] = value }
-    parser.on('--output PATH', 'atomically write the JSON report') { |value| output = value }
-  end.parse!
 
-  encoded = JSON.pretty_generate(Vangrail::RiskBenchmark.new(**options).run) << "\n"
-  if output
-    temporary = "#{output}.tmp"
-    File.write(temporary, encoded)
-    File.rename(temporary, output)
+    def initialize(stdout:, stderr:)
+      @stdout = stdout
+      @stderr = stderr
+    end
+
+    def run(argv)
+      options, paths = parse_options(argv)
+      report = RiskBenchmark.new(**options).run
+      encoded = JSON.pretty_generate(report) << "\n"
+      outputs = {}
+      outputs[paths[:output]] = encoded if paths[:output]
+      outputs[paths[:table]] = PerformanceReportTable.render(report) if paths[:table]
+      atomic_write(outputs) unless outputs.empty?
+      @stdout.print(encoded)
+      0
+    rescue OptionParser::ParseError, JSON::GeneratorError, ArgumentError,
+           Errno::ENOENT, Errno::EACCES, IOError => e
+      @stderr.puts("benchmark_risk: #{e.message}")
+      1
+    end
+
+    private
+
+    def parse_options(argv)
+      values = {
+        lengths: RiskBenchmark::DEFAULT_LENGTHS,
+        samples: 9,
+        iterations: 20,
+        warmup: 5,
+        buckets: LinearModel::BUCKETS,
+        startup: true,
+      }
+      paths = {}
+      option_parser(values, paths).parse!(argv)
+      paths.transform_values! { |path| File.expand_path(path) }
+      if paths.values.uniq.size != paths.size
+        raise OptionParser::InvalidArgument, 'output paths must be distinct'
+      end
+
+      [values.freeze, paths.freeze]
+    end
+
+    def option_parser(values, paths)
+      OptionParser.new do |parser|
+        parser.banner = 'Usage: ruby script/benchmark_risk.rb [options]'
+        parser.on('--lengths LIST', 'comma-separated character lengths') do |value|
+          values[:lengths] = value.split(',').map { |item| Integer(item, 10) }
+        end
+        parser.on('--samples N', Integer) { |value| values[:samples] = value }
+        parser.on('--iterations N', Integer) { |value| values[:iterations] = value }
+        parser.on('--warmup N', Integer) { |value| values[:warmup] = value }
+        parser.on('--buckets N', Integer) { |value| values[:buckets] = value }
+        parser.on('--[no-]startup', 'measure library startup in a subprocess') { |value| values[:startup] = value }
+        parser.on('--output PATH', 'atomically write the JSON report') { |value| paths[:output] = value }
+        parser.on('--table PATH', 'atomically write the Markdown table') { |value| paths[:table] = value }
+      end
+    end
+
+    def atomic_write(payloads)
+      payloads.each_key do |path|
+        raise IOError, "output already exists: #{path}" if File.exist?(path)
+        raise IOError, "output directory does not exist: #{File.dirname(path)}" unless Dir.exist?(File.dirname(path))
+      end
+
+      staged = payloads.to_h { |path, bytes| [path, stage(path, bytes)] }
+      published = []
+      staged.each do |path, temporary|
+        temporary.close
+        File.rename(temporary.path, path)
+        published << path
+      end
+    rescue StandardError
+      published&.each { |path| FileUtils.rm_f(path) }
+      raise
+    ensure
+      staged&.each_value(&:close!)
+    end
+
+    def stage(path, bytes)
+      temporary = Tempfile.new([".#{File.basename(path)}", '.tmp'], File.dirname(path))
+      temporary.binmode
+      temporary.write(bytes)
+      temporary.flush
+      temporary.fsync
+      temporary
+    end
   end
-  print encoded
 end
+
+exit Vangrail::RiskBenchmarkCli.run(ARGV) if $PROGRAM_NAME == __FILE__
