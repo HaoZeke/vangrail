@@ -30,6 +30,11 @@
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'vangrail'
 require_relative 'handbook_corpus'
+require_relative 'bayes_training'
+
+module Vangrail
+  module BayesTraining
+    module_function
 
 OUT = File.expand_path('../lib/vangrail/bayes_data.rb', __dir__)
 
@@ -40,7 +45,7 @@ FEATURES = 300
 # Dirichlet pseudocount per feature per class.
 ALPHA = 1.0
 
-FOLDS = 5
+SPLIT_SEED = 'bayes-v1'
 
 # Clause-level labels, and the reason is the same one the containment rail ran
 # into. An attack document here is ordinary documentation with one injected
@@ -58,15 +63,31 @@ end
 
 # Documents built the way the threat arrives, from injections the fold under
 # test never trained on.
-def attack_documents(injections)
+def attack_document(injection, index)
   prose = HandbookCorpus::ENGLISH_BENIGN
-  injections.each_with_index.map do |injection, i|
-    "#{prose[i % prose.size]}\n\n#{injection}\n\nSee the reference pages for the full table."
-  end
+  "#{prose[index % prose.size]}\n\n#{injection}\n\nSee the reference pages for the full table."
+end
+
+def attack_documents(injections)
+  injections.each_with_index.map { |injection, index| attack_document(injection, index) }
 end
 
 def benign_documents
   HandbookCorpus.benign_texts
+end
+
+def training_cases
+  attacks = attack_clauses.each_with_index.map do |text, index|
+    id = format('attack-%03d', index)
+    { id: id, group: id, label: :attack, training_texts: [text],
+      document: attack_document(text, index) }
+  end
+  benign = benign_documents.each_with_index.map do |document, index|
+    id = format('benign-%03d', index)
+    { id: id, group: id, label: :benign,
+      training_texts: Vangrail::NLP.clauses(document).uniq, document: document }
+  end
+  attacks + benign
 end
 
 # Words and adjacent word pairs, stemmed through the same function the lexicon
@@ -182,55 +203,50 @@ def isotonic(bins, n_attack, n_benign)
   end
 end
 
-def run_trainer
-  attack_texts = attack_clauses
-  benign_texts = benign_clauses
-  warn "attack clauses: #{attack_texts.size}, benign clauses: #{benign_texts.size}"
-
-  attack_folds = folds(attack_texts, FOLDS)
-  benign_folds = folds(benign_texts, FOLDS)
-  held_out = { attack: [], benign: [] }
-
-  FOLDS.times do |i|
-    weights = train(attack_folds.reject.with_index { |_, j| j == i }.flatten,
-                    benign_folds.reject.with_index { |_, j| j == i }.flatten)
-    held_out[:attack].concat(attack_documents(attack_folds[i]).map { |text| score(text, weights) })
-    held_out[:benign].concat(benign_documents.map { |text| score(text, weights) })
+def calibration_bins(predictions)
+  unless predictions.all? { |row| row[:role] == :calibration }
+    raise ArgumentError, 'calibration requires calibration-role predictions'
   end
-
-  sorted_benign = held_out[:benign].sort
-  threshold = sorted_benign.last.ceil
-  caught = held_out[:attack].count { |value| value > threshold }
-  flagged = held_out[:benign].count { |value| value > threshold }
-
-  puts format('cross-validated over %<folds>d folds, threshold %<threshold>+d bits', folds: FOLDS,
-                                                                                     threshold: threshold)
-  puts format('  attacks above threshold: %<caught>d/%<total>d', caught: caught, total: held_out[:attack].size)
-  puts format('  benign above threshold:  %<flagged>d/%<total>d', flagged: flagged,
-                                                                        total: held_out[:benign].size)
-  puts format('  attack scores:  median %<median>+.1f, min %<min>+.1f',
-              median: held_out[:attack].sort[held_out[:attack].size / 2], min: held_out[:attack].min)
-  puts format('  benign scores:  median %<median>+.1f, max %<max>+.1f',
-              median: sorted_benign[sorted_benign.size / 2], max: sorted_benign.last)
 
   bins = EDGES.each_index.map { |i| { attacks: 0, benign: 0, floor: EDGES[i] } }
-  held_out[:attack].each { |value| bins[bin_for(value)][:attacks] += 1 }
-  held_out[:benign].each { |value| bins[bin_for(value)][:benign] += 1 }
-  n_attack = held_out[:attack].size
-  n_benign = held_out[:benign].size
-  raw_bins = bins.size
+  predictions.each do |row|
+    key = row[:label] == :attack ? :attacks : :benign
+    bins[bin_for(row.fetch(:score))][key] += 1
+  end
+  n_attack = predictions.count { |row| row[:label] == :attack }
+  n_benign = predictions.count { |row| row[:label] == :benign }
   bins = isotonic(bins, n_attack, n_benign)
+  bins.each { |bin| bin[:bits] = bits_for(bin, n_attack, n_benign).round(3) }
+end
 
-  puts
-  puts "calibration on held-out scores (#{raw_bins} bands, #{bins.size} after pooling violators):"
+def generate(output: OUT, seed: SPLIT_SEED, io: $stdout, err: $stderr)
+  partitions = grouped_partition(training_cases, seed: seed)
+  train_rows = partitions.fetch(:train)
+  attack_texts = train_rows.select { |row| row[:label] == :attack }
+                           .flat_map { |row| row.fetch(:training_texts) }.uniq
+  benign_texts = train_rows.select { |row| row[:label] == :benign }
+                           .flat_map { |row| row.fetch(:training_texts) }.uniq
+  weights = train(attack_texts, benign_texts)
+  predictions = %i[calibration threshold test].to_h do |role|
+    [role, predict(partitions, role: role) { |row| score(row.fetch(:document), weights) }]
+  end
+  threshold = select_threshold(predictions.fetch(:threshold))
+  measured = performance(predictions.fetch(:test), threshold: threshold)
+  bins = calibration_bins(predictions.fetch(:calibration))
+
+  err.puts "training clauses: #{attack_texts.size} attack, #{benign_texts.size} benign"
+  io.puts format('disjoint split %<seed>s, threshold %<threshold>+d bits', seed: seed, threshold: threshold)
+  io.puts format('  final-test attacks above threshold: %<caught>d/%<attacks>d', **measured)
+  io.puts format('  final-test benign above threshold:  %<flagged>d/%<benign>d', **measured)
+
+  io.puts
+  io.puts "calibration-role scores (#{EDGES.size} bands, #{bins.size} after pooling violators):"
   bins.each_with_index do |bin, i|
     ceiling = bins[i + 1] ? bins[i + 1][:floor] : Float::INFINITY
-    bin[:bits] = bits_for(bin, n_attack, n_benign).round(3)
-    puts format('  %6.1f to %-6.1f  attacks %3d  benign %3d  -> %+.2f bits (95%% defensible)',
-                bin[:floor], ceiling, bin[:attacks], bin[:benign], bin[:bits])
+    io.puts format('  %6.1f to %-6.1f  attacks %3d  benign %3d  -> %+.2f bits (95%% joint)',
+                   bin[:floor], ceiling, bin[:attacks], bin[:benign], bin[:bits])
   end
 
-  weights = train(attack_texts, benign_texts)
   calibration_lines = bins.map do |bin|
     floor = bin[:floor].finite? ? bin[:floor] : '-Float::INFINITY'
     "        [#{floor}, #{bin[:bits]}], # #{bin[:attacks]} attacks, #{bin[:benign]} benign"
@@ -238,8 +254,12 @@ def run_trainer
   entries = weights.sort_by { |_, weight| -weight }.map do |feature, weight|
     "        #{feature.inspect} => #{weight}"
   end
+  role_counts = partitions.transform_values do |rows|
+    { attack: rows.count { |row| row[:label] == :attack },
+      benign: rows.count { |row| row[:label] == :benign } }
+  end
 
-  File.write(OUT, <<~RUBY)
+  File.write(output, <<~RUBY)
     # frozen_string_literal: true
 
     module Vangrail
@@ -249,30 +269,32 @@ def run_trainer
       # corpus changes. The rail that reads this lives in rails/bayes.rb.
       #
       # #{FEATURES} features selected by mutual information from #{attack_texts.size}
-      # attack and #{benign_texts.size} benign
-      # clauses, counted as word stems and adjacent stem pairs, smoothed with a
-      # Dirichlet prior of #{ALPHA}. A weight is log2 of how much likelier the feature is
-      # in an attack than in ordinary documentation.
+      # attack and #{benign_texts.size} benign training clauses. Cases are
+      # source-grouped into disjoint train, calibration, threshold, and final-test
+      # roles under split seed #{seed.inspect}. Counts use a Dirichlet prior of
+      # #{ALPHA}; weights are log2 class likelihood ratios.
       #
-      # Cross-validated over #{FOLDS} folds at a threshold of #{threshold} bits:
-      # #{caught} of #{n_attack} attacks above it, #{flagged} of #{n_benign}
-      # benign documents above it. That number is the held-out one; the training
-      # score is not reported because it is not evidence of anything.
+      # The threshold comes only from the threshold role. Final-test performance
+      # is #{measured[:caught]} of #{measured[:attacks]} attacks and
+      # #{measured[:flagged]} of #{measured[:benign]} benign documents above it.
       module BayesData
+        SPLIT_SEED = #{seed.inspect}
+        ROLE_COUNTS = #{role_counts.inspect}.freeze
         THRESHOLD = #{threshold}
 
-        # Score band => bits, fitted on held-out scores and read at the 95% bound.
+        # Score band => bits, fitted only on calibration-role scores and read at
+        # the simultaneous 95% likelihood-ratio bound.
         # A raw naive Bayes score is not a likelihood ratio; this is what turns it
         # into one the corpus can defend.
         CALIBRATION = [
     #{calibration_lines.join("\n")}
         ].freeze
 
-        # Held-out performance at THRESHOLD, for the evidence table.
-        CAUGHT = #{caught}
-        ATTACKS = #{n_attack}
-        FLAGGED = #{flagged}
-        BENIGN = #{n_benign}
+        # Final-test performance at THRESHOLD, for the evidence table.
+        CAUGHT = #{measured[:caught]}
+        ATTACKS = #{measured[:attacks]}
+        FLAGGED = #{measured[:flagged]}
+        BENIGN = #{measured[:benign]}
 
         WEIGHTS = {
     #{entries.join(",\n")}
@@ -281,7 +303,12 @@ def run_trainer
     end
   RUBY
 
-  puts "wrote #{OUT}"
+  io.puts "wrote #{output}"
+  { partitions: partitions, predictions: predictions, performance: measured,
+    calibration: bins, threshold: threshold, weights: weights }
 end
 
-run_trainer if $PROGRAM_NAME == __FILE__
+  end
+end
+
+Vangrail::BayesTraining.generate if $PROGRAM_NAME == __FILE__
