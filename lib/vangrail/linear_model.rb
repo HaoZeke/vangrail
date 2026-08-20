@@ -104,7 +104,8 @@ module Vangrail
 
     def self.prepared(text)
       body = text.to_s[0, LIMIT]
-      [body, NLP.words(body).map { |word| NLP.stem(word) }, NLP.normalize(body)]
+      normalised = NLP.normalize(body)
+      [body, normalised.split.map { |word| NLP.stem(word) }, normalised]
     end
 
     # The log-odds the model assigns, positive towards attack. Stemming and
