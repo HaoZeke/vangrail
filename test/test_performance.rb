@@ -84,15 +84,19 @@ class TestPerformance < Minitest::Test
       'model_json' => report.dig('artifacts', 'model_json_sha256'),
     )
 
-    assert_equal %w[benchmark_risk core_library linear_model model_json native_lock native_source performance_report_table],
-                 digests.keys.sort
+    expected = %w[
+      benchmark_risk core_library linear_model model_json native_lock native_source performance_report_table
+    ]
+    assert_equal expected, digests.keys.sort
     assert(digests.values.all? { |digest| digest.match?(/\A[0-9a-f]{64}\z/) })
   end
 
   def test_report_table_regenerates_cost_scaling_and_artifact_rows
     table = Vangrail::PerformanceReportTable.render(report)
 
-    assert_includes table, '| kernel | implementation | characters | median ms | p95 ms | median allocations | p95 RSS KiB |'
+    header = '| kernel | implementation | characters | median ms | p95 ms | ' \
+             'median allocations | p95 RSS KiB |'
+    assert_includes table, header
     assert_includes table, '| scaling dimension | implementation | work growth | latency growth | normalized growth |'
     assert_includes table, '| artifact | bytes | SHA-256 |'
     assert_includes table, '| source | SHA-256 |'
