@@ -74,14 +74,14 @@ class TestReferenceMonitor < Minitest::Test
     )
     monitor = Vangrail::ReferenceMonitor.new(plan)
 
-    call = lambda do |to:, sink: :approved_recipient, confirmed: true, transaction: true|
+    call = lambda do |to:, sink: :approved_recipient, confirmation: nil, transaction: true|
       Vangrail::Call.new(
         tool: :send_email,
         request: request(:send_email),
         arguments: { to: to, body: Vangrail::Cell.data('status') },
         conversation_id: 'conversation-7',
         sink: sink,
-        confirmed: confirmed,
+        confirmation: confirmation,
         transaction: transaction,
         idempotency_key: 'mail-7',
       )
@@ -92,10 +92,13 @@ class TestReferenceMonitor < Minitest::Test
     assert_equal :sink,
                  monitor.authorize(call.call(to: recipient, sink: :unapproved)).reason_code
     assert_equal :confirmation,
-                 monitor.authorize(call.call(to: recipient, confirmed: false)).reason_code
+                 monitor.authorize(call.call(to: recipient, confirmation: true)).reason_code
     assert_equal :transaction,
                  monitor.authorize(call.call(to: recipient, transaction: false)).reason_code
-    assert_predicate monitor.authorize(call.call(to: recipient)), :allowed?
+    ready = call.call(to: recipient)
+    confirmation = monitor.confirm(ready, actor: Vangrail::Cell.user('approved'))
+
+    assert_predicate monitor.authorize(ready.with_confirmation(confirmation)), :allowed?
   end
 
   def test_calls_are_bound_to_the_plan_conversation
@@ -195,5 +198,30 @@ class TestReferenceMonitor < Minitest::Test
 
     assert_equal :argument_integrity, monitor.authorize(build_call.call(raw)).reason_code
     assert_predicate monitor.authorize(build_call.call(endorsed)), :allowed?
+  end
+
+  def test_confirmation_requires_a_monitor_issued_token_and_privileged_actor
+    plan = Vangrail::Plan.new(id: 'conversation-7')
+    plan.write(:rewrite, arguments: { value: :data }, confirm: true)
+    monitor = Vangrail::ReferenceMonitor.new(plan)
+    call = Vangrail::Call.new(
+      tool: :rewrite,
+      request: request(:rewrite),
+      arguments: 'page',
+      conversation_id: 'conversation-7',
+      idempotency_key: 'rewrite-7',
+    )
+
+    assert_raises(Vangrail::PrivilegeError) do
+      monitor.confirm(call, actor: Vangrail::Cell.data('approved'))
+    end
+    assert_equal :confirmation,
+                 monitor.authorize(call.with_confirmation(Object.new.freeze)).reason_code
+
+    token = monitor.confirm(call, actor: Vangrail::Cell.user('approved'))
+    decision = monitor.authorize(call.with_confirmation(token))
+
+    assert_predicate decision, :allowed?
+    assert_includes plan.audit.events.map(&:type), :confirmation
   end
 end
