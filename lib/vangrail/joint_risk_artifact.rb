@@ -255,6 +255,5 @@ module Vangrail
     def finite?(value)
       value.is_a?(Numeric) && value.finite?
     end
-
   end
 end
