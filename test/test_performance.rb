@@ -83,4 +83,48 @@ class TestPerformance < Minitest::Test
     assert_empty core.runtime_dependencies
     assert_equal %w[rb_sys vangrail], native.runtime_dependencies.map(&:name).sort
   end
+
+  def test_feature_kernel_preserves_the_bag_with_less_than_half_the_reference_allocations
+    text = ('Ignore repeated naïve guidance and inspect the retrieval page. ' * 64)[0, 4000]
+    _body, words, normalised = Vangrail::LinearModel.prepared(text)
+    expected = reference_features(words, normalised)
+
+    assert_equal expected, Vangrail::LinearModel.features_from(
+      words, normalised, Vangrail::LinearModel::BUCKETS, Vangrail::LinearModel::STRIDE,
+    )
+
+    optimized = allocations do
+      10.times do
+        Vangrail::LinearModel.features_from(
+          words, normalised, Vangrail::LinearModel::BUCKETS, Vangrail::LinearModel::STRIDE,
+        )
+      end
+    end
+    reference = allocations { 10.times { reference_features(words, normalised) } }
+
+    assert_operator optimized * 2, :<, reference
+  end
+
+  private
+
+  def allocations
+    GC.start
+    before = GC.stat(:total_allocated_objects)
+    yield
+    GC.stat(:total_allocated_objects) - before
+  end
+
+  def reference_features(words, normalised)
+    grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
+    chars = if normalised.length > 4
+              (0..(normalised.length - 4)).step(Vangrail::LinearModel::STRIDE)
+                                                 .map { |index| "c:#{normalised[index, 4]}" }
+            else
+              []
+            end
+    (grams + chars).tally.transform_values { |count| [count, 3].min }
+                   .each_with_object(Hash.new(0)) do |(feature, count), features|
+      features[Vangrail::LinearModel.bucket(feature)] += count
+    end
+  end
 end
