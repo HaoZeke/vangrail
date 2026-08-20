@@ -228,12 +228,16 @@ module Vangrail
              !calibration['method'].to_s.empty?
         raise ProtocolError, 'calibration identity and method are required'
       end
+
       validate_calibration!(calibration)
     end
 
     def validate_calibration!(calibration)
       return if calibration['method'] == 'identity'
-      raise ProtocolError, "unknown calibration method #{calibration['method'].inspect}" unless calibration['method'] == 'platt'
+      unless calibration['method'] == 'platt'
+        raise ProtocolError,
+              "unknown calibration method #{calibration['method'].inspect}"
+      end
 
       validate_finite!('calibration intercept', calibration['intercept'])
       validate_finite!('calibration slope', calibration['slope'])
@@ -241,7 +245,7 @@ module Vangrail
 
       covariance = calibration['covariance_diagonal']
       validate_numeric_table!('calibration covariance', covariance,
-                               allowed: %w[intercept slope], exact: true, nonnegative: true)
+                              allowed: %w[intercept slope], exact: true, nonnegative: true)
     end
 
     def validate_provenance!

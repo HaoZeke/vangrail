@@ -8,7 +8,7 @@ class TestJointRiskTraining < Minitest::Test
 
   def cases
     ROLES.flat_map do |role, count|
-      count.times.map do |index|
+      Array.new(count) do |index|
         attack = index >= count / 2
         direction = attack ? 1.0 : -1.0
         {

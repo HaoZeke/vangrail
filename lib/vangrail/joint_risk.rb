@@ -199,7 +199,7 @@ module Vangrail
 
       slope = calibration.fetch('slope')
       covariance = calibration.fetch('covariance_diagonal')
-      calibrated_variance = (slope**2 * variance) + covariance.fetch('intercept') +
+      calibrated_variance = ((slope**2) * variance) + covariance.fetch('intercept') +
                             ((eta**2) * covariance.fetch('slope'))
       [calibration.fetch('intercept') + (slope * eta), calibrated_variance]
     end

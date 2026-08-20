@@ -23,7 +23,7 @@ module Vangrail
       context_terms = context_terms(train)
       terms = ['intercept'] + feature_schema + interaction_names + context_terms.values.flatten
       parameters, covariance = fit_logistic(train, terms, interaction_names,
-                                             context_terms, iterations, l2)
+                                            context_terms, iterations, l2)
       calibration_data = fit_calibration(calibration, parameters, interaction_names,
                                          context_terms, iterations, l2)
       prevalence = train.count { |row| row[:label] == :attack }.fdiv(train.size)
@@ -185,7 +185,9 @@ module Vangrail
         'score_ranges' => score_ranges(support_rows, features),
         'supported' => CONTEXTS.to_h { |name| ["#{name}s", support_rows.map { |row| row[name] }.uniq.sort] },
         'calibration' => calibration_data,
-        'training_manifest_sha256' => Digest::SHA256.hexdigest(canonical(rows - rows.select { |row| row[:role] == :test })),
+        'training_manifest_sha256' => Digest::SHA256.hexdigest(canonical(rows - rows.select do |row|
+          row[:role] == :test
+        end)),
       }
     end
 
@@ -219,7 +221,7 @@ module Vangrail
     def score_ranges(rows, features)
       features.to_h do |feature|
         values = rows.map { |row| row[:scores].fetch(feature) }
-        [feature, [values.min, values.max]]
+        [feature, values.minmax]
       end
     end
 
