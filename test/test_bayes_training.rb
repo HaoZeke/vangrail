@@ -80,4 +80,17 @@ class TestBayesTraining < Minitest::Test
 
     assert_equal 4, Vangrail::BayesTraining.select_threshold(predictions)
   end
+
+  def test_performance_denominators_count_final_test_predictions_once
+    predictions = [
+      { id: 'attack-a', label: :attack, role: :test, score: 5.0 },
+      { id: 'attack-b', label: :attack, role: :test, score: 1.0 },
+      { id: 'benign-a', label: :benign, role: :test, score: 4.0 },
+      { id: 'benign-b', label: :benign, role: :test, score: 0.0 },
+    ]
+
+    performance = Vangrail::BayesTraining.performance(predictions, threshold: 3)
+
+    assert_equal({ caught: 1, attacks: 2, flagged: 1, benign: 2 }, performance)
+  end
 end
