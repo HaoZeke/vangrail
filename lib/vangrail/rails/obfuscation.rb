@@ -182,32 +182,16 @@ module Vangrail
         modified = nil
         uncertain = nil
         candidates.each do |name, decoded|
-          viewed = decoded
-          variant_modified = nil
-          extra = ["encoded:#{name}"]
-          rails.each do |rail|
-            result = rail.call(viewed, context)
-            if result.blocked?
-              return [block(categories: (result.categories || []) + extra,
-                            reason: "#{result.reason} (hidden with #{name})"), nil]
-            end
-            if result.modified?
-              viewed = result.content.to_s
-              variant_modified = [result, extra, name]
-              uncertain ||= result unless result.certain?
-            elsif !result.certain?
-              uncertain ||= result
-            end
-          end
+          objection, viewed, variant_modified, undecided = inspect_variant(name, decoded, context)
+          return [objection, nil] if objection
+
+          uncertain ||= undecided
           next if variant_modified.nil? || modified
 
           rewritten = rewrite_for(published, name, decoded, viewed)
-          # A rewrite that cannot be put back on the page is not a rewrite. The
-          # rail used to report `modified` and hand back the text unchanged, so a
-          # caller reading `content_or` forwarded a credential while the record
-          # beside it said the credential had been removed. Refusing is the only
-          # honest answer: the sensitive text is there, in a form this rail cannot
-          # neutralise, and passing it on is the one thing that must not happen.
+          # A rewrite that cannot be put back on the page is not a rewrite.
+          # Refusal keeps sensitive text from being forwarded under a record that
+          # says the text was neutralised.
           if rewritten.nil?
             result, extra, = variant_modified
             return [block(categories: (result.categories || []) + extra + ['unrewritable'],
@@ -226,6 +210,29 @@ module Vangrail
         end
 
         [nil, uncertain]
+      end
+
+      def inspect_variant(name, decoded, context)
+        viewed = decoded
+        modified = nil
+        uncertain = nil
+        extra = ["encoded:#{name}"]
+        rails.each do |rail|
+          result = rail.call(viewed, context)
+          if result.blocked?
+            objection = block(categories: (result.categories || []) + extra,
+                              reason: "#{result.reason} (hidden with #{name})")
+            return [objection, viewed, modified, uncertain]
+          end
+          if result.modified?
+            viewed = result.content.to_s
+            modified = [result, extra, name]
+            uncertain ||= result unless result.certain?
+          elsif !result.certain?
+            uncertain ||= result
+          end
+        end
+        [nil, viewed, modified, uncertain]
       end
 
       # What the reader is told. For a carrier the rail did not edit the visible
@@ -346,6 +353,7 @@ module Vangrail
       # somebody looks at and a page nobody does. `kb/` is scraped, and a page
       # that smuggled an instruction once will do it again.
       TAGS = /[\u{E0000}-\u{E007F}]{4,}/
+      private_constant :TAGS
 
       def decode_tags(body)
         decode_runs(body, TAGS) { |c| c.ord - 0xE0000 }
@@ -366,6 +374,7 @@ module Vangrail
       # from 40000 keys. The floor would have been a probabilistic argument, since
       # an eleven-byte HMAC is printable by chance about one run in two thousand.
       SELECTORS = /[\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]{4,}/
+      private_constant :SELECTORS
 
       def decode_selectors(body)
         decode_runs(body, SELECTORS) do |c|
@@ -394,10 +403,12 @@ module Vangrail
       # named a character class. A prefix byte is the attacker's cheapest move and
       # it must not be the one that works.
       UNREADABLE = "\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F"
+      private_constant :UNREADABLE
 
       # At least this many readable characters. Below it a decode is noise, and a
       # rail reading four characters reports on noise.
       MIN_PAYLOAD = 8
+      private_constant :MIN_PAYLOAD
 
       def readable_bytes(bytes)
         text = bytes.pack('C*').force_encoding(Encoding::UTF_8)

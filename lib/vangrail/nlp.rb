@@ -332,6 +332,11 @@ module Vangrail
       key = languages.size == 1 ? languages.first : languages.uniq.sort_by(&:to_s)
       PHRASE_LEXICONS[key] || build_phrases(languages)
     end
+  end
+
+  # Language identification and concept-stream operations.
+  module NLP
+    module_function
 
     # Function words, which is how a language is identified cheaply.
     #

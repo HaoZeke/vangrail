@@ -30,17 +30,19 @@ module Vangrail
       return 0.0 if x <= 0
       return 1.0 if x >= 1
 
-      front = Math.exp(Math.lgamma(a + b).first - Math.lgamma(a).first - Math.lgamma(b).first +
-                       (a * Math.log(x)) + (b * Math.log(1 - x)))
+      front = front_factor(x, a, b)
       # The continued fraction converges quickly on one side of the mode and
       # slowly on the other, so the far side is computed from the symmetry.
       if x < (a + 1) / (a + b + 2)
         front * continued_fraction(x, a, b) / a
       else
-        1 - (Math.exp(Math.lgamma(a + b).first - Math.lgamma(a).first - Math.lgamma(b).first +
-                      (b * Math.log(1 - x)) + (a * Math.log(x))) *
-             continued_fraction(1 - x, b, a) / b)
+        1 - (front * continued_fraction(1 - x, b, a) / b)
       end
+    end
+
+    def front_factor(x, a, b)
+      Math.exp(Math.lgamma(a + b).first - Math.lgamma(a).first - Math.lgamma(b).first +
+               (a * Math.log(x)) + (b * Math.log(1 - x)))
     end
 
     # The value below which a Beta(a, b) sits with probability `p`.
@@ -79,24 +81,24 @@ module Vangrail
       (1..ITERATIONS).each do |m|
         m2 = 2 * m
         numerator = m * (b - m) * x / ((qam + m2) * (a + m2))
-        d = 1 + (numerator * d)
-        d = TINY if d.abs < TINY
-        c = 1 + (numerator / c)
-        c = TINY if c.abs < TINY
-        d = 1 / d
-        h *= d * c
+        c, d, step = fraction_step(numerator, c, d)
+        h *= step
 
         numerator = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
-        d = 1 + (numerator * d)
-        d = TINY if d.abs < TINY
-        c = 1 + (numerator / c)
-        c = TINY if c.abs < TINY
-        d = 1 / d
-        step = d * c
+        c, d, step = fraction_step(numerator, c, d)
         h *= step
         break if (step - 1).abs < EPSILON
       end
       h
+    end
+
+    def fraction_step(numerator, c, d)
+      d = 1 + (numerator * d)
+      d = TINY if d.abs < TINY
+      c = 1 + (numerator / c)
+      c = TINY if c.abs < TINY
+      d = 1 / d
+      [c, d, d * c]
     end
   end
 end

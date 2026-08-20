@@ -134,10 +134,7 @@ module Vangrail
           # whoever reads the record needs both facts, the rewriting rail's
           # categories included: a credential redacted on the way to a refusal is
           # the kind of thing an incident review is looking for.
-          return blocked if rewrites.empty?
-
-          return blocked.with_rewrites(rewrites,
-                                       categories: (blocked.categories + rewrite_categories).uniq)
+          return rewritten_block(blocked, rewrites, rewrite_categories)
         end
 
         if result.modified?
@@ -168,6 +165,12 @@ module Vangrail
 
       finish(side, current, modified_by, uncertain || unbuilt,
              rewrites: rewrites, categories: rewrite_categories.uniq)
+    end
+
+    def rewritten_block(blocked, rewrites, categories)
+      return blocked if rewrites.empty?
+
+      blocked.with_rewrites(rewrites, categories: (blocked.categories + categories).uniq)
     end
 
     # The reported rail is the last one that rewrote the text, and the chain and

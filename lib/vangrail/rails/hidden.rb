@@ -93,20 +93,9 @@ module Vangrail
               span = captured_span(Regexp.last_match)
               next full if span.empty?
 
-              current = span
-              rails.each do |rail|
-                result = rail.call(current, context)
-                extra = ["hidden:#{carrier}"]
-                throw :blocked, wrapped_block(result, extra, carrier) if result.blocked?
-
-                if result.modified?
-                  current = result.content.to_s
-                  modified = [result, extra, carrier]
-                  uncertain ||= result unless result.certain?
-                elsif !result.certain?
-                  uncertain ||= result
-                end
-              end
+              current, found, undecided = inspect_span(span, carrier, context)
+              modified = found if found
+              uncertain ||= undecided
               current == span ? full : full.sub(span) { current }
             end
           end
@@ -142,6 +131,26 @@ module Vangrail
       def captured_span(match)
         captures = match.captures.compact
         (captures.max_by(&:length) || match[0]).to_s.strip
+      end
+
+      def inspect_span(span, carrier, context)
+        current = span
+        modified = nil
+        uncertain = nil
+        extra = ["hidden:#{carrier}"]
+        rails.each do |rail|
+          result = rail.call(current, context)
+          throw :blocked, wrapped_block(result, extra, carrier) if result.blocked?
+
+          if result.modified?
+            current = result.content.to_s
+            modified = [result, extra, carrier]
+            uncertain ||= result unless result.certain?
+          elsif !result.certain?
+            uncertain ||= result
+          end
+        end
+        [current, modified, uncertain]
       end
 
       def wrapped_block(result, extra, carrier)
