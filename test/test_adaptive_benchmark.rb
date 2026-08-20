@@ -115,11 +115,20 @@ class TestAdaptiveBenchmark < Minitest::Test
 
   def test_checked_in_matrix_covers_every_registered_threat_family
     path = File.expand_path('../evaluation/adaptive_attack_matrix.json', __dir__)
+    manifest_path = File.expand_path('../evaluation/benchmark_sources.json', __dir__)
     checksum = Digest::SHA256.file(path).hexdigest
+    manifest = JSON.parse(File.read(manifest_path))
     loaded = Vangrail::AdaptiveAttackMatrix.load(path, expected_sha256: checksum)
     cases = loaded.to_h.fetch('cases')
 
     assert_equal checksum, loaded.sha256
+    assert_equal checksum, manifest.dig('adaptive_matrix', 'sha256')
+    assert_equal Vangrail::AgentDojoAdapter::PACKAGE_VERSION,
+                 manifest.dig('agentdojo', 'package_version')
+    assert_equal Vangrail::AgentDojoAdapter::PACKAGE_SHA256,
+                 manifest.dig('agentdojo', 'package_sha256')
+    assert_equal Vangrail::AgentDojoAdapter::BENCHMARK_VERSION,
+                 manifest.dig('agentdojo', 'benchmark_version')
     assert_equal Vangrail::AdaptiveAttackMatrix::FAMILIES.sort,
                  cases.map { |row| row.fetch('family') }.sort
     assert(cases.all? { |row| row.fetch('split') == 'test' })
