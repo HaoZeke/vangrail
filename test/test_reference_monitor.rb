@@ -70,11 +70,10 @@ class TestReferenceMonitor < Minitest::Test
       sinks: :approved_recipient,
       uses: 1,
       confirm: true,
-      transaction: true,
     )
     monitor = Vangrail::ReferenceMonitor.new(plan)
 
-    call = lambda do |to:, sink: :approved_recipient, confirmation: nil, transaction: true|
+    call = lambda do |to:, sink: :approved_recipient, confirmation: nil|
       Vangrail::Call.new(
         tool: :send_email,
         request: request(:send_email),
@@ -82,7 +81,6 @@ class TestReferenceMonitor < Minitest::Test
         conversation_id: 'conversation-7',
         sink: sink,
         confirmation: confirmation,
-        transaction: transaction,
         idempotency_key: 'mail-7',
       )
     end
@@ -93,14 +91,6 @@ class TestReferenceMonitor < Minitest::Test
                  monitor.authorize(call.call(to: recipient, sink: :unapproved)).reason_code
     assert_equal :confirmation,
                  monitor.authorize(call.call(to: recipient, confirmation: true)).reason_code
-    unprepared = call.call(to: recipient, transaction: false)
-    unprepared_confirmation = monitor.confirm(
-      unprepared,
-      actor: Vangrail::Cell.user('approved'),
-    )
-
-    assert_equal :transaction,
-                 monitor.authorize(unprepared.with_confirmation(unprepared_confirmation)).reason_code
     ready = call.call(to: recipient)
     confirmation = monitor.confirm(ready, actor: Vangrail::Cell.user('approved'))
 

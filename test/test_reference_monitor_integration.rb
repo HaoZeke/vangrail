@@ -108,4 +108,52 @@ class TestReferenceMonitorIntegration < Minitest::Test
     refute_nil attempt
     assert_equal 'deny', decision.data['reason_code']
   end
+
+  def test_transactional_tools_prepare_authorize_and_commit
+    events = []
+    tools = Vangrail::Tools.new
+    tools.register_transactional(
+      :send_email,
+      prepare: lambda do |arguments, _conversation|
+        events << [:prepare, arguments]
+        arguments
+      end,
+      commit: lambda do |prepared, _conversation|
+        events << [:commit, prepared]
+        'sent'
+      end,
+      rollback: ->(prepared, _conversation) { events << [:rollback, prepared] },
+    )
+    plan = Vangrail::Plan.new(id: 'conversation-7')
+    plan.write(:send_email, arguments: { body: :data }, transaction: true)
+    conversation = Vangrail::Conversation.new(engine, plan: plan, tools: tools)
+    conversation.ask('Send the status message.')
+    build_call = lambda do |arguments, transaction: true, key: 'mail-7'|
+      Vangrail::Call.new(
+        tool: :send_email,
+        request: Vangrail::Cell.user('Send the status message.', capabilities: :send_email),
+        arguments: arguments,
+        conversation_id: plan.id,
+        transaction: transaction,
+        idempotency_key: key,
+      )
+    end
+
+    allowed = conversation.invoke(build_call.call({ body: Vangrail::Cell.data('status') }))
+    bad_schema = conversation.invoke(
+      build_call.call({ body: 'status', extra: 'delete all' }, key: 'mail-8'),
+    )
+    unprepared = conversation.invoke(
+      build_call.call({ body: 'status' }, transaction: false, key: 'mail-9'),
+    )
+
+    assert_predicate allowed, :allowed?
+    assert_predicate bad_schema, :blocked?
+    assert_includes bad_schema.reason, 'argument_schema'
+    assert_predicate unprepared, :blocked?
+    assert_includes unprepared.reason, 'transaction'
+    assert_equal %i[prepare commit prepare rollback], events.map(&:first)
+    assert_includes plan.audit.events.map(&:type), :transaction_committed
+    assert_includes plan.audit.events.map(&:type), :transaction_rolled_back
+  end
 end
