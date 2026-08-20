@@ -135,7 +135,7 @@ class TestStatisticalVerifierCli < Minitest::Test
       '--report', paths.fetch(:report),
       '--table', paths.fetch(:table),
       '--bootstrap-seed', '23',
-      '--bootstrap-replicates', '200',
+      '--bootstrap-replicates', '200'
     )
   end
 

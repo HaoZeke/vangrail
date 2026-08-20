@@ -47,22 +47,10 @@ module Vangrail
 
     def parse_options(argv)
       values = { bootstrap_seed: 1, bootstrap_replicates: 2_000 }
-      parser = OptionParser.new do |options|
-        options.banner = 'Usage: verify_evaluation.rb --predictions PATH --threshold PATH ' \
-                         '--artifacts PATH --report PATH --table PATH'
-        options.on('--predictions PATH') { |path| values[:predictions] = path }
-        options.on('--threshold PATH') { |path| values[:threshold] = path }
-        options.on('--artifacts PATH') { |path| values[:artifacts] = path }
-        options.on('--report PATH') { |path| values[:report] = path }
-        options.on('--table PATH') { |path| values[:table] = path }
-        options.on('--bootstrap-seed INTEGER', Integer) { |seed| values[:bootstrap_seed] = seed }
-        options.on('--bootstrap-replicates INTEGER', Integer) { |count| values[:bootstrap_replicates] = count }
-        options.on('-h', '--help') do
-          @stdout.puts(options)
-          return nil
-        end
-      end
+      parser = option_parser(values)
       parser.parse!(argv)
+      return nil if values.delete(:help)
+
       required = %i[predictions threshold artifacts] + OUTPUTS
       missing = required.reject { |name| values.key?(name) }
       raise OptionParser::MissingArgument, missing.join(', ') unless missing.empty?
@@ -72,6 +60,32 @@ module Vangrail
 
       required.each { |name| values[name] = File.expand_path(values[name]) }
       values.freeze
+    end
+
+    def option_parser(values)
+      OptionParser.new do |options|
+        options.banner = 'Usage: verify_evaluation.rb --predictions PATH --threshold PATH ' \
+                         '--artifacts PATH --report PATH --table PATH'
+        path_options(options, values)
+        bootstrap_options(options, values)
+        options.on('-h', '--help') do
+          @stdout.puts(options)
+          values[:help] = true
+        end
+      end
+    end
+
+    def path_options(options, values)
+      options.on('--predictions PATH') { |path| values[:predictions] = path }
+      options.on('--threshold PATH') { |path| values[:threshold] = path }
+      options.on('--artifacts PATH') { |path| values[:artifacts] = path }
+      options.on('--report PATH') { |path| values[:report] = path }
+      options.on('--table PATH') { |path| values[:table] = path }
+    end
+
+    def bootstrap_options(options, values)
+      options.on('--bootstrap-seed INTEGER', Integer) { |seed| values[:bootstrap_seed] = seed }
+      options.on('--bootstrap-replicates INTEGER', Integer) { |count| values[:bootstrap_replicates] = count }
     end
 
     def read_inputs(options)
@@ -110,7 +124,10 @@ module Vangrail
     def parse_predictions(bytes)
       rows = []
       bytes.each_line.with_index(1) do |line, number|
-        raise ProtocolError, "prediction line #{number} exceeds #{MAX_LINE_BYTES} bytes" if line.bytesize > MAX_LINE_BYTES
+        if line.bytesize > MAX_LINE_BYTES
+          raise ProtocolError,
+                "prediction line #{number} exceeds #{MAX_LINE_BYTES} bytes"
+        end
         next if line.strip.empty?
 
         row = JSON.parse(line)
@@ -150,7 +167,10 @@ module Vangrail
     def atomic_write(payloads)
       payloads.each_key do |path|
         raise ProtocolError, "output already exists: #{path}" if File.exist?(path)
-        raise ProtocolError, "output directory does not exist: #{File.dirname(path)}" unless Dir.exist?(File.dirname(path))
+        unless Dir.exist?(File.dirname(path))
+          raise ProtocolError,
+                "output directory does not exist: #{File.dirname(path)}"
+        end
       end
 
       staged = payloads.to_h { |path, bytes| [path, stage(path, bytes)] }
