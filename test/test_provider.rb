@@ -182,7 +182,9 @@ class TestProvider < Minitest::Test
     llmlite = Vangrail::Provider['llmlite']
     assert_raises(Vangrail::ConfigError) { llmlite.chat(:guard) }
   end
+end
 
+class TestProvider < Minitest::Test
   def test_llmlite_names_no_model_until_the_environment_does
     llmlite = Vangrail::Provider['llmlite']
 

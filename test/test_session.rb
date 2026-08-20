@@ -208,7 +208,9 @@ class TestSession < Minitest::Test
     refute_equal 'allow', hash['action']
     assert_match(/session (review|block)/, watched.to_s)
   end
+end
 
+class TestSession < Minitest::Test
   # --- the sequential test, beside the posterior ---
 
   # Two error rates chosen in advance fix both thresholds, which is the appeal:

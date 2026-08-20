@@ -160,7 +160,11 @@ if EMIT
                                     trained_on: "#{attacks.size} attacks, #{benign.size} benign")
   File.write(EMIT, JSON.generate(model.to_h))
   puts
-  puts format('wrote %<path>s (%<size>d KB, threshold %<threshold>+.2f)', path: EMIT,
-                                                                          size: File.size(EMIT) / 1024, threshold: matched)
+  puts format(
+    'wrote %<path>s (%<size>d KB, threshold %<threshold>+.2f)',
+    path: EMIT,
+    size: File.size(EMIT) / 1024,
+    threshold: matched,
+  )
   puts "GUARDRAILS_LINEAR_MODEL=#{EMIT} GUARDRAILS_RAILS=input,linear"
 end

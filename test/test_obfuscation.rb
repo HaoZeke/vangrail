@@ -256,7 +256,9 @@ class TestObfuscation < Minitest::Test
 
     assert_empty decoded, 'a mark decoded to a carrier payload, so the key decides whether it is reported'
   end
+end
 
+class TestObfuscation < Minitest::Test
   # One byte per selector: FE00 to FE0F for the low nibble range, the supplement
   # for the rest.
   def selector_payload(text)

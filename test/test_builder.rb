@@ -219,7 +219,9 @@ class TestBuilder < Minitest::Test
 
     assert_operator names.index('escalation'), :<, names.index('trajectory')
   end
+end
 
+class TestBuilder < Minitest::Test
   # An unreachable endpoint leaves a placeholder rather than a shorter list,
   # so the pass stays uncertain instead of resting on the free rail.
   def test_an_unreachable_endpoint_leaves_the_judge_named

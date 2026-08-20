@@ -216,7 +216,9 @@ class TestColang < Minitest::Test
     error = assert_raises(Vangrail::ColangError) { interpret(FLOW, {}, flow: 'no such flow') }
     refute_instance_of Vangrail::UnknownAction, error
   end
+end
 
+class TestColang < Minitest::Test
   def test_stop_does_not_raise_a_control_exception
     refute_includes Interpreter.constants, :Stopped
     outcome = interpret(FLOW, { 'self_check_input' => ->(_a, _c) { false } })

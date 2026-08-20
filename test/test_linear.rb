@@ -137,7 +137,9 @@ class TestLinear < Minitest::Test
     sampled = %w[c:abcd c:cdef c:efgh c:ghij]
     skipped = 'c:bcde'
 
-    sampled.each { |gram| assert features.key?(Vangrail::LinearModel.bucket(gram)), gram }
+    sampled.each do |gram|
+      assert_includes features, Vangrail::LinearModel.bucket(gram), gram
+    end
     refute features.key?(Vangrail::LinearModel.bucket(skipped))
   end
 
