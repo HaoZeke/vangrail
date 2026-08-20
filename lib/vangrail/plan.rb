@@ -28,8 +28,8 @@ module Vangrail
       @uses = uses
       @after = normalize(after)
       @integrity = normalize_optional(integrity)
-      @confirmation_required = !!confirm
-      @transaction_required = !!transaction
+      @confirmation_required = confirm.equal?(true)
+      @transaction_required = transaction.equal?(true)
       @conversation_id = conversation_id&.to_s&.freeze
       freeze
     end

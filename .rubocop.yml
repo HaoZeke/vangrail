@@ -125,6 +125,7 @@ Naming/MethodParameterName:
     - n
     - p
     - k
+    - id
 
 Style/FormatStringToken:
   Exclude:
