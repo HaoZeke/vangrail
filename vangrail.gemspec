@@ -5,16 +5,15 @@ require_relative 'lib/vangrail/version'
 Gem::Specification.new do |spec|
   spec.name = 'vangrail'
   spec.version = Vangrail::VERSION
-  spec.summary = 'Guardrails that run in your Ruby process: input and output rails, no Python service'
+  spec.summary = 'In-process Ruby guardrails with monitored tool calls and no runtime gems'
   spec.description = <<~TEXT
-    Input and output rails as ordinary Ruby objects, returning passed, modified,
-    or blocked, and reporting whether a rail actually reached the decision.
-    Deterministic rails need no network at all; model-backed ones call any
-    OpenAI-compatible endpoint through a provider abstraction that prefers a
-    local proxy. Reads folders in the NeMo layout and executes a documented
-    Colang 1.0 rail-flow subset in process. A NeMo folder is not drop-in.
-    Optional client for teams who already run the Python server. Standard
-    library only.
+    Input, retrieved-context, and output rails as ordinary Ruby objects,
+    returning passed, modified, or blocked and reporting whether a rail reached
+    the decision. Provenance-labelled values and locked plans route tool calls
+    through a structured reference monitor. Optional score readers use a
+    versioned process or endpoint protocol, so encoder and embedding runtimes do
+    not enter the core dependency graph. Includes a documented Colang 1.0
+    subset and an optional native linear-scoring gem. Standard library only.
   TEXT
   spec.authors = ['Rohit Goswami']
   spec.email = ['rohit.goswami@surf.nl']
