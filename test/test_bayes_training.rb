@@ -14,10 +14,18 @@ class TestBayesTraining < Minitest::Test
       { id: 'attack-b', label: :attack, group: 'attack-b', text: 'b' },
       { id: 'attack-c', label: :attack, group: 'attack-c', text: 'c' },
       { id: 'attack-d', label: :attack, group: 'attack-d', text: 'd' },
+      { id: 'attack-e', label: :attack, group: 'attack-e', text: 'e' },
+      { id: 'attack-f', label: :attack, group: 'attack-f', text: 'f' },
+      { id: 'attack-g', label: :attack, group: 'attack-g', text: 'g' },
+      { id: 'attack-h', label: :attack, group: 'attack-h', text: 'h' },
       { id: 'benign-a', label: :benign, group: 'benign-a', text: 'a' },
       { id: 'benign-b', label: :benign, group: 'benign-b', text: 'b' },
       { id: 'benign-c', label: :benign, group: 'benign-c', text: 'c' },
       { id: 'benign-d', label: :benign, group: 'benign-d', text: 'd' },
+      { id: 'benign-e', label: :benign, group: 'benign-e', text: 'e' },
+      { id: 'benign-f', label: :benign, group: 'benign-f', text: 'f' },
+      { id: 'benign-g', label: :benign, group: 'benign-g', text: 'g' },
+      { id: 'benign-h', label: :benign, group: 'benign-h', text: 'h' },
     ]
 
     roles = Vangrail::BayesTraining.grouped_partition(cases, seed: 'paper-v1')
