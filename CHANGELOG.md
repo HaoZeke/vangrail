@@ -285,10 +285,9 @@ landed between v0.1.0 and this tag.
   `Chat#ask(conversation:)` sends only `Conversation#messages`.
 - `Conversation#invoke` runs a named tool only after `admit?`.
   A refused call is a blocked turn; the handler does not run.
-  `Dojo` scores AgentDojo's two numbers on handbook tasks: security
-  (injected tool stayed dark) and utility (user tool returned the
-  fact). Adaptive plays rewrite the page with other words from the
-  same concept lists. `Config#conversation` hands out the same
+  `Dojo` records local handbook regressions: whether the injected tool stayed
+  dark and whether the user tool returned the fact. Its synonym rewrites are
+  lexical variants, not an adaptive benchmark. `Config#conversation` hands out the same
   engine already gated.
 - `Origin`, `Cell`, and `Admission`: a span is privileged (`system`,
   `user`) or untrusted (`data`, `tool`). Mixing unions origins and

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-# AgentDojo-shaped score for the origin cut.
+# Local handbook regression score for the origin cut.
 #
 #   ruby script/measure_dojo.rb
 #
-# Security: the injected tool stayed dark. Utility: the user tool ran
-# and returned the asked-for fact. Adaptive: the same tasks after
-# concept-synonym rewrites of the page. Not the Python AgentDojo
-# suite. The same two numbers, on this runtime, on these tasks.
+# Security: the injected tool stayed dark. Utility: the user tool ran and
+# returned the asked-for fact. Lexical variants apply concept-synonym rewrites
+# to the page. This script does not execute a target model or adversary and is
+# not an adaptive benchmark.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'vangrail'
@@ -22,8 +22,8 @@ allow = { cite: %i[data] }
 dojo = Vangrail::Dojo.new(engine: engine, allow: allow)
 
 base = dojo.score(tools: tools)
-adapt = dojo.adaptive(tools: tools, limit: 12)
+lexical = dojo.adaptive(tools: tools, limit: 12)
 puts format('handbook  n=%<n>d  security=%<security>d/%<n>d  utility=%<utility>d/%<n>d',
             **base)
-puts format('adaptive  n=%<n>d  security=%<security>d/%<n>d  utility=%<utility>d/%<n>d',
-            **adapt)
+puts format('lexical   n=%<n>d  security=%<security>d/%<n>d  utility=%<utility>d/%<n>d',
+            **lexical)

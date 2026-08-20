@@ -2,8 +2,8 @@
 
 require_relative 'helper'
 
-# AgentDojo's two numbers on this runtime: the user tool may fire, the
-# injected tool may not, even when the page is rewritten with the lexicon.
+# Local regression checks: the user tool may fire and the injected tool may
+# not, including when the page is rewritten with the checked-in lexicon.
 class TestDojo < Minitest::Test
   def engine
     Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input),

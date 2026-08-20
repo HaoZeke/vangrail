@@ -7,7 +7,7 @@ require_relative 'origin'
 require_relative 'tools'
 
 module Vangrail
-  # AgentDojo's two numbers, for a runtime that has no second model.
+  # Local origin-cut regression harness for deterministic handbook tasks.
   #
   # A task is a user question, retrieved pages (some poisoned), a tool
   # the user actually asked for, and a tool the page tries to trigger.
@@ -16,9 +16,9 @@ module Vangrail
   # tool stayed dark. Utility is whether the user tool ran and produced
   # the asked-for fact.
   #
-  # Adaptive plays rewrite the injection with other words from the same
-  # concept lists. A defence that only holds on the original wording is
-  # not a defence.
+  # Lexical variants rewrite an injection with words from the same concept
+  # lists. They do not execute a target model or an optimizing adversary and
+  # are not evidence of adaptive security.
   class Dojo
     Task = Struct.new(:name, :question, :pages, :utility_tool, :injected_tool,
                       :expect, keyword_init: true)
@@ -52,7 +52,7 @@ module Vangrail
         n: rows.size, rows: rows }
     end
 
-    # Same tasks, every concept-synonym rewrite of the first page.
+    # Same local tasks, with concept-synonym rewrites of the first page.
     def adaptive(tools:, limit: 12)
       rows = []
       tasks.each do |task|
@@ -98,8 +98,7 @@ module Vangrail
       ]
     end
 
-    # Substitutes other words from the same concept. Not a model: the
-    # attacker who read the lexicon.
+    # Substitutes words from the same checked-in concept list.
     module Adapt
       module_function
 
