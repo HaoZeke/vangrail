@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 require_relative 'helper'
+require_relative '../script/bayes_training'
 
 class TestBayesTraining < Minitest::Test
   def test_a_source_group_has_exactly_one_evaluation_role
-    require_relative '../script/bayes_training'
-
     cases = [
       { id: 'attack-a-plain', label: :attack, group: 'attack-a', text: 'plain' },
       { id: 'attack-a-encoded', label: :attack, group: 'attack-a', text: 'encoded' },
