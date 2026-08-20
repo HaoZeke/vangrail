@@ -14,10 +14,12 @@ module Vangrail
 
     module_function
 
-    def fit(cases, id:, readers:, normalization:, interactions: [], iterations: 100, ridge: 4.0)
+    def fit(cases, id:, readers:, normalization:, calibration_valid_until:,
+            interactions: [], disagreement_pairs: [], iterations: 100, ridge: 4.0)
       rows, feature_schema, reader_specs = prepare(cases, readers)
       validate!(rows, feature_schema)
       interaction_names = normalize_interactions(interactions, feature_schema)
+      disagreement_names = normalize_disagreements(disagreement_pairs, feature_schema)
       train = rows.select { |row| row[:role] == :train }
       calibration = rows.select { |row| row[:role] == :calibration }
       test = rows.select { |row| row[:role] == :test }
@@ -26,6 +28,7 @@ module Vangrail
       parameters, covariance = fit_logistic(train, terms, interaction_names,
                                             context_terms, iterations, ridge)
       threat_model = fit_threat_model(train, parameters, interaction_names, context_terms)
+      ood = fit_ood(train, calibration, feature_schema, disagreement_names, calibration_valid_until)
       calibration_data = fit_calibration(calibration, parameters, interaction_names,
                                          context_terms, iterations, ridge)
       prevalence = train.count { |row| row[:label] == :attack }.fdiv(train.size)
@@ -42,6 +45,7 @@ module Vangrail
           parameters: parameters,
           covariance: covariance,
           threat_model: threat_model,
+          ood: ood,
           calibration_data: calibration_data,
           prevalence: prevalence,
         ),
@@ -126,6 +130,18 @@ module Vangrail
         end
 
         "#{left}*#{right}"
+      end.uniq.sort.freeze
+    end
+
+    def normalize_disagreements(pairs, feature_schema)
+      Array(pairs).map do |pair|
+        features = Array(pair).map(&:to_s)
+        unless features.size == 2 && features.uniq.size == 2 &&
+               features.all? { |feature| feature_schema.include?(feature) }
+          raise ArgumentError, "invalid disagreement pair #{pair.inspect}"
+        end
+
+        features.sort.freeze
       end.uniq.sort.freeze
     end
 
@@ -234,9 +250,52 @@ module Vangrail
       [squared_error / (values.size * (values.size - 1)), EPSILON].max
     end
 
+    def fit_ood(train, calibration, features, disagreement_pairs, valid_until)
+      means = features.to_h { |feature| [feature, mean(train, feature)] }
+      scales = features.to_h { |feature| [feature, scale(train, feature, means.fetch(feature))] }
+      distances = calibration.map { |row| squared_distance(row, means, scales) }
+      rules = disagreement_pairs.map do |pair|
+        differences = calibration.map { |row| standardized_difference(row, pair, means, scales) }
+        {
+          'features' => pair,
+          'max_standardized_difference' => [differences.max, EPSILON].max,
+        }
+      end
+      {
+        'feature_means' => means,
+        'feature_scales' => scales,
+        'max_squared_distance' => [distances.max, EPSILON].max,
+        'disagreement_rules' => rules,
+        'calibration_valid_until' => valid_until.to_s,
+      }
+    end
+
+    def mean(rows, feature)
+      rows.sum { |row| row[:scores].fetch(feature) }.fdiv(rows.size)
+    end
+
+    def scale(rows, feature, mean_value)
+      squared_error = rows.sum { |row| (row[:scores].fetch(feature) - mean_value)**2 }
+      value = Math.sqrt(squared_error.fdiv([rows.size - 1, 1].max))
+      value > EPSILON ? value : 1.0
+    end
+
+    def squared_distance(row, means, scales)
+      means.sum do |feature, mean_value|
+        ((row[:scores].fetch(feature) - mean_value) / scales.fetch(feature))**2
+      end
+    end
+
+    def standardized_difference(row, pair, means, scales)
+      left, right = pair.map do |feature|
+        (row[:scores].fetch(feature) - means.fetch(feature)) / scales.fetch(feature)
+      end
+      (left - right).abs
+    end
+
     def artifact_hash(id:, train:, calibration:, features:, readers:, normalization:,
                       interactions:, contexts:, parameters:, covariance:, threat_model:,
-                      calibration_data:, prevalence:)
+                      ood:, calibration_data:, prevalence:)
       context_names = contexts.values.flatten
       support_rows = train + calibration
       {
@@ -253,6 +312,7 @@ module Vangrail
         'context_offsets' => context_names.to_h { |name| [name, parameters.fetch(name)] },
         'covariance_diagonal' => covariance,
         'threat_model' => threat_model,
+        'ood' => ood,
         'score_ranges' => score_ranges(support_rows, features),
         'supported' => CONTEXTS.to_h { |name| ["#{name}s", support_rows.map { |row| row[name] }.uniq.sort] },
         'calibration' => calibration_data,

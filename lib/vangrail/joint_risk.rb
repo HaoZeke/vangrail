@@ -2,6 +2,7 @@
 
 require_relative 'joint_risk_artifact'
 require_relative 'joint_risk_mixture_inference'
+require_relative 'joint_risk_ood'
 require_relative 'judgement'
 require_relative 'result'
 require_relative 'risk_scenario'
@@ -81,6 +82,7 @@ module Vangrail
   # Standard-library inference for a compact joint posterior approximation.
   class JointRiskModel
     include JointRiskMixtureInference
+    include JointRiskOod
 
     class Abstention < StandardError; end
 
@@ -91,12 +93,16 @@ module Vangrail
       domain: 'domains',
     }.freeze
 
-    attr_reader :artifact
+    SYSTEM_CLOCK = -> { Time.now.utc }
 
-    def initialize(artifact)
+    attr_reader :artifact, :clock
+
+    def initialize(artifact, clock: SYSTEM_CLOCK)
       raise ArgumentError, 'artifact must be a JointRiskArtifact' unless artifact.is_a?(JointRiskArtifact)
+      raise ArgumentError, 'clock must respond to call' unless clock.respond_to?(:call)
 
       @artifact = artifact
+      @clock = clock
     end
 
     def estimate(results, side:, origin:, language:, domain:, prior: nil, scenario: nil, confidence: 0.95)
@@ -105,6 +111,7 @@ module Vangrail
       validate_probability!(confidence, 'confidence')
       context = normalized_context(side: side, origin: origin, language: language, domain: domain)
       validate_context!(context)
+      validate_calibration_age!
       values = inference(results, side, context, prior, scenario, confidence)
       RiskEstimate.new(**artifact_identity, status: :ok, **values)
     rescue Abstention => e
@@ -121,6 +128,7 @@ module Vangrail
     def inference(results, side, context, prior, scenario, confidence)
       features, cost = collect_features(Array(results), side)
       validate_ranges!(features)
+      validate_ood!(features)
       eta, variance, threat_mixture = posterior_parameters(features, context, prior, scenario)
       radius = normal_quantile((1 + confidence) / 2.0) * Math.sqrt(variance)
       {

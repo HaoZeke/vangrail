@@ -5,12 +5,14 @@ require 'json'
 require_relative 'artifact_data'
 require_relative 'errors'
 require_relative 'joint_risk_artifact_threats'
+require_relative 'joint_risk_artifact_ood'
 
 module Vangrail
   # Bounded, versioned posterior approximation consumed by stdlib inference.
   class JointRiskArtifact
     include ArtifactData
     include JointRiskArtifactThreats
+    include JointRiskArtifactOod
 
     SCHEMA = 'vangrail-joint-risk-v1'
     METHODS = %w[laplace_diagonal].freeze
@@ -19,9 +21,10 @@ module Vangrail
     MAX_READERS = 64
     MAX_INTERACTIONS = 1024
     MAX_THREAT_FAMILIES = 64
+    MAX_DISAGREEMENT_RULES = 128
     FIELDS = %w[
       schema id posterior_method training_prevalence normalization feature_schema readers intercept
-      coefficients interactions context_offsets covariance_diagonal threat_model score_ranges
+      coefficients interactions context_offsets covariance_diagonal threat_model ood score_ranges
       supported calibration training_manifest_sha256
     ].freeze
 
@@ -98,6 +101,10 @@ module Vangrail
       data.fetch('threat_model')
     end
 
+    def ood
+      data.fetch('ood')
+    end
+
     def score_ranges
       data.fetch('score_ranges')
     end
@@ -131,6 +138,7 @@ module Vangrail
       validate_readers!
       validate_parameters!
       validate_threat_model!
+      validate_ood!
       validate_support!
       validate_provenance!
     end
