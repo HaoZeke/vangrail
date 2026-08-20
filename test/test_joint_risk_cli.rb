@@ -71,16 +71,24 @@ class TestJointRiskCli < Minitest::Test
         expected_sha256: artifact_sha,
       )
 
-      assert_equal 'vangrail-joint-risk-training-manifest-v1', manifest['schema']
-      assert_equal artifact_sha, manifest.dig('outputs', 'artifact', 'sha256')
-      assert_equal ROLES.transform_keys(&:to_s), manifest['role_counts']
-      assert_equal(60, manifest.fetch('splits').values.sum { |split| split.fetch('case_ids').size })
-      assert_equal 'vangrail-joint-risk-model-card-v1', card['schema']
-      assert_equal artifact.id, card['artifact_id']
-      assert_equal artifact_sha, card['artifact_file_sha256']
-      assert_equal config.dig(:model_card, :assumptions), card['assumptions']
+      assert_manifest(manifest, artifact_sha)
+      assert_model_card(card, artifact, artifact_sha)
       assert_equal ROLES.transform_keys(&:to_s), report['role_counts']
     end
+  end
+
+  def assert_manifest(manifest, artifact_sha)
+    assert_equal 'vangrail-joint-risk-training-manifest-v1', manifest['schema']
+    assert_equal artifact_sha, manifest.dig('outputs', 'artifact', 'sha256')
+    assert_equal ROLES.transform_keys(&:to_s), manifest['role_counts']
+    assert_equal(60, manifest.fetch('splits').values.sum { |split| split.fetch('case_ids').size })
+  end
+
+  def assert_model_card(card, artifact, artifact_sha)
+    assert_equal 'vangrail-joint-risk-model-card-v1', card['schema']
+    assert_equal artifact.id, card['artifact_id']
+    assert_equal artifact_sha, card['artifact_file_sha256']
+    assert_equal config.dig(:model_card, :assumptions), card['assumptions']
   end
 
   def test_cli_does_not_publish_partial_outputs_when_training_fails

@@ -37,7 +37,15 @@ module Vangrail
       cases = parse_cases(raw_cases)
       config = parse_config(raw_config)
       artifact, report = JointRiskTraining.fit(cases, **training_options(config))
-      write_package(paths, raw_cases, raw_config, cases, config, artifact, report)
+      write_package(
+        paths: paths,
+        raw_cases: raw_cases,
+        raw_config: raw_config,
+        cases: cases,
+        config: config,
+        artifact: artifact,
+        report: report,
+      )
       0
     rescue OptionParser::ParseError, JSON::ParserError, ProtocolError, ArgumentError,
            Errno::ENOENT, Errno::EACCES, IOError => e
@@ -116,20 +124,20 @@ module Vangrail
       end
     end
 
-    def write_package(paths, raw_cases, raw_config, cases, config, artifact, report)
+    def write_package(paths:, raw_cases:, raw_config:, cases:, config:, artifact:, report:)
       artifact_bytes = pretty_json(artifact.data)
       report_bytes = pretty_json(report)
       artifact_file_sha = digest(artifact_bytes)
       card = model_card(config, artifact, report, artifact_file_sha)
       card_bytes = pretty_json(card)
       manifest = manifest(
-        raw_cases,
-        raw_config,
-        cases,
-        report,
-        artifact_bytes,
-        report_bytes,
-        card_bytes,
+        raw_cases: raw_cases,
+        raw_config: raw_config,
+        cases: cases,
+        report: report,
+        artifact_bytes: artifact_bytes,
+        report_bytes: report_bytes,
+        card_bytes: card_bytes,
       )
       atomic_write(
         paths.fetch(:artifact) => artifact_bytes,
@@ -166,7 +174,7 @@ module Vangrail
       }
     end
 
-    def manifest(raw_cases, raw_config, cases, report, artifact_bytes, report_bytes, card_bytes)
+    def manifest(raw_cases:, raw_config:, cases:, report:, artifact_bytes:, report_bytes:, card_bytes:)
       {
         'schema' => 'vangrail-joint-risk-training-manifest-v1',
         'inputs' => {
