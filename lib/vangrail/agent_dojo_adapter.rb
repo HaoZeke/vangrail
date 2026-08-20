@@ -10,6 +10,7 @@ module Vangrail
     ADAPTER_SCHEMA = 'agentdojo-traces-v0.1.35'
     MAX_TRACE_BYTES = 16 * 1024 * 1024
     MAX_TRACES = 100_000
+    BOOLEAN_VALUES = [true, false].freeze
     REQUIRED_FIELDS = %w[
       suite_name pipeline_name user_task_id injection_task_id attack_type injections messages
       error benchmark_version agentdojo_package_version duration utility security
@@ -56,12 +57,12 @@ module Vangrail
         required_string(python, 'Python executable'), '-m', 'agentdojo.scripts.benchmark',
         '--benchmark-version', benchmark_version,
         '--logdir', required_string(logdir, 'log directory'),
-        '--model', required_string(model, 'model'),
+        '--model', required_string(model, 'model')
       ]
-      argv.concat(['--model-id', model_id.to_s]) if model_id
-      argv.concat(['--attack', attack.to_s]) if attack
-      argv.concat(['--defense', defense.to_s]) if defense
-      argv.concat(['--max-workers', positive_integer(max_workers, 'max workers').to_s])
+      argv.push('--model-id', model_id.to_s) if model_id
+      argv.push('--attack', attack.to_s) if attack
+      argv.push('--defense', defense.to_s) if defense
+      argv.push('--max-workers', positive_integer(max_workers, 'max workers').to_s)
       argv << '--force-rerun' if force_rerun
       append_each(argv, '-s', suites)
       append_each(argv, '-ut', user_tasks)
@@ -74,7 +75,7 @@ module Vangrail
 
     def load_traces(logdir)
       root = File.realpath(logdir)
-      paths = Dir.glob(File.join(root, '**', '*.json')).sort
+      paths = Dir.glob(File.join(root, '**', '*.json'))
       raise ArtifactError, 'AgentDojo trace tree is empty' if paths.empty?
       raise ArtifactError, "AgentDojo trace tree exceeds #{MAX_TRACES} files" if paths.size > MAX_TRACES
 
@@ -95,6 +96,7 @@ module Vangrail
       unless real.start_with?("#{root}/") && File.file?(real)
         raise ArtifactError, "AgentDojo trace escapes its source tree: #{path}"
       end
+
       size = File.size(real)
       raise ArtifactError, "AgentDojo trace exceeds #{MAX_TRACE_BYTES} bytes: #{path}" if size > MAX_TRACE_BYTES
 
@@ -119,16 +121,18 @@ module Vangrail
 
       missing = REQUIRED_FIELDS - data.keys
       raise ArtifactError, "AgentDojo trace is missing #{missing.join(', ')} at #{path}" unless missing.empty?
+
       %w[suite_name pipeline_name user_task_id benchmark_version agentdojo_package_version].each do |field|
         required_string(data[field], "#{field} at #{path}")
       end
       %w[utility security].each do |field|
-        next if data[field] == true || data[field] == false
+        next if BOOLEAN_VALUES.include?(data[field])
 
         raise ArtifactError, "#{field} must be boolean at #{path}"
       end
       raise ArtifactError, "messages must be an array at #{path}" unless data['messages'].is_a?(Array)
       raise ArtifactError, "injections must be an object at #{path}" unless data['injections'].is_a?(Hash)
+
       finite_nonnegative(data['duration'], "duration at #{path}")
     end
 
@@ -218,7 +222,7 @@ module Vangrail
     end
 
     def append_each(argv, flag, values)
-      Array(values).each { |value| argv.concat([flag, required_string(value, flag)]) }
+      Array(values).each { |value| argv.push(flag, required_string(value, flag)) }
     end
 
     def required_string(value, name)

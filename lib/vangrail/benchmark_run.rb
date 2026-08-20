@@ -38,6 +38,7 @@ module Vangrail
 
       %w[adapter benchmark target attack source].each { |name| require_hash!(name) }
       raise ArtifactError, 'benchmark seed must be an integer' unless data['seed'].is_a?(Integer)
+
       validate_cases!
       validate_counts!
     end
@@ -51,12 +52,15 @@ module Vangrail
 
     def validate_cases!
       cases = data['cases']
-      unless cases.is_a?(Array) && !cases.empty? && cases.all? { |row| row.is_a?(Hash) }
+      unless cases.is_a?(Array) && !cases.empty? && cases.all?(Hash)
         raise ArtifactError, 'benchmark cases must be a nonempty array of hashes'
       end
 
       ids = cases.map { |row| row['case_id'] }
-      raise ArtifactError, 'every benchmark case needs a unique case_id' if ids.any? { |id| id.to_s.empty? } || ids.uniq != ids
+      invalid_id = ids.any? { |id| id.to_s.empty? }
+      if invalid_id || ids.uniq != ids
+        raise ArtifactError, 'every benchmark case needs a unique case_id'
+      end
 
       statuses = cases.map { |row| row['status'] }
       unknown = statuses - STATUSES

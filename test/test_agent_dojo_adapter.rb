@@ -66,6 +66,7 @@ class TestAgentDojoAdapter < Minitest::Test
     assert_equal source.fetch('files').sort_by { |row| row.fetch('path') }, source.fetch('files')
     source.fetch('files').each do |row|
       path = File.join(@dir, row.fetch('path'))
+
       assert_equal Digest::SHA256.file(path).hexdigest, row.fetch('sha256')
     end
   end
@@ -121,7 +122,7 @@ class TestAgentDojoAdapter < Minitest::Test
       '--max-workers', '1', '--force-rerun',
       '-s', 'workspace', '-s', 'banking',
       '-ut', 'user_task_0', '-ut', 'user_task_2',
-      '-it', 'injection_task_1', '-ml', 'experiment.adapters',
+      '-it', 'injection_task_1', '-ml', 'experiment.adapters'
     ], argv
   end
 
@@ -131,12 +132,12 @@ class TestAgentDojoAdapter < Minitest::Test
     assert_equal 'workspace/user_task_0/injection_task_0', row['case_id']
     assert_equal 'workspace/user_task_0', row['parent_case_id']
     assert_equal 'ok', row['status']
-    assert_equal true, row['utility_without_attack']
-    assert_equal true, row['utility_under_attack']
-    assert_equal true, row['reported_security']
-    assert_equal true, row['security_success']
-    assert_equal false, row['attack_success']
-    assert_equal true, row['secure_utility']
+    assert row['utility_without_attack']
+    assert row['utility_under_attack']
+    assert row['reported_security']
+    assert row['security_success']
+    refute row['attack_success']
+    assert row['secure_utility']
     assert_match(/\A[0-9a-f]{64}\z/, row.fetch('trace_sha256'))
     assert_match(/\A[0-9a-f]{64}\z/, row.fetch('baseline_trace_sha256'))
   end
@@ -145,9 +146,9 @@ class TestAgentDojoAdapter < Minitest::Test
     assert_equal 'workspace/user_task_0/injection_task_1', row['case_id']
     assert_equal 'error', row['status']
     assert_equal 'context length exceeded', row['error']
-    assert_equal false, row['security_success']
-    assert_equal false, row['attack_success']
-    assert_equal false, row['secure_utility']
+    refute row['security_success']
+    refute row['attack_success']
+    refute row['secure_utility']
   end
 
   def write_trace(user_task:, attack:, injection_task:, utility:, security:, error: nil)
