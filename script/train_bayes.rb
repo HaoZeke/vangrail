@@ -57,19 +57,11 @@ module Vangrail
       HandbookCorpus.attack_clauses
     end
 
-    def benign_clauses
-      HandbookCorpus.benign_texts.flat_map { |text| Vangrail::NLP.clauses(text) }.uniq
-    end
-
-    # Documents built the way the threat arrives, from injections the fold under
-    # test never trained on.
+    # Documents built the way the threat arrives. Source grouping keeps an
+    # evaluation injection out of the fitted feature table.
     def attack_document(injection, index)
       prose = HandbookCorpus::ENGLISH_BENIGN
       "#{prose[index % prose.size]}\n\n#{injection}\n\nSee the reference pages for the full table."
-    end
-
-    def attack_documents(injections)
-      injections.each_with_index.map { |injection, index| attack_document(injection, index) }
     end
 
     def benign_documents
@@ -151,12 +143,6 @@ module Vangrail
       return clause_score(text, weights) if clauses.empty?
 
       clauses.map { |clause| clause_score(clause, weights) }.max
-    end
-
-    # --- cross-validated, because the training score means nothing ---
-
-    def folds(documents, count)
-      documents.each_with_index.group_by { |_, i| i % count }.values.map { |pairs| pairs.map(&:first) }
     end
 
     # --- calibration, because a naive Bayes score is not a likelihood ratio ---
