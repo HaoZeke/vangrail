@@ -13,6 +13,7 @@ module Vangrail
 
     SCHEMA = 'vangrail-risk-control-v1'
     METHOD = 'learn_then_test_binomial'
+    LABELS = %w[attack benign].freeze
     FIELDS = %w[
       schema method block_at max_false_positive_rate confidence benign_cases false_positives
       false_positive_upper_bound calibration_manifest_sha256
@@ -90,17 +91,13 @@ module Vangrail
         unless rows.all? { |row| row['role'] == 'threshold' }
           raise ArgumentError, 'risk control requires only threshold-role predictions'
         end
-        unless rows.all? { |row| %w[attack benign].include?(row['label']) && valid_score?(row['posterior']) }
+        unless rows.all? { |row| LABELS.include?(row['label']) && valid_score?(row['posterior']) }
           raise ArgumentError, 'threshold predictions need binary labels and finite posteriors'
         end
 
         ids = rows.map { |row| row['id'].to_s }
-        raise ArgumentError, 'threshold prediction ids must be unique' unless ids.all? do |id|
-          !id.empty?
-        end && ids.uniq == ids
-        raise ArgumentError, 'risk control needs benign threshold cases' unless rows.any? do |row|
-          row['label'] == 'benign'
-        end
+        raise ArgumentError, 'threshold prediction ids must be unique' unless valid_ids?(ids)
+        raise ArgumentError, 'risk control needs benign threshold cases' unless benign?(rows)
       end
 
       def select_threshold(benign, maximum, confidence)
@@ -130,6 +127,14 @@ module Vangrail
 
       def valid_score?(value)
         value.is_a?(Numeric) && value.finite? && value >= 0 && value <= 1
+      end
+
+      def valid_ids?(ids)
+        ids.all? { |id| !id.empty? } && ids.uniq == ids
+      end
+
+      def benign?(rows)
+        rows.any? { |row| row['label'] == 'benign' }
       end
     end
 

@@ -4,6 +4,7 @@ require 'digest'
 require_relative '../lib/vangrail/joint_risk_artifact'
 require_relative 'joint_risk_training_data'
 require_relative 'joint_risk_training_ood'
+require_relative 'joint_risk_training_pipeline'
 
 module Vangrail
   # Deterministic grouped training for the compact Laplace joint-risk artifact.
@@ -15,64 +16,8 @@ module Vangrail
 
     module_function
 
-    def fit(cases, id:, readers:, normalization:, calibration_valid_until:,
-            max_false_positive_rate:, interactions: [], disagreement_pairs: [],
-            risk_confidence: 0.95, iterations: 100, ridge: 4.0)
-      rows, feature_schema, reader_specs = prepare(cases, readers)
-      validate!(rows, feature_schema)
-      interaction_names = normalize_interactions(interactions, feature_schema)
-      disagreement_names = JointRiskTrainingOod.normalize_pairs(disagreement_pairs, feature_schema)
-      train = rows.select { |row| row[:role] == :train }
-      calibration = rows.select { |row| row[:role] == :calibration }
-      threshold = rows.select { |row| row[:role] == :threshold }
-      test = rows.select { |row| row[:role] == :test }
-      context_terms = context_terms(train)
-      terms = ['intercept'] + feature_schema + interaction_names + context_terms.values.flatten
-      parameters, covariance = fit_logistic(train, terms, interaction_names,
-                                            context_terms, iterations, ridge)
-      threat_model = fit_threat_model(train, parameters, interaction_names, context_terms)
-      ood = JointRiskTrainingOod.fit(
-        train,
-        calibration,
-        feature_schema,
-        disagreement_names,
-        calibration_valid_until,
-        epsilon: EPSILON,
-      )
-      calibration_data = fit_calibration(calibration, parameters, interaction_names,
-                                         context_terms, iterations, ridge)
-      threshold_predictions = predictions(threshold, calibration_data, interaction_names,
-                                          context_terms, parameters)
-      risk_control = RiskControl.fit(
-        threshold_predictions,
-        max_false_positive_rate: max_false_positive_rate,
-        confidence: risk_confidence,
-        calibration_manifest_sha256: Digest::SHA256.hexdigest(
-          JointRiskTrainingData.canonical(threshold),
-        ),
-      )
-      prevalence = train.count { |row| row[:label] == :attack }.fdiv(train.size)
-      artifact = JointRiskArtifact.new(
-        artifact_hash(
-          id: id,
-          train: train,
-          calibration: calibration,
-          threshold: threshold,
-          features: feature_schema,
-          readers: reader_specs,
-          normalization: normalization,
-          interactions: interaction_names,
-          contexts: context_terms,
-          parameters: parameters,
-          covariance: covariance,
-          threat_model: threat_model,
-          ood: ood,
-          risk_control: risk_control,
-          calibration_data: calibration_data,
-          prevalence: prevalence,
-        ),
-      )
-      [artifact, report(rows, test, artifact, interaction_names, context_terms, parameters)]
+    def fit(cases, **options)
+      JointRiskTrainingPipeline.new(cases, **options).fit
     end
 
     def prepare(cases, readers)
