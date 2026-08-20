@@ -29,5 +29,11 @@ module Vangrail
       end
       partitions
     end
+
+    def predict(partitions, role:)
+      partitions.fetch(role).map do |row|
+        row.merge(role: role, score: yield(row))
+      end
+    end
   end
 end
