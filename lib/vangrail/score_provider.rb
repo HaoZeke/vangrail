@@ -36,7 +36,7 @@ module Vangrail
         raise ProtocolError, "score response schema must be #{RESPONSE_SCHEMA}"
       end
 
-      normalized.reject { |name, _value| name == 'schema' }
+      normalized.except('schema')
     end
 
     def json_value(value)
@@ -120,7 +120,7 @@ module Vangrail
         @command = Array(command).map(&:to_s).freeze
         @timeout = positive_timeout(timeout)
         @environment = environment.to_h { |name, value| [name.to_s, value.to_s] }.freeze
-        @inherit_environment = !!inherit_environment
+        @inherit_environment = !!inherit_environment # rubocop:disable Style/DoubleNegation
         raise ArgumentError, 'command is required' if @command.empty? || @command.any?(&:empty?)
       end
 

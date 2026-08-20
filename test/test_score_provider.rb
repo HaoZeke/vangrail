@@ -6,7 +6,7 @@ require_relative '../lib/vangrail/score_provider'
 
 class TestScoreProvider < Minitest::Test
   def response_script
-    <<~'RUBY'
+    <<~RUBY
       require 'json'
       request = JSON.parse($stdin.read)
       puts JSON.generate(
@@ -51,7 +51,7 @@ class TestScoreProvider < Minitest::Test
     result = reader(command_provider).score('danger', side: :context, origin: :tool)
 
     assert_predicate result, :valid?
-    assert_equal 0.9, result.scores['risk']
+    assert_in_delta(0.9, result.scores['risk'])
     assert_equal '; echo injected', result.metadata['argument']
     assert_equal 'tool', result.metadata['origin']
     assert_nil result.metadata['inherited_secret']
@@ -135,6 +135,7 @@ class TestScoreProvider < Minitest::Test
     assert_predicate result, :valid?
     assert_equal '/score', http.instance_variable_get(:@path)
     request = http.instance_variable_get(:@request)
+
     assert_equal 'vangrail-score-request-v1', request['schema']
     assert_equal 'en', request.dig('context', 'language')
   end
@@ -162,7 +163,7 @@ class TestScoreProvider < Minitest::Test
         RbConfig.ruby,
         '-rjson',
         '-e',
-        <<~'RUBY',
+        <<~RUBY,
           request = JSON.parse($stdin.read)
           puts JSON.generate(
             schema: 'vangrail-score-response-v1',
