@@ -24,4 +24,21 @@ class TestBayesTraining < Minitest::Test
     assert_equal 1, assigned.size
     assert_equal 2, roles.fetch(assigned.first).count { |row| row[:group] == 'attack-a' }
   end
+
+  def test_each_label_stratum_uses_the_declared_role_weights
+    cases = %i[attack benign].flat_map do |label|
+      8.times.map do |index|
+        { id: "#{label}-#{index}", label: label, group: "#{label}-#{index}", text: index.to_s }
+      end
+    end
+
+    roles = Vangrail::BayesTraining.grouped_partition(cases, seed: 'paper-v1')
+    expected = { train: 5, calibration: 1, threshold: 1, test: 1 }
+
+    %i[attack benign].each do |label|
+      actual = roles.transform_values { |rows| rows.count { |row| row[:label] == label } }
+
+      assert_equal expected, actual
+    end
+  end
 end
