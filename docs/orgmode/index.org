@@ -69,6 +69,7 @@ does, no argument for any of it.
 - [[file:reference/environment.org][Environment variables]]
 - [[file:reference/rails.org][The built-in rails]]
 - [[file:reference/nlp.org][The text analysis layer]]
+- [[file:reference/evaluation-artifacts.org][Evaluation schemas and regeneration commands]]
 - [[https://haozeke.github.io/vangrail/][YARD class reference]]
 
 ** Explanation

@@ -1,0 +1,135 @@
+#+TITLE: Evaluation Artifacts
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Evaluation Artifacts
+
+Every reported number has a raw input, a versioned schema, and a checked-in
+command that regenerates it. These are the artifact boundaries; they are not a
+claim that every runner or copyrighted corpus ships in the gem.
+
+** Source manifest
+
+=evaluation/benchmark_sources.json= is =vangrail-benchmark-sources-v1=. It
+pins:
+
+- the AgentDojo repository commit, package version, package archive digest,
+  benchmark version, and trace adapter;
+- the adaptive matrix path, schema, and digest;
+- BIPIA and jailbreak_llms repository commits;
+- each externally fetched payload by immutable URL, byte count, and SHA-256.
+
+=script/fetch_external.rb= reads that manifest. A cached payload is reused only
+when both its byte count and digest match. A replacement is staged beside the
+target and renamed only after verification.
+
+#+begin_src bash
+ruby script/fetch_external.rb tmp/external
+ruby script/measure_external.rb tmp/external tmp/external_results.json
+#+end_src
+
+The fetched text remains outside the repository under its publisher's licence.
+The manifest and aggregate or per-case measurements are the reproducibility
+surface.
+
+** Joint-risk training package
+
+Training cases are JSON Lines with one object per grouped case. Every case
+names an =id=, =group=, role, binary label, reader scores, side, origin,
+language, and domain. The roles are =train=, =calibration=, =threshold=, and
+=test=; groups and parent variants must not cross them.
+
+#+begin_src bash
+ruby script/train_joint_risk.rb \
+  --cases tmp/joint-risk/cases.jsonl \
+  --config tmp/joint-risk/config.json \
+  --artifact tmp/joint-risk/artifact.json \
+  --report tmp/joint-risk/training-report.json \
+  --model-card tmp/joint-risk/model-card.json \
+  --manifest tmp/joint-risk/training-manifest.json
+#+end_src
+
+The four outputs are published together. The artifact contains only compact
+inference parameters and identities. The model card names the distribution,
+assumptions, readers, posterior method, calibration, risk control, support,
+OOD checks, role counts, and test metrics. The manifest hashes every input and
+output and records case IDs and groups by role.
+
+** Statistical verification
+
+The verifier consumes per-case predictions, threshold provenance, and an
+artifact manifest. Failures and abstentions remain in the denominator. Missing
+scores use the verifier's named worst-case-by-label policy.
+
+#+begin_src bash
+ruby script/verify_evaluation.rb \
+  --predictions tmp/evaluation/predictions.jsonl \
+  --threshold tmp/evaluation/threshold.json \
+  --artifacts tmp/evaluation/artifacts.json \
+  --report tmp/evaluation/verified-report.json \
+  --table tmp/evaluation/verified-table.md
+#+end_src
+
+The report recomputes security and attack success, benign and attacked
+utility, secure utility, ROC and precision-recall curves, partial ROC area,
+Brier and negative log scores, calibration error, retained coverage, and
+selective risk. The table is rendered from that verified report.
+
+** AgentDojo and adaptive runs
+
+Import a run from the pinned AgentDojo trace schema rather than flattening its
+logs by hand:
+
+#+begin_src bash
+ruby script/import_agentdojo.rb \
+  --logdir tmp/agentdojo/run \
+  --output tmp/agentdojo/run.json \
+  --model-id target-model \
+  --defense vangrail-reference-monitor \
+  --seed 17
+#+end_src
+
+The adaptive runner verifies the matrix checksum and executes one external
+command without a shell. The command receives one bounded JSON request on
+standard input and returns one versioned JSON response on standard output.
+
+#+begin_src bash
+ruby script/run_adaptive.rb \
+  --matrix evaluation/adaptive_attack_matrix.json \
+  --matrix-sha256 SHA256_FROM_THE_SOURCE_MANIFEST \
+  --target tmp/adaptive/target.json \
+  --output tmp/adaptive/run.json \
+  --seed 17 -- path/to/adversary-runner
+#+end_src
+
+Each case retains its attack family, access level, budget, seed, utility
+constraint, status, model-call and tool-call counts, duration, and trace hash.
+Errors and abstentions remain explicit rows.
+
+** Performance report
+
+=script/benchmark_risk.rb= records raw samples, not only aggregates. The
+Markdown table and JSON are staged and published together.
+
+#+begin_src bash
+ruby script/benchmark_risk.rb \
+  --output tmp/performance/risk-performance.json \
+  --table tmp/performance/risk-performance.md
+#+end_src
+
+The report names the runtime, configuration, source hashes, artifact hashes,
+native availability and parity, startup, process memory, latency, allocations,
+endpoint traffic, and adversarial scaling curves. A native report is valid only
+when the optional extension is loaded; absence is an explicit status.
+
+** Publication rule
+
+Keep the per-case inputs, verified reports, rendered tables, source manifest,
+model cards, and exact tagged source together. Do not put licensed corpus text,
+credentials, host paths, or author identity into an anonymous supplement.
+
+** See also
+
+- [[file:../explanation/two-planes.org][Why detection and enforcement are separate]]
+- [[file:../explanation/external-evaluation.org][Scored against somebody else's corpus]]
+- [[file:../contributing/testing.org][How the suite is run]]
