@@ -43,5 +43,20 @@ module Vangrail
 
       predictions.select { |row| row[:label] == :benign }.map { |row| row.fetch(:score) }.max.ceil
     end
+
+    def performance(predictions, threshold:)
+      unless predictions.all? { |row| row[:role] == :test }
+        raise ArgumentError, 'performance requires test-role predictions'
+      end
+
+      attacks = predictions.select { |row| row[:label] == :attack }
+      benign = predictions.select { |row| row[:label] == :benign }
+      {
+        caught: attacks.count { |row| row.fetch(:score) > threshold },
+        attacks: attacks.size,
+        flagged: benign.count { |row| row.fetch(:score) > threshold },
+        benign: benign.size,
+      }
+    end
   end
 end
