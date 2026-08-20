@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require 'digest'
-require 'json'
 require_relative '../lib/vangrail/joint_risk_artifact'
+require_relative 'joint_risk_training_data'
 require_relative 'joint_risk_training_ood'
 
 module Vangrail
@@ -62,7 +62,7 @@ module Vangrail
     end
 
     def prepare(cases, readers)
-      reader_specs = stringify(readers)
+      reader_specs = JointRiskTrainingData.stringify(readers)
       feature_schema = reader_specs.flat_map do |reader_id, spec|
         Array(spec['feature_schema']).map { |feature| "#{reader_id}.#{feature}" }
       end
@@ -194,7 +194,7 @@ module Vangrail
         calibration['slope'] = calibration['slope'].clamp(1e-6, 10.0)
       end
       {
-        'id' => Digest::SHA256.hexdigest(canonical(rows)),
+        'id' => Digest::SHA256.hexdigest(JointRiskTrainingData.canonical(rows)),
         'method' => 'platt',
         'intercept' => calibration.fetch('intercept'),
         'slope' => calibration.fetch('slope'),
@@ -256,7 +256,7 @@ module Vangrail
         'id' => id.to_s,
         'posterior_method' => 'laplace_diagonal',
         'training_prevalence' => prevalence,
-        'normalization' => stringify(normalization),
+        'normalization' => JointRiskTrainingData.stringify(normalization),
         'feature_schema' => features,
         'readers' => readers,
         'intercept' => parameters.fetch('intercept'),
@@ -269,7 +269,9 @@ module Vangrail
         'score_ranges' => score_ranges(support_rows, features),
         'supported' => CONTEXTS.to_h { |name| ["#{name}s", support_rows.map { |row| row[name] }.uniq.sort] },
         'calibration' => calibration_data,
-        'training_manifest_sha256' => Digest::SHA256.hexdigest(canonical(train + calibration)),
+        'training_manifest_sha256' => Digest::SHA256.hexdigest(
+          JointRiskTrainingData.canonical(train + calibration),
+        ),
       }
     end
 
@@ -343,25 +345,5 @@ module Vangrail
       value.is_a?(Numeric) && value.finite?
     end
 
-    def canonical(value)
-      JSON.generate(sort_value(stringify(value)))
-    end
-
-    def stringify(value)
-      case value
-      when Hash then value.to_h { |key, nested| [key.to_s, stringify(nested)] }
-      when Array then value.map { |nested| stringify(nested) }
-      when Symbol then value.to_s
-      else value
-      end
-    end
-
-    def sort_value(value)
-      case value
-      when Hash then value.keys.sort.to_h { |key| [key, sort_value(value[key])] }
-      when Array then value.map { |nested| sort_value(nested) }
-      else value
-      end
-    end
   end
 end
