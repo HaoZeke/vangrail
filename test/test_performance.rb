@@ -90,13 +90,13 @@ class TestPerformance < Minitest::Test
     expected = reference_features(words, normalised)
 
     assert_equal expected, Vangrail::LinearModel.features_from(
-      words, normalised, Vangrail::LinearModel::BUCKETS, Vangrail::LinearModel::STRIDE,
+      words, normalised, Vangrail::LinearModel::BUCKETS, Vangrail::LinearModel::STRIDE
     )
 
     optimized = allocations do
       10.times do
         Vangrail::LinearModel.features_from(
-          words, normalised, Vangrail::LinearModel::BUCKETS, Vangrail::LinearModel::STRIDE,
+          words, normalised, Vangrail::LinearModel::BUCKETS, Vangrail::LinearModel::STRIDE
         )
       end
     end
@@ -118,7 +118,7 @@ class TestPerformance < Minitest::Test
     grams = words + words.each_cons(2).map { |pair| pair.join(' ') }
     chars = if normalised.length > 4
               (0..(normalised.length - 4)).step(Vangrail::LinearModel::STRIDE)
-                                                 .map { |index| "c:#{normalised[index, 4]}" }
+                                          .map { |index| "c:#{normalised[index, 4]}" }
             else
               []
             end
