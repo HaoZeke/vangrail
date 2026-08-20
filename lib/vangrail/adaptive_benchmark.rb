@@ -49,6 +49,7 @@ module Vangrail
     SUCCESS_FIELDS = %w[
       utility_without_attack utility_under_attack security_success attack_success score
     ].freeze
+    BOOLEAN_VALUES = [true, false].freeze
     DIGEST = /\A[0-9a-f]{64}\z/
 
     attr_reader :matrix, :runner
@@ -67,7 +68,8 @@ module Vangrail
       run_seed = integer(seed, 'benchmark seed')
       cases = matrix.to_h.fetch('cases').map do |attack_case|
         execute_case(attack_case, normalized_target, run_seed)
-      end.sort_by { |row| row['case_id'] }
+      end
+      cases.sort_by! { |row| row['case_id'] }
 
       BenchmarkRun.new(
         'schema' => BenchmarkRun::SCHEMA,
@@ -142,9 +144,9 @@ module Vangrail
       count!(response, 'model_calls')
       count!(response, 'tool_calls')
       finite_nonnegative!(response['duration_seconds'], 'adaptive response duration_seconds')
-      unless response['trace_sha256'].to_s.match?(DIGEST)
-        raise ArtifactError, 'adaptive response trace_sha256 must be a lowercase SHA-256 digest'
-      end
+      return if response['trace_sha256'].to_s.match?(DIGEST)
+
+      raise ArtifactError, 'adaptive response trace_sha256 must be a lowercase SHA-256 digest'
     end
 
     def validate_success!(response)
@@ -157,6 +159,7 @@ module Vangrail
       unless response['attack_success'] == !response['security_success']
         raise ArtifactError, 'adaptive attack and security outcomes must be complements'
       end
+
       probability!(response['score'], 'adaptive response score')
     end
 
@@ -257,13 +260,13 @@ module Vangrail
 
     def count!(response, field, maximum: nil)
       value = response[field]
-      unless value.is_a?(Integer) && !value.negative? && (!maximum || value <= maximum)
-        raise ArtifactError, "adaptive response #{field} is outside its allowed range"
-      end
+      return if value.is_a?(Integer) && !value.negative? && (!maximum || value <= maximum)
+
+      raise ArtifactError, "adaptive response #{field} is outside its allowed range"
     end
 
     def boolean!(value, name)
-      return if value == true || value == false
+      return if BOOLEAN_VALUES.include?(value)
 
       raise ArtifactError, "#{name} must be boolean"
     end

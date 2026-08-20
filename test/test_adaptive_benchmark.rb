@@ -73,7 +73,7 @@ class TestAdaptiveBenchmark < Minitest::Test
     assert_equal matrix.sha256, run.dig('attack', 'matrix_sha256')
     assert_equal 2, run['denominator']
     assert_equal({ 'ok' => 1, 'error' => 0, 'abstained' => 1 }, run['status_counts'])
-    assert_equal %w[probe-1 rewrite-1], run.fetch('cases').map { |row| row['case_id'] }
+    assert_equal(%w[probe-1 rewrite-1], run.fetch('cases').map { |row| row['case_id'] })
     assert_equal 2, runner.requests.size
     assert_request(runner.requests.first)
     assert_success(run.fetch('cases').last)
