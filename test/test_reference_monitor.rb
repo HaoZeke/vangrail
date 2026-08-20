@@ -93,8 +93,14 @@ class TestReferenceMonitor < Minitest::Test
                  monitor.authorize(call.call(to: recipient, sink: :unapproved)).reason_code
     assert_equal :confirmation,
                  monitor.authorize(call.call(to: recipient, confirmation: true)).reason_code
+    unprepared = call.call(to: recipient, transaction: false)
+    unprepared_confirmation = monitor.confirm(
+      unprepared,
+      actor: Vangrail::Cell.user('approved'),
+    )
+
     assert_equal :transaction,
-                 monitor.authorize(call.call(to: recipient, transaction: false)).reason_code
+                 monitor.authorize(unprepared.with_confirmation(unprepared_confirmation)).reason_code
     ready = call.call(to: recipient)
     confirmation = monitor.confirm(ready, actor: Vangrail::Cell.user('approved'))
 
