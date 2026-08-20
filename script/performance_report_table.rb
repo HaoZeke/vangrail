@@ -30,9 +30,10 @@ module Vangrail
     end
 
     def kernels(report)
-      rows = report.fetch('profiles').sort_by do |profile|
+      profiles = report.fetch('profiles').sort_by do |profile|
         [profile.dig('shape', 'characters'), profile.fetch('implementation'), profile.fetch('kernel')]
-      end.map do |profile|
+      end
+      rows = profiles.map do |profile|
         [
           profile.fetch('kernel'),
           profile.fetch('implementation'),
@@ -53,9 +54,10 @@ module Vangrail
     end
 
     def scaling(report)
-      rows = report.fetch('scaling_analysis').sort_by do |row|
+      analysis = report.fetch('scaling_analysis').sort_by do |row|
         [row.fetch('dimension'), row.fetch('implementation')]
-      end.map do |row|
+      end
+      rows = analysis.map do |row|
         [
           row.fetch('dimension'),
           row.fetch('implementation'),

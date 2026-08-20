@@ -1,20 +1,21 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'digest'
-require 'fileutils'
 require 'json'
 require 'open3'
-require 'optparse'
-require 'tempfile'
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require_relative '../lib/vangrail'
 require_relative 'performance_report_table'
+require_relative 'risk_benchmark_artifacts'
+require_relative 'risk_benchmark_scaling'
 
 module Vangrail
   # Reproducible latency, allocation, memory, and parity measurements for the
   # dependency-free and optional-native risk kernels.
   class RiskBenchmark
+    include RiskBenchmarkArtifacts
+    include RiskBenchmarkScaling
+
     SCHEMA = 'vangrail-risk-performance-v1'
     DECLARED_DIMENSIONS = %w[
       text_length clause_count unicode_density variant_count rail_count cache_cardinality
@@ -118,34 +119,6 @@ module Vangrail
       }
     end
 
-    def shape_for(text, normalised)
-      characters = text.length
-      non_ascii = text.each_char.count { |character| !character.ascii_only? }
-      {
-        'characters' => characters,
-        'bytes' => text.bytesize,
-        'clauses' => NLP.clauses(text).size,
-        'unicode_density' => characters.zero? ? 0.0 : non_ascii.fdiv(characters),
-        'variants' => 1,
-        'rails' => 1,
-        'cache_cardinality' => 1,
-        'normalised_characters' => normalised.length,
-      }
-    end
-
-    def work_for(words, normalised)
-      windows = if normalised.length > 4
-                  ((normalised.length - 4) / LinearModel::STRIDE) + 1
-                else
-                  0
-                end
-      {
-        'tokens' => words.size,
-        'bigrams' => [words.size - 1, 0].max,
-        'character_windows' => windows,
-      }
-    end
-
     def summaries(raw)
       {
         'latency_ms' => distribution(raw.map { |sample| sample.fetch('latency_ms') }),
@@ -206,54 +179,6 @@ module Vangrail
       (seed * ((length / seed.length) + 2))[0, length]
     end
 
-    def artifacts(model)
-      extension = $LOADED_FEATURES.detect { |path| File.basename(path).start_with?('vangrail_native.') }
-      extension = nil unless extension && File.file?(extension)
-      model_json = JSON.generate(model.to_h)
-      {
-        'core_library_bytes' => library_bytes,
-        'core_library_sha256' => library_digest,
-        'model_json_bytes' => model_json.bytesize,
-        'model_json_sha256' => Digest::SHA256.hexdigest(model_json),
-        'native_extension_bytes' => extension && File.size(extension),
-        'native_extension_sha256' => extension && Digest::SHA256.file(extension).hexdigest,
-      }
-    end
-
-    def library_bytes
-      library_files.sum { |path| File.size(path) }
-    end
-
-    def library_digest
-      root = File.expand_path('..', __dir__)
-      digest = Digest::SHA256.new
-      library_files.each do |path|
-        relative = path.delete_prefix("#{root}/")
-        digest << relative << "\0" << Digest::SHA256.file(path).hexdigest << "\n"
-      end
-      digest.hexdigest
-    end
-
-    def library_files
-      root = File.expand_path('..', __dir__)
-      Dir[File.join(root, 'lib', '**', '*.{rb,json}')]
-    end
-
-    def source_digests
-      root = File.expand_path('..', __dir__)
-      {
-        'benchmark_risk' => file_digest(File.join(root, 'script', 'benchmark_risk.rb')),
-        'performance_report_table' => file_digest(File.join(root, 'script', 'performance_report_table.rb')),
-        'linear_model' => file_digest(File.join(root, 'lib', 'vangrail', 'linear_model.rb')),
-        'native_source' => file_digest(File.join(root, 'ext', 'vangrail_native', 'src', 'lib.rs')),
-        'native_lock' => file_digest(File.join(root, 'ext', 'vangrail_native', 'Cargo.lock')),
-      }
-    end
-
-    def file_digest(path)
-      Digest::SHA256.file(path).hexdigest
-    end
-
     def process_memory
       { 'rss' => resident_memory_kib, 'high_water' => high_water_memory_kib }
     end
@@ -283,147 +208,6 @@ module Vangrail
       raise "startup probe failed: #{stderr}" unless status.success?
 
       { 'status' => 'measured', 'latency_ms' => elapsed * 1000.0 }
-    end
-  end
-
-  class RiskBenchmark
-    CLAUSE_COUNTS = [1, 4, 16, 64].freeze
-    UNICODE_DENSITIES = [0.0, 0.25, 0.5, 1.0].freeze
-    FAN_OUT_COUNTS = [1, 2, 4, 8].freeze
-    CACHE_CARDINALITIES = [1, 64, 256, 512].freeze
-
-    private
-
-    def scaling_profiles(model)
-      text_length_curves(model) + clause_curves(model) + unicode_curves(model) +
-        variant_curves(model) + rail_curves + cache_curves
-    end
-
-    def text_length_curves(model)
-      scoring_implementations.flat_map do |implementation|
-        lengths.map do |length|
-          text = text_for(length)
-          scale_row('text_length', length, implementation,
-                    shape_for(text, NLP.normalize(text)), length) do
-            score_with(model, text, implementation)
-          end
-        end
-      end
-    end
-
-    def clause_curves(model)
-      scoring_implementations.flat_map do |implementation|
-        CLAUSE_COUNTS.map do |count|
-          text = (['ordinary guidance'] * count).join('. ') << '.'
-          scale_row('clause_count', count, implementation,
-                    { 'clauses' => count, 'characters' => text.length }, count) do
-            score_with(model, text, implementation)
-          end
-        end
-      end
-    end
-
-    def unicode_curves(model)
-      length = [lengths.max, 1024].min
-      scoring_implementations.flat_map do |implementation|
-        UNICODE_DENSITIES.map do |density|
-          unicode = (length * density).round
-          text = ('é' * unicode) + ('a' * (length - unicode))
-          scale_row('unicode_density', density, implementation,
-                    { 'characters' => length, 'bytes' => text.bytesize, 'unicode_density' => density }, length) do
-            score_with(model, text, implementation)
-          end
-        end
-      end
-    end
-
-    def variant_curves(model)
-      length = [lengths.max, 256].min
-      scoring_implementations.flat_map do |implementation|
-        FAN_OUT_COUNTS.map do |count|
-          variants = Array.new(count) { |index| variant_text(length, index) }
-          scale_row('variant_count', count, implementation,
-                    { 'variants' => count, 'characters_each' => length }, count) do
-            variants.sum { |text| score_with(model, text, implementation) }
-          end
-        end
-      end
-    end
-
-    def rail_curves
-      FAN_OUT_COUNTS.map do |count|
-        engine = scaling_engine(count)
-        text = 'ordinary handbook guidance for a routine batch job'
-        scale_row('rail_count', count, 'ruby',
-                  { 'rails' => count, 'characters' => text.length }, count) do
-          engine.check_input(text).passed? ? count : -1
-        end
-      end
-    end
-
-    def cache_curves
-      CACHE_CARDINALITIES.map do |count|
-        limit = ResultCache::DEFAULT_LIMIT
-        retained = fill_cache(count, limit)
-        scale_row('cache_cardinality', count, 'ruby',
-                  { 'cache_limit' => limit, 'retained_entries' => retained }, count) do
-          fill_cache(count, limit)
-        end
-      end
-    end
-
-    def scale_row(dimension, value, implementation, shape, items, &)
-      row = measure("scale_#{dimension}", implementation, shape, { 'items' => items }, &)
-      row.merge('dimension' => dimension, 'value' => value)
-    end
-
-    def scoring_implementations
-      implementations = ['ruby']
-      implementations << 'native' if Native.available?
-      implementations
-    end
-
-    def score_with(model, text, implementation)
-      implementation == 'native' ? model.score(text) : model.ruby_score(text)
-    end
-
-    def variant_text(length, index)
-      suffix = " #{index.to_s(36)}"
-      "#{text_for(length - suffix.length)}#{suffix}"
-    end
-
-    def scaling_engine(count)
-      pattern = { 'never_matches' => /\Athis text never appears\z/ }
-      rails = Array.new(count) do |index|
-        Rails::Pattern.new(patterns: pattern, name: "scaling_pattern_#{index}", sides: [:input])
-      end
-      Engine.new(input: rails, cache: false)
-    end
-
-    def fill_cache(count, limit)
-      cache = ResultCache.new(limit: limit)
-      result = Result.passed(rail: 'scaling')
-      count.times { |index| cache.fetch(:input, 'scaling', index) { result } }
-      cache.size
-    end
-
-    def scaling_analysis(rows)
-      rows.group_by { |row| [row.fetch('dimension'), row.fetch('implementation')] }
-          .map do |(dimension, implementation), group|
-        ordered = group.sort_by { |row| row.fetch('work').fetch('items') }
-        smallest = ordered.first
-        largest = ordered.last
-        work_growth = largest.dig('work', 'items').fdiv(smallest.dig('work', 'items'))
-        latency_growth = largest.dig('summary', 'latency_ms', 'median')
-                                .fdiv(smallest.dig('summary', 'latency_ms', 'median'))
-        {
-          'dimension' => dimension,
-          'implementation' => implementation,
-          'work_growth' => work_growth,
-          'latency_growth' => latency_growth,
-          'latency_growth_per_work_growth' => latency_growth / work_growth,
-        }
-      end
     end
 
     def runtime_identity
@@ -473,98 +257,6 @@ module Vangrail
   end
 end
 
-module Vangrail
-  # Command-line materialization of raw and rendered performance reports.
-  class RiskBenchmarkCli
-    def self.run(argv, stdout: $stdout, stderr: $stderr)
-      new(stdout: stdout, stderr: stderr).run(argv)
-    end
-
-    def initialize(stdout:, stderr:)
-      @stdout = stdout
-      @stderr = stderr
-    end
-
-    def run(argv)
-      options, paths = parse_options(argv)
-      report = RiskBenchmark.new(**options).run
-      encoded = JSON.pretty_generate(report) << "\n"
-      outputs = {}
-      outputs[paths[:output]] = encoded if paths[:output]
-      outputs[paths[:table]] = PerformanceReportTable.render(report) if paths[:table]
-      atomic_write(outputs) unless outputs.empty?
-      @stdout.print(encoded)
-      0
-    rescue OptionParser::ParseError, JSON::GeneratorError, ArgumentError,
-           Errno::ENOENT, Errno::EACCES, IOError => e
-      @stderr.puts("benchmark_risk: #{e.message}")
-      1
-    end
-
-    private
-
-    def parse_options(argv)
-      values = {
-        lengths: RiskBenchmark::DEFAULT_LENGTHS,
-        samples: 9,
-        iterations: 20,
-        warmup: 5,
-        buckets: LinearModel::BUCKETS,
-        startup: true,
-      }
-      paths = {}
-      option_parser(values, paths).parse!(argv)
-      paths.transform_values! { |path| File.expand_path(path) }
-      raise OptionParser::InvalidArgument, 'output paths must be distinct' if paths.values.uniq.size != paths.size
-
-      [values.freeze, paths.freeze]
-    end
-
-    def option_parser(values, paths)
-      OptionParser.new do |parser|
-        parser.banner = 'Usage: ruby script/benchmark_risk.rb [options]'
-        parser.on('--lengths LIST', 'comma-separated character lengths') do |value|
-          values[:lengths] = value.split(',').map { |item| Integer(item, 10) }
-        end
-        parser.on('--samples N', Integer) { |value| values[:samples] = value }
-        parser.on('--iterations N', Integer) { |value| values[:iterations] = value }
-        parser.on('--warmup N', Integer) { |value| values[:warmup] = value }
-        parser.on('--buckets N', Integer) { |value| values[:buckets] = value }
-        parser.on('--[no-]startup', 'measure library startup in a subprocess') { |value| values[:startup] = value }
-        parser.on('--output PATH', 'atomically write the JSON report') { |value| paths[:output] = value }
-        parser.on('--table PATH', 'atomically write the Markdown table') { |value| paths[:table] = value }
-      end
-    end
-
-    def atomic_write(payloads)
-      payloads.each_key do |path|
-        raise IOError, "output already exists: #{path}" if File.exist?(path)
-        raise IOError, "output directory does not exist: #{File.dirname(path)}" unless Dir.exist?(File.dirname(path))
-      end
-
-      staged = payloads.to_h { |path, bytes| [path, stage(path, bytes)] }
-      published = []
-      staged.each do |path, temporary|
-        temporary.close
-        File.rename(temporary.path, path)
-        published << path
-      end
-    rescue StandardError
-      published&.each { |path| FileUtils.rm_f(path) }
-      raise
-    ensure
-      staged&.each_value(&:close!)
-    end
-
-    def stage(path, bytes)
-      temporary = Tempfile.new([".#{File.basename(path)}", '.tmp'], File.dirname(path))
-      temporary.binmode
-      temporary.write(bytes)
-      temporary.flush
-      temporary.fsync
-      temporary
-    end
-  end
-end
+require_relative 'risk_benchmark_cli'
 
 exit Vangrail::RiskBenchmarkCli.run(ARGV) if $PROGRAM_NAME == __FILE__
