@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'securerandom'
+require_relative 'audit'
 require_relative 'origin'
 require_relative 'plan'
 
@@ -107,12 +108,13 @@ module Vangrail
       hash: Hash,
     }.freeze
 
-    attr_reader :plan
+    attr_reader :plan, :audit
 
     def initialize(plan)
       raise ArgumentError, 'plan must be a Plan' unless plan.is_a?(Plan)
 
       @plan = plan.lock!
+      @audit = @plan.audit
       @usage = Hash.new(0)
       @authorized = {}
       @finished = {}
@@ -124,8 +126,19 @@ module Vangrail
       raise ArgumentError, 'call must be a Call' unless call.is_a?(Call)
 
       @mutex.synchronize do
+        audit.record(
+          :call_attempt,
+          call_id: call.id,
+          tool: call.tool,
+          conversation_id: call.conversation_id,
+          request: call.request,
+          arguments: call.fields,
+          sink: call.sink,
+          confirmed: call.confirmed?,
+          transaction: call.transaction?,
+        )
         preliminary = preliminary_denial(call)
-        return preliminary if preliminary
+        return audited(preliminary) if preliminary
 
         denials = plan.grants_for(call.tool).map do |grant|
           denial = grant_denial(call, grant)
@@ -134,9 +147,9 @@ module Vangrail
           @usage[grant.id] += 1
           authorization = Authorization.allow(call, grant)
           @authorized[call.id] = authorization
-          return authorization
+          return audited(authorization)
         end
-        denials.compact.first || deny(call, :no_grant, "no grant for #{call.tool}")
+        audited(denials.compact.first || deny(call, :no_grant, "no grant for #{call.tool}"))
       end
     end
 
@@ -150,6 +163,8 @@ module Vangrail
 
         @finished[call.id] = success.equal?(true)
         @completed << call.tool if success
+        audit.record(:handler_outcome, call_id: call.id, tool: call.tool,
+                                       success: @finished[call.id])
         @finished[call.id]
       end
     end
@@ -265,6 +280,18 @@ module Vangrail
 
     def deny(call, code, reason)
       Authorization.deny(call, code, reason)
+    end
+
+    def audited(authorization)
+      audit.record(
+        :authorization,
+        call_id: authorization.call.id,
+        grant_id: authorization.grant&.id,
+        allowed: authorization.allowed?,
+        reason_code: authorization.reason_code,
+        reason: authorization.reason,
+      )
+      authorization
     end
   end
 end

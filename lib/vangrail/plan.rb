@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'securerandom'
+require_relative 'audit'
 require_relative 'errors'
 require_relative 'origin'
 
@@ -98,12 +99,14 @@ module Vangrail
 
   # Privileged, lockable collection of grants for one conversation.
   class Plan
-    attr_reader :id
+    attr_reader :id, :audit
 
-    def initialize(id: nil)
+    def initialize(id: nil, audit: nil)
       @id = (id || SecureRandom.uuid).to_s.freeze
+      @audit = audit || AuditLog.new
       @grants = []
       @locked = false
+      @audit.record(:plan_created, plan_id: @id)
     end
 
     def read(tool, **options)
@@ -132,8 +135,11 @@ module Vangrail
     end
 
     def lock!
+      return self if locked?
+
       @grants.freeze
       @locked = true
+      audit.record(:plan_locked, plan_id: id, grants: @grants.map(&:id))
       self
     end
 
@@ -145,8 +151,8 @@ module Vangrail
       { 'id' => id, 'locked' => locked?, 'grants' => @grants.map(&:to_h) }
     end
 
-    def self.from_allow(allow, tools:, id: nil)
-      new(id: id).tap do |plan|
+    def self.from_allow(allow, tools:, id: nil, audit: nil)
+      new(id: id, audit: audit).tap do |plan|
         allow.each do |tool, origins|
           next unless tools.readonly?(tool)
 
@@ -168,6 +174,7 @@ module Vangrail
 
       Grant.new(tool: tool, effect: effect, conversation_id: id, **options).tap do |grant|
         @grants << grant
+        audit.record(:grant_added, plan_id: id, grant: grant)
       end
     end
   end
