@@ -50,9 +50,7 @@ module Vangrail
 
       bytes = File.binread(path)
       actual = Digest::SHA256.hexdigest(bytes)
-      if expected_sha256 && actual != expected_sha256
-        raise ArtifactError, 'adaptive attack matrix hash does not match'
-      end
+      raise ArtifactError, 'adaptive attack matrix hash does not match' if expected_sha256 && actual != expected_sha256
 
       new(JSON.parse(bytes), source_sha256: actual)
     rescue JSON::ParserError => e
