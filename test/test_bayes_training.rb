@@ -2,6 +2,8 @@
 
 require_relative 'helper'
 require_relative '../script/bayes_training'
+require 'open3'
+require 'rbconfig'
 
 class TestBayesTraining < Minitest::Test
   def test_a_source_group_has_exactly_one_evaluation_role
@@ -92,5 +94,16 @@ class TestBayesTraining < Minitest::Test
     performance = Vangrail::BayesTraining.performance(predictions, threshold: 3)
 
     assert_equal({ caught: 1, attacks: 2, flagged: 1, benign: 2 }, performance)
+  end
+
+  def test_the_trainer_can_be_required_without_running_the_corpus
+    root = File.expand_path('..', __dir__)
+    code = "require #{File.join(root, 'script/train_bayes.rb').inspect}"
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-e', code)
+
+    assert_predicate status, :success?, stderr
+    assert_empty stdout
+    assert_empty stderr
   end
 end
