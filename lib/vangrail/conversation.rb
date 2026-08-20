@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'engine'
+require_relative 'conversation_tools'
 require_relative 'errors'
 require_relative 'origin'
 require_relative 'plan'
@@ -49,6 +50,8 @@ module Vangrail
   #   convo.session.posterior(:contamination)
   #   convo.session.block?
   class Conversation
+    include ConversationTools
+
     Turn = Struct.new(:role, :text, :result, :origin, keyword_init: true) do
       def blocked?
         result&.blocked? || false
@@ -148,50 +151,6 @@ module Vangrail
       result
     end
 
-    # Names the tools this question is allowed to use, before any
-    # retrieved page is seen. That is the privileged planner: the plan
-    # is fixed from the user turn. After `screen`, the plan is locked.
-    # A page that names a new tool cannot add it.
-    def intend(*names)
-      raise Error, 'ask before intending a tool' unless last_user_turn
-      raise PrivilegeError, 'the plan is locked: data has already been seen' if locked?
-
-      names.each do |name|
-        name = name.to_sym
-        raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
-        raise PrivilegeError, "capability #{name} is denied by profile" if profile.denied?(name)
-
-        @intended << name unless @intended.include?(name)
-      end
-      intended
-    end
-
-    def intended
-      @intended.dup.freeze
-    end
-
-    def locked?
-      @locked
-    end
-
-    # Whether this dialogue may exercise a capability. The request is the
-    # last user turn, carrying the conversation's capability set. A bare
-    # argument string is data. Nothing is admitted before anyone has asked,
-    # and a name that is not in the allowlist is not admitted either.
-    def admit?(capability, arguments: nil)
-      turn = last_user_turn
-      return false unless turn
-      return false if profile.denied?(capability)
-
-      args = case arguments
-             when nil then nil
-             when Cell then arguments
-             else Cell.data(arguments)
-             end
-      admission.permit?(capability, request: Cell.user(turn.text, capabilities: capabilities),
-                                    arguments: args)
-    end
-
     # The only assembly this object will produce. The question is the last
     # user turn; the passages are the cells `screen` kept. A caller who
     # pastes retrieved text into `system:` or `question:` has to do it
@@ -202,71 +161,6 @@ module Vangrail
 
       Spotlight.messages(system: system, question: Cell.user(turn.text),
                          passages: retrieved, mode: mode, mark: mark)
-    end
-
-    # Runs a named tool only if Admission grants it. A refused call is a
-    # blocked turn, not a handler that almost ran. The return value of a
-    # granted handler is wrapped as a tool-origin cell.
-    def invoke(target, arguments: nil, sink: nil, confirmed: false, transaction: false,
-               idempotency_key: nil)
-      call = target if target.is_a?(Call)
-      name = call ? call.tool : target.to_sym
-      raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
-
-      handler_arguments = call ? call.arguments.raw : arguments
-
-      if profile.denied?(name)
-        result = Result.blocked(rail: 'deny', reason: "capability #{name} is denied by profile")
-        record_invocation(name, handler_arguments, result, nil, call: call)
-        return result
-      end
-
-      if profile.readonly? && !tools.readonly?(name)
-        result = Result.blocked(rail: 'profile', reason: "profile #{profile.name} is read-only")
-        record_invocation(name, handler_arguments, result, nil, call: call)
-        return result
-      end
-
-      hook = run_pre_invoke(name, handler_arguments)
-      return hook if hook
-
-      unless @intended.include?(name)
-        result = Result.blocked(rail: 'plan', reason: "capability #{name} was not intended")
-        record_invocation(name, handler_arguments, result, nil, call: call)
-        return result
-      end
-
-      call ||= build_call(name, arguments, sink: sink, confirmed: confirmed,
-                                           transaction: transaction,
-                                           idempotency_key: idempotency_key)
-      authorization = monitor.authorize(call)
-      if authorization.denied?
-        reason = "#{authorization.reason_code}: #{authorization.reason}"
-        result = Result.blocked(rail: 'reference_monitor', reason: reason)
-        record_invocation(name, handler_arguments, result, nil, call: call,
-                                                                authorization: authorization)
-        return result
-      end
-
-      begin
-        value = tools.fire(name, handler_arguments, self)
-      rescue StandardError => e
-        monitor.finish(call, success: false)
-        result = Result.blocked(rail: 'handler', reason: "#{e.class}: #{e.message}")
-        record_invocation(name, handler_arguments, result, nil, call: call,
-                                                                authorization: authorization)
-        return result
-      end
-      monitor.finish(call, success: true)
-      cell = value.is_a?(Cell) ? value : Cell.tool(value)
-      result = Result.passed(rail: name.to_s)
-      record_invocation(name, handler_arguments, result, cell, call: call,
-                                                               authorization: authorization)
-      result
-    end
-
-    def invoked?(name)
-      invocations.any? { |row| row[:name] == name.to_sym && row[:result].allowed? }
     end
 
     # A span pulled out of retrieved data. The result is still data.
@@ -295,10 +189,6 @@ module Vangrail
       turns.reverse.detect(&:user?)
     end
 
-    def child_env(source = ENV)
-      profile.strip_secrets? ? Profile.strip_secrets(source) : source.to_h
-    end
-
     def to_h
       {
         'turns' => turns.map(&:to_h),
@@ -313,36 +203,6 @@ module Vangrail
     end
 
     private
-
-    def run_pre_invoke(name, arguments)
-      hook = @hooks[:pre_invoke]
-      return nil unless hook
-
-      verdict = hook.call(name, arguments, self)
-      if verdict.is_a?(Result)
-        record_invocation(name, arguments, verdict, nil)
-        return verdict
-      end
-      return nil if verdict
-
-      result = Result.blocked(rail: 'hook', reason: "pre_invoke refused #{name}")
-      record_invocation(name, arguments, result, nil)
-      result
-    end
-
-    def record_invocation(name, arguments, result, cell, call: nil, authorization: nil)
-      @invocations << {
-        name: name,
-        arguments: arguments,
-        result: result,
-        cell: cell,
-        call: call,
-        authorization: authorization,
-      }.compact
-      turn = Turn.new(role: :tool, text: name.to_s, result: result, origin: Origin.tool)
-      @turns << turn
-      @session&.fold(result, origin: turn.origin, side: :output)
-    end
 
     def session_assess
       options = { prior: @session.prior, policy: @session.policy }
@@ -363,26 +223,5 @@ module Vangrail
       result.respond_to?(:content_or) ? result.content_or(fallback.to_s) : fallback.to_s
     end
 
-    def build_call(name, arguments, sink:, confirmed:, transaction:, idempotency_key:)
-      turn = last_user_turn
-      raise Error, 'ask before invoking a tool' unless turn
-
-      Call.new(
-        tool: name,
-        request: Cell.user(turn.text, capabilities: capabilities),
-        arguments: arguments,
-        conversation_id: plan.id,
-        sink: sink,
-        confirmed: confirmed,
-        transaction: transaction,
-        idempotency_key: idempotency_key,
-      )
-    end
-
-    def text_of(document)
-      return document.to_s unless document.is_a?(Hash)
-
-      (document['text'] || document[:text]).to_s
-    end
   end
 end
