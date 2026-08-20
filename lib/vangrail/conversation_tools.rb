@@ -46,14 +46,14 @@ module Vangrail
     # Runs a handler only after profile, plan, hook, and reference-monitor
     # authorization agree. Every refusal is recorded without calling the
     # handler.
-    def invoke(target, arguments: nil, sink: nil, confirmed: false, transaction: false,
+    def invoke(target, arguments: nil, sink: nil, confirmation: nil, transaction: false,
                idempotency_key: nil)
       call = target if target.is_a?(Call)
       name = call ? call.tool : target.to_sym
       raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
 
       handler_arguments = call ? call.arguments.raw : arguments
-      call ||= build_call(name, arguments, sink: sink, confirmed: confirmed,
+      call ||= build_call(name, arguments, sink: sink, confirmation: confirmation,
                                            transaction: transaction,
                                            idempotency_key: idempotency_key)
       refusal = preauthorization_refusal(name, handler_arguments, call)
@@ -67,6 +67,10 @@ module Vangrail
 
     def invoked?(name)
       invocations.any? { |row| row[:name] == name.to_sym && row[:result].allowed? }
+    end
+
+    def confirm(call, actor:)
+      monitor.confirm(call, actor: actor)
     end
 
     def child_env(source = ENV)
@@ -154,7 +158,7 @@ module Vangrail
       @session&.fold(result, origin: turn.origin, side: :output)
     end
 
-    def build_call(name, arguments, sink:, confirmed:, transaction:, idempotency_key:)
+    def build_call(name, arguments, sink:, confirmation:, transaction:, idempotency_key:)
       turn = last_user_turn
       raise Error, 'ask before invoking a tool' unless turn
 
@@ -164,7 +168,7 @@ module Vangrail
         arguments: arguments,
         conversation_id: plan.id,
         sink: sink,
-        confirmed: confirmed,
+        confirmation: confirmation,
         transaction: transaction,
         idempotency_key: idempotency_key,
       )

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'securerandom'
+require 'digest'
 require_relative 'audit'
 require_relative 'origin'
 require_relative 'plan'
@@ -9,10 +10,10 @@ module Vangrail
   # Immutable attempt to exercise one tool grant.
   class Call
     attr_reader :id, :tool, :request, :arguments, :conversation_id, :sink,
-                :idempotency_key
+                :idempotency_key, :confirmation
 
     def initialize(tool:, request:, arguments:, conversation_id:, sink: nil,
-                   confirmed: false, transaction: false, idempotency_key: nil,
+                   confirmation: nil, transaction: false, idempotency_key: nil,
                    id: nil)
       raise ArgumentError, 'request must be a Cell' unless request.is_a?(Cell)
 
@@ -23,14 +24,14 @@ module Vangrail
       @arguments = payload.is_a?(Cell) ? payload : Cell.data(payload)
       @conversation_id = conversation_id.to_s.freeze
       @sink = sink&.to_sym
-      @confirmed = confirmed.equal?(true)
+      @confirmation = confirmation
       @transaction = transaction.equal?(true)
       @idempotency_key = idempotency_key&.to_s&.freeze
       freeze
     end
 
     def confirmed?
-      @confirmed
+      !confirmation.nil?
     end
 
     def transaction?
@@ -41,6 +42,34 @@ module Vangrail
       return { value: arguments }.freeze unless arguments.value.is_a?(Hash)
 
       arguments.value.transform_keys(&:to_sym).freeze
+    end
+
+    def with_confirmation(token)
+      self.class.new(
+        id: id,
+        tool: tool,
+        request: request,
+        arguments: arguments,
+        conversation_id: conversation_id,
+        sink: sink,
+        confirmation: token,
+        transaction: transaction?,
+        idempotency_key: idempotency_key,
+      )
+    end
+
+    def fingerprint
+      material = [
+        tool,
+        request.raw,
+        request.label.to_h,
+        fields.sort_by { |name, _| name.to_s }.map { |name, cell| [name, cell.raw, cell.label.to_h] },
+        conversation_id,
+        sink,
+        transaction?,
+        idempotency_key,
+      ]
+      Digest::SHA256.hexdigest(Marshal.dump(material))
     end
 
     def to_h
@@ -54,6 +83,19 @@ module Vangrail
         'transaction' => transaction?,
         'idempotency_key' => idempotency_key,
       }.compact
+    end
+  end
+
+  # Opaque confirmation registered by a ReferenceMonitor for one exact Call.
+  class Confirmation
+    attr_reader :id, :call_id, :fingerprint, :actor
+
+    def initialize(call, actor)
+      @id = SecureRandom.uuid.freeze
+      @call_id = call.id
+      @fingerprint = call.fingerprint.freeze
+      @actor = actor
+      freeze
     end
   end
 
@@ -119,6 +161,7 @@ module Vangrail
       @authorized = {}
       @claimed = {}
       @finished = {}
+      @confirmations = {}
       @completed = []
       @mutex = Mutex.new
     end
@@ -169,6 +212,27 @@ module Vangrail
         return false if @claimed[call_id] || @finished.key?(call_id)
 
         @claimed[call_id] = true
+      end
+    end
+
+    def confirm(call, actor:)
+      raise ArgumentError, 'call must be a Call' unless call.is_a?(Call)
+      unless actor.is_a?(Cell) && actor.privileged?
+        raise PrivilegeError, 'confirmation requires a privileged actor'
+      end
+
+      @mutex.synchronize do
+        raise PrivilegeError, 'call belongs to another conversation' if call.conversation_id != plan.id
+        grants = plan.grants_for(call.tool)
+        unless grants.any?(&:confirmation_required?)
+          raise PrivilegeError, "call #{call.tool} has no confirmation grant"
+        end
+        raise PrivilegeError, 'authorized calls cannot be reconfirmed' if @authorized.key?(call.id)
+
+        Confirmation.new(call, actor).tap do |token|
+          @confirmations[call.id] = token
+          audit.record(:confirmation, call_id: call.id, confirmation_id: token.id, actor: actor)
+        end
       end
     end
 
@@ -258,7 +322,9 @@ module Vangrail
     def policy_denial(call, grant)
       return deny(call, :sink, 'call sink is outside the grant') unless sink_allowed?(call, grant)
       return deny(call, :integrity, 'request integrity is outside the grant') unless integrity_allowed?(call, grant)
-      return deny(call, :confirmation, 'call requires confirmation') if grant.confirmation_required? && !call.confirmed?
+      if grant.confirmation_required? && !valid_confirmation?(call)
+        return deny(call, :confirmation, 'call requires a monitor-issued confirmation')
+      end
       if grant.transaction_required? && !call.transaction?
         return deny(call, :transaction, 'call requires a transaction')
       end
@@ -283,6 +349,11 @@ module Vangrail
       return true if grant.integrity.nil?
 
       call.request.integrity.all? { |principal| grant.integrity.include?(principal) }
+    end
+
+    def valid_confirmation?(call)
+      token = @confirmations[call.id]
+      token&.equal?(call.confirmation) && token.fingerprint == call.fingerprint
     end
 
     def deny(call, code, reason)
