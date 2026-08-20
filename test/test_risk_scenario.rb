@@ -12,7 +12,7 @@ class TestRiskScenario < Minitest::Test
     assert_in_delta 0.1, prior.mean
     assert_operator low, :<, prior.mean
     assert_operator high, :>, prior.mean
-    assert_in_delta 0.2, updated.mean
+    assert_in_delta 2.0 / 11, updated.mean
     assert_in_delta 0.1, prior.mean
     assert_predicate prior, :frozen?
     assert_raises(ArgumentError) { prior.adjudicate(:detector_positive) }
