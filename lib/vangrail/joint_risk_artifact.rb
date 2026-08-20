@@ -154,7 +154,7 @@ module Vangrail
         raise ProtocolError, "readers must contain 1..#{MAX_READERS} entries"
       end
 
-      specs.each do |reader_id, spec|
+      covered = specs.flat_map do |reader_id, spec|
         unless spec.is_a?(Hash) && !reader_id.empty? && !spec['model_id'].to_s.empty? &&
                spec['feature_schema'].is_a?(Array) && !spec['feature_schema'].empty?
           raise ProtocolError, "reader #{reader_id.inspect} has an invalid identity"
@@ -163,7 +163,11 @@ module Vangrail
         unless (expected - feature_schema).empty?
           raise ProtocolError, "reader #{reader_id} names features outside feature_schema"
         end
+        expected
       end
+      return if covered.sort == feature_schema.sort
+
+      raise ProtocolError, 'reader schemas must cover feature_schema exactly'
     end
 
     def validate_parameters!
