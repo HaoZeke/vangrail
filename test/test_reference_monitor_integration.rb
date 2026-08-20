@@ -7,6 +7,18 @@ class TestReferenceMonitorIntegration < Minitest::Test
     Vangrail::Engine.new(input: Vangrail::Builder.deterministic(:input))
   end
 
+  def cite_call(conversation, document)
+    Vangrail::Call.new(
+      tool: :cite,
+      request: Vangrail::Cell.user('Cite the partition page.', capabilities: :cite),
+      arguments: {
+        document: Vangrail::Cell.data(document, confidentiality: :reader),
+      },
+      conversation_id: conversation.plan.id,
+      sink: :reader,
+    )
+  end
+
   def test_an_explicit_plan_routes_calls_through_the_monitor
     received = []
     tools = Vangrail::Tools.new.tap do |registry|
@@ -20,28 +32,8 @@ class TestReferenceMonitorIntegration < Minitest::Test
     conversation = Vangrail::Conversation.new(engine, plan: plan, tools: tools)
     conversation.ask('Cite the partition page.')
 
-    first = conversation.invoke(
-      Vangrail::Call.new(
-        tool: :cite,
-        request: Vangrail::Cell.user('Cite the partition page.', capabilities: :cite),
-        arguments: {
-          document: Vangrail::Cell.data('gpu_a100', confidentiality: :reader),
-        },
-        conversation_id: conversation.plan.id,
-        sink: :reader,
-      ),
-    )
-    second = conversation.invoke(
-      Vangrail::Call.new(
-        tool: :cite,
-        request: Vangrail::Cell.user('Cite the partition page.', capabilities: :cite),
-        arguments: {
-          document: Vangrail::Cell.data('gpu_h100', confidentiality: :reader),
-        },
-        conversation_id: conversation.plan.id,
-        sink: :reader,
-      ),
-    )
+    first = conversation.invoke(cite_call(conversation, 'gpu_a100'))
+    second = conversation.invoke(cite_call(conversation, 'gpu_h100'))
 
     assert_predicate first, :allowed?
     assert_predicate second, :blocked?
