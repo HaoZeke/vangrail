@@ -143,4 +143,30 @@ class TestScoreProvider < Minitest::Test
     assert_predicate second, :abstained?
     assert_match(/JSON object/, second.reason)
   end
+
+  def test_response_identity_is_validated_by_the_optional_reader
+    wrong_identity = command_provider(
+      command: [
+        RbConfig.ruby,
+        '-rjson',
+        '-e',
+        <<~'RUBY',
+          request = JSON.parse($stdin.read)
+          puts JSON.generate(
+            schema: 'vangrail-score-response-v1',
+            reader_id: 'different-reader',
+            model_id: request.fetch('model_id'),
+            feature_schema: request.fetch('feature_schema'),
+            side: request.fetch('side'),
+            scores: { risk: 0.5 },
+          )
+        RUBY
+      ],
+    )
+
+    result = reader(wrong_identity).score('danger', side: :context)
+
+    assert_predicate result, :invalid?
+    assert_match(/reader identity/, result.reason)
+  end
 end
