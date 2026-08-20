@@ -7,6 +7,9 @@ module Vangrail
   # The endpoint answered, but not with something this client understands.
   class ProtocolError < Error; end
 
+  # A versioned artifact or evaluation record violates its declared contract.
+  class ArtifactError < ProtocolError; end
+
   # Transport failed: connect refused, TLS, timeout, DNS.
   class TransportError < Error
     attr_reader :cause_class
