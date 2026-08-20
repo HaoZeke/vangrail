@@ -16,6 +16,7 @@ module Vangrail
     def covariance_diagonal = data.fetch('covariance_diagonal')
     def threat_model = data.fetch('threat_model')
     def ood = data.fetch('ood')
+    def risk_control = data.fetch('risk_control')
     def score_ranges = data.fetch('score_ranges')
     def supported = data.fetch('supported')
     def calibration = data.fetch('calibration')

@@ -8,7 +8,7 @@ require_relative 'joint_risk_training_ood'
 module Vangrail
   # Deterministic grouped training for the compact Laplace joint-risk artifact.
   module JointRiskTraining
-    ROLES = %i[train calibration test].freeze
+    ROLES = %i[train calibration threshold test].freeze
     LABELS = %i[attack benign].freeze
     CONTEXTS = %i[side origin language domain].freeze
     EPSILON = 1e-12
@@ -16,13 +16,15 @@ module Vangrail
     module_function
 
     def fit(cases, id:, readers:, normalization:, calibration_valid_until:,
-            interactions: [], disagreement_pairs: [], iterations: 100, ridge: 4.0)
+            max_false_positive_rate:, interactions: [], disagreement_pairs: [],
+            risk_confidence: 0.95, iterations: 100, ridge: 4.0)
       rows, feature_schema, reader_specs = prepare(cases, readers)
       validate!(rows, feature_schema)
       interaction_names = normalize_interactions(interactions, feature_schema)
       disagreement_names = JointRiskTrainingOod.normalize_pairs(disagreement_pairs, feature_schema)
       train = rows.select { |row| row[:role] == :train }
       calibration = rows.select { |row| row[:role] == :calibration }
+      threshold = rows.select { |row| row[:role] == :threshold }
       test = rows.select { |row| row[:role] == :test }
       context_terms = context_terms(train)
       terms = ['intercept'] + feature_schema + interaction_names + context_terms.values.flatten
@@ -39,12 +41,23 @@ module Vangrail
       )
       calibration_data = fit_calibration(calibration, parameters, interaction_names,
                                          context_terms, iterations, ridge)
+      threshold_predictions = predictions(threshold, calibration_data, interaction_names,
+                                          context_terms, parameters)
+      risk_control = RiskControl.fit(
+        threshold_predictions,
+        max_false_positive_rate: max_false_positive_rate,
+        confidence: risk_confidence,
+        calibration_manifest_sha256: Digest::SHA256.hexdigest(
+          JointRiskTrainingData.canonical(threshold),
+        ),
+      )
       prevalence = train.count { |row| row[:label] == :attack }.fdiv(train.size)
       artifact = JointRiskArtifact.new(
         artifact_hash(
           id: id,
           train: train,
           calibration: calibration,
+          threshold: threshold,
           features: feature_schema,
           readers: reader_specs,
           normalization: normalization,
@@ -54,6 +67,7 @@ module Vangrail
           covariance: covariance,
           threat_model: threat_model,
           ood: ood,
+          risk_control: risk_control,
           calibration_data: calibration_data,
           prevalence: prevalence,
         ),
@@ -246,9 +260,9 @@ module Vangrail
       [squared_error / (values.size * (values.size - 1)), EPSILON].max
     end
 
-    def artifact_hash(id:, train:, calibration:, features:, readers:, normalization:,
+    def artifact_hash(id:, train:, calibration:, threshold:, features:, readers:, normalization:,
                       interactions:, contexts:, parameters:, covariance:, threat_model:,
-                      ood:, calibration_data:, prevalence:)
+                      ood:, risk_control:, calibration_data:, prevalence:)
       context_names = contexts.values.flatten
       support_rows = train + calibration
       {
@@ -266,27 +280,36 @@ module Vangrail
         'covariance_diagonal' => covariance,
         'threat_model' => threat_model,
         'ood' => ood,
+        'risk_control' => risk_control.to_h,
         'score_ranges' => score_ranges(support_rows, features),
         'supported' => CONTEXTS.to_h { |name| ["#{name}s", support_rows.map { |row| row[name] }.uniq.sort] },
         'calibration' => calibration_data,
         'training_manifest_sha256' => Digest::SHA256.hexdigest(
-          JointRiskTrainingData.canonical(train + calibration),
+          JointRiskTrainingData.canonical(train + calibration + threshold),
         ),
       }
     end
 
     def report(rows, test, artifact, interactions, contexts, parameters)
-      predictions = test.map do |row|
-        base = dot(parameters, design(row, interactions, contexts))
-        calibration = artifact.calibration
-        probability = logistic(calibration.fetch('intercept') + (calibration.fetch('slope') * base))
-        { 'id' => row[:id], 'label' => row[:label].to_s, 'posterior' => probability }
-      end
+      final_predictions = predictions(test, artifact.calibration, interactions, contexts, parameters)
       {
         'role_counts' => ROLES.to_h { |role| [role.to_s, rows.count { |row| row[:role] == role }] },
-        'test' => test_metrics(predictions),
-        'predictions' => predictions,
+        'test' => test_metrics(final_predictions),
+        'predictions' => final_predictions,
       }
+    end
+
+    def predictions(rows, calibration, interactions, contexts, parameters)
+      rows.map do |row|
+        base = dot(parameters, design(row, interactions, contexts))
+        probability = logistic(calibration.fetch('intercept') + (calibration.fetch('slope') * base))
+        {
+          'id' => row[:id],
+          'role' => row[:role].to_s,
+          'label' => row[:label].to_s,
+          'posterior' => probability,
+        }
+      end
     end
 
     def test_metrics(predictions)

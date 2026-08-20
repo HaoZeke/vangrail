@@ -7,6 +7,7 @@ require_relative 'errors'
 require_relative 'joint_risk_artifact_accessors'
 require_relative 'joint_risk_artifact_threats'
 require_relative 'joint_risk_artifact_ood'
+require_relative 'risk_control'
 
 module Vangrail
   # Bounded, versioned posterior approximation consumed by stdlib inference.
@@ -26,7 +27,7 @@ module Vangrail
     MAX_DISAGREEMENT_RULES = 128
     FIELDS = %w[
       schema id posterior_method training_prevalence normalization feature_schema readers intercept
-      coefficients interactions context_offsets covariance_diagonal threat_model ood score_ranges
+      coefficients interactions context_offsets covariance_diagonal threat_model ood risk_control score_ranges
       supported calibration training_manifest_sha256
     ].freeze
 
@@ -77,6 +78,7 @@ module Vangrail
       validate_parameters!
       validate_threat_model!
       validate_ood!
+      RiskControl.new(data['risk_control'])
       validate_support!
       validate_provenance!
     end
