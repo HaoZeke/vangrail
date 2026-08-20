@@ -28,6 +28,18 @@ module JointRiskFixture
         'encoder.score' => 0.36,
         'lexical.score*encoder.score' => 0.01,
       },
+      'ood' => {
+        'feature_means' => { 'lexical.score' => 0.0, 'encoder.score' => 0.0 },
+        'feature_scales' => { 'lexical.score' => 1.0, 'encoder.score' => 1.0 },
+        'max_squared_distance' => 16.0,
+        'disagreement_rules' => [
+          {
+            'features' => %w[lexical.score encoder.score],
+            'max_standardized_difference' => 2.0,
+          },
+        ],
+        'calibration_valid_until' => '9999-12-31T23:59:59Z',
+      },
       'score_ranges' => {
         'lexical.score' => [-3.0, 3.0],
         'encoder.score' => [-3.0, 3.0],

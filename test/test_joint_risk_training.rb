@@ -45,6 +45,8 @@ class TestJointRiskTraining < Minitest::Test
       readers: readers,
       normalization: { id: 'vangrail-nlp-v1' },
       interactions: [['lexical.score', 'encoder.score']],
+      disagreement_pairs: [['lexical.score', 'encoder.score']],
+      calibration_valid_until: '2030-01-01T00:00:00Z',
       iterations: 80,
     )
   end
@@ -57,6 +59,9 @@ class TestJointRiskTraining < Minitest::Test
     assert_equal 'platt', artifact.calibration['method']
     assert_equal %w[exfiltration override], artifact.threat_model['training_composition'].keys.sort
     assert_in_delta 1.0, artifact.threat_model['training_composition'].values.sum
+    assert_equal '2030-01-01T00:00:00Z', artifact.ood['calibration_valid_until']
+    assert_equal 1, artifact.ood['disagreement_rules'].size
+    assert_operator artifact.ood['max_squared_distance'], :>, 0
     assert_equal ROLES.transform_keys(&:to_s), report.fetch('role_counts')
     assert_equal 12, report.dig('test', 'cases')
     assert_operator report.dig('test', 'brier'), :<, 0.25
