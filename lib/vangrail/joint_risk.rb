@@ -103,8 +103,10 @@ module Vangrail
       features, cost = collect_features(Array(results), side)
       validate_ranges!(features)
 
-      eta = linear_predictor(features, context, prior)
+      eta = linear_predictor(features, context)
       variance = posterior_variance(features)
+      eta, variance = calibrate(eta, variance)
+      eta += prior_offset(prior)
       radius = normal_quantile((1 + confidence) / 2.0) * Math.sqrt(variance)
       RiskEstimate.new(
         artifact_id: artifact.id,
@@ -180,8 +182,8 @@ module Vangrail
       end
     end
 
-    def linear_predictor(features, context, prior)
-      eta = artifact.intercept + prior_offset(prior)
+    def linear_predictor(features, context)
+      eta = artifact.intercept
       artifact.coefficients.each { |name, coefficient| eta += coefficient * features.fetch(name) }
       artifact.interactions.each do |name, coefficient|
         left, right = name.split('*', 2)
@@ -189,6 +191,17 @@ module Vangrail
       end
       context.each { |name, value| eta += artifact.context_offsets.fetch("#{name}:#{value}", 0.0) }
       eta
+    end
+
+    def calibrate(eta, variance)
+      calibration = artifact.calibration
+      return [eta, variance] if calibration.fetch('method') == 'identity'
+
+      slope = calibration.fetch('slope')
+      covariance = calibration.fetch('covariance_diagonal')
+      calibrated_variance = (slope**2 * variance) + covariance.fetch('intercept') +
+                            ((eta**2) * covariance.fetch('slope'))
+      [calibration.fetch('intercept') + (slope * eta), calibrated_variance]
     end
 
     def posterior_variance(features)
