@@ -77,6 +77,17 @@ class TestPerformance < Minitest::Test
     end
   end
 
+  def test_report_pins_the_profiled_sources_and_artifacts
+    digests = report.fetch('source_sha256').merge(
+      'core_library' => report.dig('artifacts', 'core_library_sha256'),
+      'model_json' => report.dig('artifacts', 'model_json_sha256'),
+    )
+
+    assert_equal %w[benchmark_risk core_library linear_model model_json native_lock native_source],
+                 digests.keys.sort
+    assert(digests.values.all? { |digest| digest.match?(/\A[0-9a-f]{64}\z/) })
+  end
+
   def test_cli_writes_one_atomic_machine_readable_report
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'risk-performance.json')
