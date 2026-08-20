@@ -8,6 +8,7 @@ class TestJointRisk < Minitest::Test
       'schema' => 'vangrail-joint-risk-v1',
       'id' => 'joint-test-v1',
       'posterior_method' => 'laplace_diagonal',
+      'training_prevalence' => 0.5,
       'feature_schema' => %w[lexical.score encoder.score],
       'readers' => {
         'lexical' => { 'model_id' => 'lexical-v1', 'feature_schema' => ['score'] },
@@ -87,12 +88,18 @@ class TestJointRisk < Minitest::Test
 
   def test_joint_model_combines_scores_interactions_context_and_uncertainty
     model = Vangrail::JointRiskModel.new(Vangrail::JointRiskArtifact.new(artifact_data))
+    results = [score(:lexical, 'lexical-v1', 0.5), score(:encoder, 'encoder-v1', 1.0)]
+
+    assert_raises(ArgumentError) do
+      model.estimate(results, side: :context, origin: :data, language: :en, domain: :handbook)
+    end
     estimate = model.estimate(
-      [score(:lexical, 'lexical-v1', 0.5), score(:encoder, 'encoder-v1', 1.0)],
+      results,
       side: :context,
       origin: :data,
       language: :en,
       domain: :handbook,
+      prior: 0.5,
       confidence: 0.95,
     )
 
@@ -112,15 +119,15 @@ class TestJointRisk < Minitest::Test
     lexical = score(:lexical, 'lexical-v1', 0.5)
 
     missing = model.estimate(
-      [lexical], side: :context, origin: :data, language: :en, domain: :handbook
+      [lexical], side: :context, origin: :data, language: :en, domain: :handbook, prior: 0.5
     )
     mismatch = model.estimate(
       [lexical, score(:encoder, 'wrong', 1.0)],
-      side: :context, origin: :data, language: :en, domain: :handbook,
+      side: :context, origin: :data, language: :en, domain: :handbook, prior: 0.5,
     )
     out_of_range = model.estimate(
       [lexical, score(:encoder, 'encoder-v1', 9.0)],
-      side: :context, origin: :data, language: :en, domain: :handbook,
+      side: :context, origin: :data, language: :en, domain: :handbook, prior: 0.5,
     )
 
     [missing, mismatch, out_of_range].each { |estimate| assert_predicate estimate, :abstained? }
@@ -133,7 +140,7 @@ class TestJointRisk < Minitest::Test
     model = Vangrail::JointRiskModel.new(Vangrail::JointRiskArtifact.new(artifact_data))
     estimate = model.estimate(
       [score(:lexical, 'lexical-v1', 0.5), score(:encoder, 'encoder-v1', 1.0)],
-      side: :context, origin: :data, language: :en, domain: :handbook,
+      side: :context, origin: :data, language: :en, domain: :handbook, prior: 0.5,
     )
 
     restriction = estimate.restriction(Vangrail::Policy::DEFAULT)
