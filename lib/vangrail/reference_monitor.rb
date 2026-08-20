@@ -18,7 +18,8 @@ module Vangrail
       @id = (id || SecureRandom.uuid).to_s.freeze
       @tool = tool.to_sym
       @request = request
-      @arguments = arguments.is_a?(Cell) ? arguments : Cell.data(arguments)
+      payload = arguments.nil? ? {} : arguments
+      @arguments = payload.is_a?(Cell) ? payload : Cell.data(payload)
       @conversation_id = conversation_id.to_s.freeze
       @sink = sink&.to_sym
       @confirmed = confirmed.equal?(true)

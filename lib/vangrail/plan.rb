@@ -151,8 +151,12 @@ module Vangrail
           next unless tools.readonly?(tool)
 
           allowed = Array(origins).map(&:to_sym)
-          constraint = allowed.one? ? allowed.first : allowed
-          plan.read(tool, arguments: { value: constraint })
+          arguments = if allowed.empty?
+                        {}
+                      else
+                        { value: allowed.one? ? allowed.first : allowed }
+                      end
+          plan.read(tool, arguments: arguments)
         end
       end
     end

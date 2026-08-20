@@ -3,7 +3,9 @@
 require_relative 'engine'
 require_relative 'errors'
 require_relative 'origin'
+require_relative 'plan'
 require_relative 'profile'
+require_relative 'reference_monitor'
 require_relative 'result'
 require_relative 'session'
 require_relative 'spotlight'
@@ -68,12 +70,16 @@ module Vangrail
     DEFAULT_WINDOW = 12
 
     attr_reader :engine, :turns, :window, :session, :admission, :retrieved, :capabilities,
-                :tools, :invocations, :profile
+                :tools, :invocations, :profile, :plan, :monitor
 
     def initialize(engine, window: DEFAULT_WINDOW, session: nil, prior: nil,
                    allow: {}, admission: nil, capabilities: nil, tools: nil,
-                   profile: nil, deny: [], hooks: {}, **context)
+                   profile: nil, deny: [], hooks: {}, plan: nil, monitor: nil,
+                   **context)
       raise ArgumentError, 'pass session: or prior:, not both' if session && prior
+      if plan && monitor && !monitor.plan.equal?(plan)
+        raise ArgumentError, 'plan and monitor must refer to the same plan'
+      end
 
       @engine = engine
       @window = window
@@ -81,12 +87,14 @@ module Vangrail
       @turns = []
       @retrieved = []
       @invocations = []
-      @intended = []
       @locked = false
       @pinned = false
       @hooks = hooks
       @tools = tools || Tools.new
       @profile = Profile.resolve(profile, allow: allow, deny: deny)
+      @plan = plan || monitor&.plan || Plan.from_allow(@profile.allow, tools: @tools)
+      @monitor = monitor || ReferenceMonitor.new(@plan)
+      @intended = plan || monitor ? @plan.grants.map(&:tool).uniq : []
       @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).freeze
       @session = session || (prior && Session.new(engine: engine, prior: prior))
       @admission = admission || Admission.new(allow: @profile.allow)
@@ -199,41 +207,61 @@ module Vangrail
     # Runs a named tool only if Admission grants it. A refused call is a
     # blocked turn, not a handler that almost ran. The return value of a
     # granted handler is wrapped as a tool-origin cell.
-    def invoke(name, arguments: nil)
-      name = name.to_sym
+    def invoke(target, arguments: nil, sink: nil, confirmed: false, transaction: false,
+               idempotency_key: nil)
+      call = target if target.is_a?(Call)
+      name = call ? call.tool : target.to_sym
       raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
+
+      handler_arguments = call ? call.arguments.raw : arguments
 
       if profile.denied?(name)
         result = Result.blocked(rail: 'deny', reason: "capability #{name} is denied by profile")
-        record_invocation(name, arguments, result, nil)
+        record_invocation(name, handler_arguments, result, nil, call: call)
         return result
       end
 
       if profile.readonly? && !tools.readonly?(name)
         result = Result.blocked(rail: 'profile', reason: "profile #{profile.name} is read-only")
-        record_invocation(name, arguments, result, nil)
+        record_invocation(name, handler_arguments, result, nil, call: call)
         return result
       end
 
-      hook = run_pre_invoke(name, arguments)
+      hook = run_pre_invoke(name, handler_arguments)
       return hook if hook
 
       unless @intended.include?(name)
         result = Result.blocked(rail: 'plan', reason: "capability #{name} was not intended")
-        record_invocation(name, arguments, result, nil)
+        record_invocation(name, handler_arguments, result, nil, call: call)
         return result
       end
 
-      unless admit?(name, arguments: arguments)
-        result = Result.blocked(rail: 'admission', reason: "capability #{name} refused")
-        record_invocation(name, arguments, result, nil)
+      call ||= build_call(name, arguments, sink: sink, confirmed: confirmed,
+                                           transaction: transaction,
+                                           idempotency_key: idempotency_key)
+      authorization = monitor.authorize(call)
+      if authorization.denied?
+        reason = "#{authorization.reason_code}: #{authorization.reason}"
+        result = Result.blocked(rail: 'reference_monitor', reason: reason)
+        record_invocation(name, handler_arguments, result, nil, call: call,
+                                                               authorization: authorization)
         return result
       end
 
-      value = tools.fire(name, arguments, self)
+      begin
+        value = tools.fire(name, handler_arguments, self)
+      rescue StandardError => e
+        monitor.finish(call, success: false)
+        result = Result.blocked(rail: 'handler', reason: "#{e.class}: #{e.message}")
+        record_invocation(name, handler_arguments, result, nil, call: call,
+                                                               authorization: authorization)
+        return result
+      end
+      monitor.finish(call, success: true)
       cell = value.is_a?(Cell) ? value : Cell.tool(value)
       result = Result.passed(rail: name.to_s)
-      record_invocation(name, arguments, result, cell)
+      record_invocation(name, handler_arguments, result, cell, call: call,
+                                                            authorization: authorization)
       result
     end
 
@@ -278,6 +306,7 @@ module Vangrail
         'invoked' => invocations.select { |row| row[:result].allowed? }.map { |row| row[:name].to_s },
         'intended' => @intended.map(&:to_s),
         'locked' => locked?,
+        'plan' => plan.to_h,
         'profile' => profile.name.to_s,
         'session' => session&.to_h,
       }.compact
@@ -301,8 +330,15 @@ module Vangrail
       result
     end
 
-    def record_invocation(name, arguments, result, cell)
-      @invocations << { name: name, arguments: arguments, result: result, cell: cell }
+    def record_invocation(name, arguments, result, cell, call: nil, authorization: nil)
+      @invocations << {
+        name: name,
+        arguments: arguments,
+        result: result,
+        cell: cell,
+        call: call,
+        authorization: authorization,
+      }.compact
       turn = Turn.new(role: :tool, text: name.to_s, result: result, origin: Origin.tool)
       @turns << turn
       @session&.fold(result, origin: turn.origin, side: :output)
@@ -325,6 +361,22 @@ module Vangrail
 
     def content_of(result, fallback)
       result.respond_to?(:content_or) ? result.content_or(fallback.to_s) : fallback.to_s
+    end
+
+    def build_call(name, arguments, sink:, confirmed:, transaction:, idempotency_key:)
+      turn = last_user_turn
+      raise Error, 'ask before invoking a tool' unless turn
+
+      Call.new(
+        tool: name,
+        request: Cell.user(turn.text, capabilities: capabilities),
+        arguments: arguments,
+        conversation_id: plan.id,
+        sink: sink,
+        confirmed: confirmed,
+        transaction: transaction,
+        idempotency_key: idempotency_key,
+      )
     end
 
     def text_of(document)
