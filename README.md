@@ -50,6 +50,17 @@ Ruby 3.1 or newer. There is no bundle.
 gem install vangrail
 ```
 
+That installs the complete enforcement plane and Ruby risk kernels with zero
+runtime gem dependencies. Native linear scoring is a separate package:
+
+```bash
+gem install vangrail-native
+```
+
+Encoder, embedding, and judge runtimes are not gem dependencies. Connect them
+as optional bounded-command or endpoint readers; an unconfigured reader reports
+abstention. See [Detection is not authority](docs/orgmode/explanation/two-planes.org).
+
 From a clone:
 
 ```bash
