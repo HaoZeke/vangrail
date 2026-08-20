@@ -40,4 +40,24 @@ class TestBayesTraining < Minitest::Test
       assert_equal expected, actual
     end
   end
+
+  def test_each_case_in_a_role_receives_one_prediction
+    cases = %i[attack benign].flat_map do |label|
+      8.times.map do |index|
+        { id: "#{label}-#{index}", label: label, group: "#{label}-#{index}", text: index.to_s }
+      end
+    end
+    roles = Vangrail::BayesTraining.grouped_partition(cases, seed: 'paper-v1')
+    called = []
+
+    predictions = Vangrail::BayesTraining.predict(roles, role: :test) do |row|
+      called << row[:id]
+      row[:text].to_f
+    end
+
+    expected_ids = roles.fetch(:test).map { |row| row[:id] }
+    assert_equal expected_ids, called
+    assert_equal called.uniq, called
+    assert predictions.all? { |row| row[:role] == :test }
+  end
 end
