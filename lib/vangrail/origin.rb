@@ -109,6 +109,94 @@ module Vangrail
     end
   end
 
+  # Immutable security metadata carried by a Cell.
+  #
+  # Provenance accumulates. Integrity records the trusted principals whose
+  # values contributed to a result; an empty set cannot authorize control
+  # flow. Confidentiality is an allowlist of sinks, where nil means no sink
+  # restriction. Capability tokens are intersected, and any untrusted
+  # provenance removes them.
+  class Label
+    DEFAULT_INTEGRITY = Object.new.freeze
+
+    attr_reader :provenance, :integrity, :confidentiality, :capabilities
+
+    def initialize(provenance:, integrity: DEFAULT_INTEGRITY, confidentiality: nil,
+                   capabilities: nil)
+      @provenance = Array(provenance).map { |origin| Origin.coerce(origin) }.uniq.freeze
+      raise ArgumentError, 'a label needs at least one origin' if @provenance.empty?
+
+      @integrity = normalize(integrity.equal?(DEFAULT_INTEGRITY) ? default_integrity : integrity)
+      @confidentiality = normalize_optional(confidentiality)
+      @capabilities = normalize_optional(capabilities)
+      freeze
+    end
+
+    def privileged?
+      provenance.all?(&:privileged?) && !integrity.empty?
+    end
+
+    def tainted?
+      provenance.any?(&:untrusted?)
+    end
+
+    def mix(other)
+      raise ArgumentError, 'labels can only mix with labels' unless other.is_a?(self.class)
+
+      combined_provenance = (provenance + other.provenance).uniq
+      self.class.new(
+        provenance: combined_provenance,
+        integrity: merge_integrity(other),
+        confidentiality: restrict(confidentiality, other.confidentiality),
+        capabilities: merge_capabilities(other, combined_provenance),
+      )
+    end
+
+    def to_h
+      {
+        'provenance' => provenance.map(&:to_s),
+        'integrity' => integrity.map(&:to_s),
+        'confidentiality' => confidentiality&.map(&:to_s),
+        'capabilities' => capabilities&.map(&:to_s),
+      }.compact
+    end
+
+    private
+
+    def default_integrity
+      return [] unless provenance.all?(&:privileged?)
+
+      provenance.map(&:kind)
+    end
+
+    def normalize(values)
+      Array(values).map(&:to_sym).uniq.freeze
+    end
+
+    def normalize_optional(values)
+      values.nil? ? nil : normalize(values)
+    end
+
+    def merge_integrity(other)
+      return [] if integrity.empty? || other.integrity.empty?
+
+      (integrity + other.integrity).uniq
+    end
+
+    def merge_capabilities(other, combined_provenance)
+      return [] if combined_provenance.any?(&:untrusted?)
+
+      restrict(capabilities, other.capabilities)
+    end
+
+    def restrict(left, right)
+      return right if left.nil?
+      return left if right.nil?
+
+      left & right
+    end
+  end
+
   # A value tagged with every origin that produced it.
   #
   # Mixing is a union: concatenate a user question with a retrieved page
@@ -116,81 +204,141 @@ module Vangrail
   # cell. Taint does not wash off by quoting, summarising, or extracting
   # a field. That is a policy over tagged cells, not CaMeL.
   class Cell
-    attr_reader :value, :origins, :capabilities
+    attr_reader :value, :label
 
-    def initialize(value, origins:, capabilities: nil)
-      @value = value
-      @origins = Array(origins).map { |origin| Origin.coerce(origin) }.uniq.freeze
-      raise ArgumentError, 'a cell needs at least one origin' if @origins.empty?
+    def initialize(value, origins: nil, label: nil, integrity: Label::DEFAULT_INTEGRITY,
+                   confidentiality: nil, capabilities: nil)
+      raise ArgumentError, 'pass origins: or label:, not both' if origins && label
+      raise ArgumentError, 'origins are required' unless origins || label
 
-      @capabilities = capabilities.nil? ? nil : Array(capabilities).map(&:to_sym).uniq.freeze
+      base = label || Label.new(provenance: origins, integrity: integrity,
+                                confidentiality: confidentiality, capabilities: capabilities)
+      @value = prepare(value, base)
+      @label = child_labels.reduce(base) { |combined, child| combined.mix(child) }
+      freeze
     end
 
-    def self.system(value, capabilities: nil)
-      new(value, origins: Origin.system, capabilities: capabilities)
+    def self.system(value, **label)
+      new(value, origins: Origin.system, **label)
     end
 
-    def self.user(value, capabilities: nil)
-      new(value, origins: Origin.user, capabilities: capabilities)
+    def self.user(value, **label)
+      new(value, origins: Origin.user, **label)
     end
 
-    def self.data(value, capabilities: nil)
-      new(value, origins: Origin.data, capabilities: capabilities)
+    def self.data(value, **label)
+      new(value, origins: Origin.data, **label)
     end
 
-    def self.tool(value, capabilities: nil)
-      new(value, origins: Origin.tool, capabilities: capabilities)
+    def self.tool(value, **label)
+      new(value, origins: Origin.tool, **label)
     end
 
     def self.text_of(document)
-      return document.value.to_s if document.is_a?(self)
+      return document.raw.to_s if document.is_a?(self)
       return document.to_s unless document.is_a?(Hash)
 
-      (document['text'] || document[:text]).to_s
+      text = document['text'] || document[:text]
+      text.is_a?(self) ? text.raw.to_s : text.to_s
+    end
+
+    def origins
+      label.provenance
+    end
+
+    def integrity
+      label.integrity
+    end
+
+    def confidentiality
+      label.confidentiality
+    end
+
+    def capabilities
+      label.capabilities
     end
 
     def privileged?
-      origins.all?(&:privileged?)
+      label.privileged?
     end
 
     def tainted?
-      origins.any?(&:untrusted?)
+      label.tainted?
+    end
+
+    def [](key)
+      selected = value[key]
+      return selected if selected.is_a?(self.class)
+      return nil if selected.nil?
+
+      self.class.new(selected, label: label)
+    end
+
+    def raw
+      case value
+      when Hash
+        value.transform_values(&:raw).freeze
+      when Array
+        value.map(&:raw).freeze
+      else
+        value
+      end
     end
 
     # Union of origins. The value is the caller's combination; this only
     # tracks what touched it.
     def mix(other, value: self.value)
-      self.class.new(value,
-                     origins: origins + other.origins,
-                     capabilities: merge_capabilities(other))
+      raise ArgumentError, 'cells can only mix with cells' unless other.is_a?(self.class)
+
+      self.class.new(value, label: label.mix(other.label))
     end
 
     # A quoted or extracted form still carries every origin and every
     # remaining capability. Quoting is not a privilege escalation.
     def quote
-      self.class.new(value, origins: origins, capabilities: capabilities)
+      self.class.new(value, label: label)
     end
 
     def to_h
       {
-        'value' => value,
+        'value' => raw,
         'origins' => origins.map(&:to_s),
         'tainted' => tainted?,
+        'integrity' => integrity.map(&:to_s),
+        'confidentiality' => confidentiality&.map(&:to_s),
         'capabilities' => capabilities,
       }.compact
     end
 
     private
 
-    # Any untrusted parent zeros the token set: data brings no authority.
-    # Two privileged parents intersect; nil on both sides stays unrestricted.
-    def merge_capabilities(other)
-      return [] if tainted? || other.tainted?
-      return nil if capabilities.nil? && other.capabilities.nil?
-      return other.capabilities if capabilities.nil?
-      return capabilities if other.capabilities.nil?
+    def prepare(raw_value, base)
+      case raw_value
+      when Hash
+        raw_value.each_with_object({}) do |(key, child), prepared|
+          prepared[immutable(key)] = child.is_a?(self.class) ? child : self.class.new(child, label: base)
+        end.freeze
+      when Array
+        raw_value.map { |child| child.is_a?(self.class) ? child : self.class.new(child, label: base) }.freeze
+      else
+        immutable(raw_value)
+      end
+    end
 
-      capabilities & other.capabilities
+    def child_labels
+      case value
+      when Hash then value.values.map(&:label)
+      when Array then value.map(&:label)
+      else []
+      end
+    end
+
+    def immutable(object)
+      return object if object.frozen?
+
+      object.dup.freeze
+    rescue TypeError
+      object.freeze
     end
   end
 
