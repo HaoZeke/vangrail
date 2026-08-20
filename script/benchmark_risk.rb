@@ -4,6 +4,7 @@
 require 'json'
 require 'open3'
 require 'optparse'
+$LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require_relative '../lib/vangrail'
 
 module Vangrail
