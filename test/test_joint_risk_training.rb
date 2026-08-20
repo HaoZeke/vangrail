@@ -11,11 +11,13 @@ class TestJointRiskTraining < Minitest::Test
       Array.new(count) do |index|
         attack = index >= count / 2
         direction = attack ? 1.0 : -1.0
+        threat_family = index.even? ? :override : :exfiltration
         {
           id: "#{role}-#{index}",
           group: "#{role}-group-#{index}",
           role: role,
           label: attack ? :attack : :benign,
+          threat_family: threat_family,
           scores: {
             'lexical.score' => direction * (0.8 + (index % 3 * 0.05)),
             'encoder.score' => direction * (1.0 + (index % 2 * 0.05)),
@@ -53,6 +55,8 @@ class TestJointRiskTraining < Minitest::Test
     assert_instance_of Vangrail::JointRiskArtifact, artifact
     assert_equal 'laplace_diagonal', artifact.posterior_method
     assert_equal 'platt', artifact.calibration['method']
+    assert_equal %w[exfiltration override], artifact.threat_model['training_composition'].keys.sort
+    assert_in_delta 1.0, artifact.threat_model['training_composition'].values.sum
     assert_equal ROLES.transform_keys(&:to_s), report.fetch('role_counts')
     assert_equal 12, report.dig('test', 'cases')
     assert_operator report.dig('test', 'brier'), :<, 0.25
