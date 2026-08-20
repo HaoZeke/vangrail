@@ -74,6 +74,30 @@ below `Unreleased` is written by hand until it is released.
 ## [Unreleased]
 
 #### Features
+- (**enforcement**) Structured `Plan`, `Grant`, and `Call` objects route public
+  tool invocation through a deny-wins `ReferenceMonitor`. Recursive `Cell`
+  labels preserve provenance, integrity, confidentiality, and capabilities;
+  grants constrain arguments, sinks, ordering, use counts, confirmations,
+  transactions, conversation identity, replay, and idempotency.
+- (**risk**) Versioned `ScoreResult` and optional in-process, bounded-command,
+  and endpoint providers keep encoder, embedding, and judge runtimes outside
+  the core gem. Missing or mismatched readers abstain. A checksum-verified
+  joint-risk artifact reports calibrated posterior intervals, context support,
+  threat mixtures, OOD checks, and risk-control identity.
+- (**training**) The grouped joint-risk trainer separates train, calibration,
+  threshold, and final-test roles and atomically emits a compact artifact,
+  split manifest, report, and model card. Threshold risk control is fitted only
+  on its declared role.
+- (**evaluation**) Versioned AgentDojo trace import, a checksum-pinned adaptive
+  threat matrix, bounded external runners, and a deterministic statistical
+  verifier retain per-case failures and abstentions while regenerating security,
+  utility, calibration, curve, and selective-risk tables.
+- (**corpora**) External BIPIA and jailbreak_llms payloads are pinned to repository
+  revisions, sizes, and SHA-256 values. Cached files are reused only after
+  verification and replacements are published atomically.
+- (**performance**) Risk-kernel reports include raw latency, allocation, memory,
+  startup, parity, artifact, source-identity, endpoint-traffic, and adversarial
+  scaling measurements, with a deterministic Markdown renderer.
 - (**watermark**) `Vangrail::Watermark` and `Rails::Watermark`: a machine-readable
   mark on generated answers, as Article 50(2) of the AI Act requires. Eleven
   invisible bytes per paragraph, two of them fixed public magic so anybody can
@@ -118,6 +142,11 @@ below `Unreleased` is written by hand until it is released.
   the directional marks the bidi set left out. Variation selectors are matched by
   run of two or more, which catches a byte-per-selector payload and leaves an
   emoji presentation selector alone.
+
+#### Performance
+- (**linear**) Normalize each input once and hash word pairs and character grams
+  without allocating transient feature strings. The optional native kernel uses
+  the same prepared-input and bucket contract as the Ruby implementation.
 
 ## v0.3.0 - 2026-08-17
 
