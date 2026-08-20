@@ -118,13 +118,10 @@ module Vangrail
                      inherit_environment: false, **options)
         super(**options)
         @command = Array(command).map(&:to_s).freeze
-        @timeout = Float(timeout)
+        @timeout = positive_timeout(timeout)
         @environment = environment.to_h { |name, value| [name.to_s, value.to_s] }.freeze
         @inherit_environment = !!inherit_environment
         raise ArgumentError, 'command is required' if @command.empty? || @command.any?(&:empty?)
-        raise ArgumentError, 'timeout must be positive' unless @timeout.positive? && @timeout.finite?
-      rescue ArgumentError, TypeError
-        raise ArgumentError, 'timeout must be a positive finite number'
       end
 
       def score(text, side:, **context)
@@ -147,9 +144,9 @@ module Vangrail
 
       def run_process(input, stdin, stdout, stderr, wait)
         threads = [
-          Thread.new { write_input(stdin, input) },
-          Thread.new { read_bounded(stdout) },
-          Thread.new { read_bounded(stderr) },
+          worker { write_input(stdin, input) },
+          worker { read_bounded(stdout) },
+          worker { read_bounded(stderr) },
         ]
         Timeout.timeout(timeout) do
           threads.first.value
@@ -174,6 +171,10 @@ module Vangrail
         nil
       ensure
         close(stdin)
+      end
+
+      def worker(&block)
+        Thread.new(&block).tap { |thread| thread.report_on_exception = false }
       end
 
       def read_bounded(stream)
@@ -227,6 +228,15 @@ module Vangrail
       def exit_reason(status)
         value = status.exitstatus || "signal #{status.termsig}"
         "score command exited with status #{value}"
+      end
+
+      def positive_timeout(value)
+        number = Float(value)
+        raise ArgumentError unless number.positive? && number.finite?
+
+        number
+      rescue ArgumentError, TypeError
+        raise ArgumentError, 'timeout must be a positive finite number'
       end
     end
 
