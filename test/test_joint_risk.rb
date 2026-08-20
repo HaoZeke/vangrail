@@ -158,4 +158,48 @@ class TestJointRisk < Minitest::Test
     assert_raises(Vangrail::ProtocolError) { Vangrail::JointRiskArtifact.new(unknown) }
     assert_raises(Vangrail::ProtocolError) { Vangrail::JointRiskArtifact.new(oversized) }
   end
+
+  def test_joint_assessor_runs_optional_readers_without_runtime_model_dependencies
+    provider = lambda do |model_id, value|
+      lambda do |_text, side:, **_context|
+        {
+          model_id: model_id,
+          feature_schema: ['score'],
+          side: side,
+          scores: { score: value },
+          cost: { calls: 1 },
+        }
+      end
+    end
+    readers = [
+      Vangrail::OptionalReader.new(
+        id: :lexical,
+        model_id: 'lexical-v1',
+        feature_schema: ['score'],
+        provider: provider.call('lexical-v1', 0.5),
+      ),
+      Vangrail::OptionalReader.new(
+        id: :encoder,
+        model_id: 'encoder-v1',
+        feature_schema: ['score'],
+        provider: provider.call('encoder-v1', 1.0),
+      ),
+    ]
+    assessor = Vangrail::JointAssessor.new(
+      readers: readers,
+      model: Vangrail::JointRiskModel.new(Vangrail::JointRiskArtifact.new(artifact_data)),
+    )
+
+    estimate = assessor.assess(
+      'page',
+      side: :context,
+      origin: :data,
+      language: :en,
+      domain: :handbook,
+      prior: 0.5,
+    )
+
+    assert_predicate estimate, :valid?
+    assert_equal 2, estimate.cost['calls']
+  end
 end
