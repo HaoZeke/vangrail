@@ -138,39 +138,6 @@ def folds(documents, count)
   documents.each_with_index.group_by { |_, i| i % count }.values.map { |pairs| pairs.map(&:first) }
 end
 
-attack_texts = attack_clauses
-benign_texts = benign_clauses
-warn "attack clauses: #{attack_texts.size}, benign clauses: #{benign_texts.size}"
-
-attack_folds = folds(attack_texts, FOLDS)
-benign_folds = folds(benign_texts, FOLDS)
-held_out = { attack: [], benign: [] }
-
-FOLDS.times do |i|
-  weights = train(attack_folds.reject.with_index { |_, j| j == i }.flatten,
-                  benign_folds.reject.with_index { |_, j| j == i }.flatten)
-  # Scored as documents, from injections this fold never saw.
-  held_out[:attack].concat(attack_documents(attack_folds[i]).map { |text| score(text, weights) })
-  held_out[:benign].concat(benign_documents.map { |text| score(text, weights) })
-end
-
-sorted_benign = held_out[:benign].sort
-# The threshold is the point above which no held-out benign document scored,
-# which is the operating point a guardrail wants: the false-alarm budget is
-# spent first and the detection rate is whatever it buys.
-threshold = sorted_benign.last.ceil
-caught = held_out[:attack].count { |s| s > threshold }
-flagged = held_out[:benign].count { |s| s > threshold }
-
-puts format('cross-validated over %<folds>d folds, threshold %<threshold>+d bits', folds: FOLDS,
-                                                                                   threshold: threshold)
-puts format('  attacks above threshold: %<caught>d/%<total>d', caught: caught, total: held_out[:attack].size)
-puts format('  benign above threshold:  %<flagged>d/%<total>d', flagged: flagged, total: held_out[:benign].size)
-puts format('  attack scores:  median %<median>+.1f, min %<min>+.1f',
-            median: held_out[:attack].sort[held_out[:attack].size / 2], min: held_out[:attack].min)
-puts format('  benign scores:  median %<median>+.1f, max %<max>+.1f',
-            median: sorted_benign[sorted_benign.size / 2], max: sorted_benign.last)
-
 # --- calibration, because a naive Bayes score is not a likelihood ratio ---
 #
 # The features are counted as independent and they are nothing of the sort: a
@@ -189,10 +156,6 @@ EDGES = [-Float::INFINITY, 0.0, 4.0, 8.0, 12.0].freeze
 def bin_for(value)
   EDGES.rindex { |edge| value > edge } || 0
 end
-
-bins = EDGES.each_index.map { |i| { attacks: 0, benign: 0, floor: EDGES[i] } }
-held_out[:attack].each { |value| bins[bin_for(value)][:attacks] += 1 }
-held_out[:benign].each { |value| bins[bin_for(value)][:benign] += 1 }
 
 def bits_for(bin, n_attack, n_benign)
   Vangrail::Evidence.new(rail: 'bayes', attacks_caught: bin[:attacks], attacks: n_attack,
@@ -219,69 +182,106 @@ def isotonic(bins, n_attack, n_benign)
   end
 end
 
-n_attack = held_out[:attack].size
-n_benign = held_out[:benign].size
-raw_bins = bins.size
-bins = isotonic(bins, n_attack, n_benign)
+def run_trainer
+  attack_texts = attack_clauses
+  benign_texts = benign_clauses
+  warn "attack clauses: #{attack_texts.size}, benign clauses: #{benign_texts.size}"
 
-puts
-puts "calibration on held-out scores (#{raw_bins} bands, #{bins.size} after pooling violators):"
-bins.each_with_index do |bin, i|
-  ceiling = bins[i + 1] ? bins[i + 1][:floor] : Float::INFINITY
-  bin[:bits] = bits_for(bin, n_attack, n_benign).round(3)
-  puts format('  %6.1f to %-6.1f  attacks %3d  benign %3d  -> %+.2f bits (95%% defensible)',
-              bin[:floor], ceiling, bin[:attacks], bin[:benign], bin[:bits])
-end
+  attack_folds = folds(attack_texts, FOLDS)
+  benign_folds = folds(benign_texts, FOLDS)
+  held_out = { attack: [], benign: [] }
 
-weights = train(attack_texts, benign_texts)
-n_held_attack = held_out[:attack].size
-n_held_benign = held_out[:benign].size
-calibration_lines = bins.map do |bin|
-  floor = bin[:floor].finite? ? bin[:floor] : '-Float::INFINITY'
-  "        [#{floor}, #{bin[:bits]}], # #{bin[:attacks]} attacks, #{bin[:benign]} benign"
-end
-entries = weights.sort_by { |_, weight| -weight }.map { |feature, weight| "        #{feature.inspect} => #{weight}" }
-
-File.write(OUT, <<~RUBY)
-  # frozen_string_literal: true
-
-  module Vangrail
-    # Naive Bayes weights over the corpora, in bits per feature.
-    #
-    # GENERATED FILE. Do not edit by hand; rerun script/train_bayes.rb when a
-    # corpus changes. The rail that reads this lives in rails/bayes.rb.
-    #
-    # #{FEATURES} features selected by mutual information from #{attack_texts.size}
-    # attack and #{benign_texts.size} benign
-    # clauses, counted as word stems and adjacent stem pairs, smoothed with a
-    # Dirichlet prior of #{ALPHA}. A weight is log2 of how much likelier the feature is
-    # in an attack than in ordinary documentation.
-    #
-    # Cross-validated over #{FOLDS} folds at a threshold of #{threshold} bits:
-    # #{caught} of #{n_held_attack} attacks above it, #{flagged} of #{n_held_benign}
-    # benign documents above it. That number is the held-out one; the training
-    # score is not reported because it is not evidence of anything.
-    module BayesData
-      THRESHOLD = #{threshold}
-
-      # Score band => bits, fitted on held-out scores and read at the 95% bound.
-      # A raw naive Bayes score is not a likelihood ratio; this is what turns it
-      # into one the corpus can defend.
-      CALIBRATION = [
-  #{calibration_lines.join("\n")}
-      ].freeze
-
-      # Held-out performance at THRESHOLD, for the evidence table.
-      CAUGHT = #{caught}
-      ATTACKS = #{n_held_attack}
-      FLAGGED = #{flagged}
-      BENIGN = #{n_held_benign}
-
-      WEIGHTS = {
-  #{entries.join(",\n")}
-      }.freeze
-    end
+  FOLDS.times do |i|
+    weights = train(attack_folds.reject.with_index { |_, j| j == i }.flatten,
+                    benign_folds.reject.with_index { |_, j| j == i }.flatten)
+    held_out[:attack].concat(attack_documents(attack_folds[i]).map { |text| score(text, weights) })
+    held_out[:benign].concat(benign_documents.map { |text| score(text, weights) })
   end
-RUBY
 
-puts "wrote #{OUT}"
+  sorted_benign = held_out[:benign].sort
+  threshold = sorted_benign.last.ceil
+  caught = held_out[:attack].count { |value| value > threshold }
+  flagged = held_out[:benign].count { |value| value > threshold }
+
+  puts format('cross-validated over %<folds>d folds, threshold %<threshold>+d bits', folds: FOLDS,
+                                                                                     threshold: threshold)
+  puts format('  attacks above threshold: %<caught>d/%<total>d', caught: caught, total: held_out[:attack].size)
+  puts format('  benign above threshold:  %<flagged>d/%<total>d', flagged: flagged,
+                                                                        total: held_out[:benign].size)
+  puts format('  attack scores:  median %<median>+.1f, min %<min>+.1f',
+              median: held_out[:attack].sort[held_out[:attack].size / 2], min: held_out[:attack].min)
+  puts format('  benign scores:  median %<median>+.1f, max %<max>+.1f',
+              median: sorted_benign[sorted_benign.size / 2], max: sorted_benign.last)
+
+  bins = EDGES.each_index.map { |i| { attacks: 0, benign: 0, floor: EDGES[i] } }
+  held_out[:attack].each { |value| bins[bin_for(value)][:attacks] += 1 }
+  held_out[:benign].each { |value| bins[bin_for(value)][:benign] += 1 }
+  n_attack = held_out[:attack].size
+  n_benign = held_out[:benign].size
+  raw_bins = bins.size
+  bins = isotonic(bins, n_attack, n_benign)
+
+  puts
+  puts "calibration on held-out scores (#{raw_bins} bands, #{bins.size} after pooling violators):"
+  bins.each_with_index do |bin, i|
+    ceiling = bins[i + 1] ? bins[i + 1][:floor] : Float::INFINITY
+    bin[:bits] = bits_for(bin, n_attack, n_benign).round(3)
+    puts format('  %6.1f to %-6.1f  attacks %3d  benign %3d  -> %+.2f bits (95%% defensible)',
+                bin[:floor], ceiling, bin[:attacks], bin[:benign], bin[:bits])
+  end
+
+  weights = train(attack_texts, benign_texts)
+  calibration_lines = bins.map do |bin|
+    floor = bin[:floor].finite? ? bin[:floor] : '-Float::INFINITY'
+    "        [#{floor}, #{bin[:bits]}], # #{bin[:attacks]} attacks, #{bin[:benign]} benign"
+  end
+  entries = weights.sort_by { |_, weight| -weight }.map do |feature, weight|
+    "        #{feature.inspect} => #{weight}"
+  end
+
+  File.write(OUT, <<~RUBY)
+    # frozen_string_literal: true
+
+    module Vangrail
+      # Naive Bayes weights over the corpora, in bits per feature.
+      #
+      # GENERATED FILE. Do not edit by hand; rerun script/train_bayes.rb when a
+      # corpus changes. The rail that reads this lives in rails/bayes.rb.
+      #
+      # #{FEATURES} features selected by mutual information from #{attack_texts.size}
+      # attack and #{benign_texts.size} benign
+      # clauses, counted as word stems and adjacent stem pairs, smoothed with a
+      # Dirichlet prior of #{ALPHA}. A weight is log2 of how much likelier the feature is
+      # in an attack than in ordinary documentation.
+      #
+      # Cross-validated over #{FOLDS} folds at a threshold of #{threshold} bits:
+      # #{caught} of #{n_attack} attacks above it, #{flagged} of #{n_benign}
+      # benign documents above it. That number is the held-out one; the training
+      # score is not reported because it is not evidence of anything.
+      module BayesData
+        THRESHOLD = #{threshold}
+
+        # Score band => bits, fitted on held-out scores and read at the 95% bound.
+        # A raw naive Bayes score is not a likelihood ratio; this is what turns it
+        # into one the corpus can defend.
+        CALIBRATION = [
+    #{calibration_lines.join("\n")}
+        ].freeze
+
+        # Held-out performance at THRESHOLD, for the evidence table.
+        CAUGHT = #{caught}
+        ATTACKS = #{n_attack}
+        FLAGGED = #{flagged}
+        BENIGN = #{n_benign}
+
+        WEIGHTS = {
+    #{entries.join(",\n")}
+        }.freeze
+      end
+    end
+  RUBY
+
+  puts "wrote #{OUT}"
+end
+
+run_trainer if $PROGRAM_NAME == __FILE__
