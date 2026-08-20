@@ -95,5 +95,9 @@ class TestReferenceMonitorIntegration < Minitest::Test
     assert_predicate result, :blocked?
     assert_equal 'deny', result.rail
     assert_equal 0, calls
+    attempt = plan.audit.events.detect { |event| event.type == :call_attempt }
+    decision = plan.audit.events.reverse.detect { |event| event.type == :authorization }
+    refute_nil attempt
+    assert_equal 'deny', decision.data['reason_code']
   end
 end
