@@ -25,6 +25,7 @@ module Vangrail
       terms = ['intercept'] + feature_schema + interaction_names + context_terms.values.flatten
       parameters, covariance = fit_logistic(train, terms, interaction_names,
                                             context_terms, iterations, ridge)
+      threat_model = fit_threat_model(train, parameters, interaction_names, context_terms)
       calibration_data = fit_calibration(calibration, parameters, interaction_names,
                                          context_terms, iterations, ridge)
       prevalence = train.count { |row| row[:label] == :attack }.fdiv(train.size)
@@ -40,6 +41,7 @@ module Vangrail
           contexts: context_terms,
           parameters: parameters,
           covariance: covariance,
+          threat_model: threat_model,
           calibration_data: calibration_data,
           prevalence: prevalence,
         ),
@@ -63,6 +65,7 @@ module Vangrail
         group: row.fetch(:group).to_s,
         role: row.fetch(:role).to_sym,
         label: row.fetch(:label).to_sym,
+        threat_family: row.fetch(:threat_family).to_s,
         scores: row.fetch(:scores).to_h { |name, value| [name.to_s, value] }.freeze,
         side: row.fetch(:side).to_s,
         origin: row.fetch(:origin).to_s,
@@ -78,6 +81,7 @@ module Vangrail
       validate_rows!(rows, feature_schema)
       validate_roles!(rows)
       validate_group_roles!(rows)
+      validate_threat_families!(rows)
     end
 
     def validate_rows!(rows, feature_schema)
@@ -103,6 +107,15 @@ module Vangrail
                            .transform_values { |members| members.map { |row| row[:role] }.uniq }
       overlap = roles_by_group.detect { |_group, roles| roles.size > 1 }
       raise ArgumentError, "group #{overlap.first} crosses roles" if overlap
+    end
+
+    def validate_threat_families!(rows)
+      attacks = rows.select { |row| row[:label] == :attack }
+      raise ArgumentError, 'attack cases need threat families' if attacks.any? { |row| row[:threat_family].empty? }
+
+      training = attacks.select { |row| row[:role] == :train }.map { |row| row[:threat_family] }.uniq
+      unknown = attacks.map { |row| row[:threat_family] }.uniq - training
+      raise ArgumentError, "threat families missing from training: #{unknown.join(', ')}" unless unknown.empty?
     end
 
     def normalize_interactions(interactions, feature_schema)
@@ -192,9 +205,30 @@ module Vangrail
       [gradient, curvature]
     end
 
+    def fit_threat_model(rows, parameters, interactions, contexts)
+      attacks = rows.select { |row| row[:label] == :attack }
+      logits = attacks.group_by { |row| row[:threat_family] }.transform_values do |members|
+        members.map { |row| dot(parameters, design(row, interactions, contexts)) }
+      end
+      overall = logits.values.flatten.sum.fdiv(attacks.size)
+      composition = logits.to_h { |family, values| [family, values.size.fdiv(attacks.size)] }
+      offsets = logits.to_h { |family, values| [family, values.sum.fdiv(values.size) - overall] }
+      covariance = logits.to_h do |family, values|
+        mean = values.sum.fdiv(values.size)
+        squared_error = values.sum { |value| (value - mean)**2 }
+        variance = values.size > 1 ? squared_error / (values.size * (values.size - 1)) : 1.0
+        [family, [variance, EPSILON].max]
+      end
+      {
+        'training_composition' => composition,
+        'log_likelihood_offsets' => offsets,
+        'covariance_diagonal' => covariance,
+      }
+    end
+
     def artifact_hash(id:, train:, calibration:, features:, readers:, normalization:,
-                      interactions:, contexts:, parameters:, covariance:, calibration_data:,
-                      prevalence:)
+                      interactions:, contexts:, parameters:, covariance:, threat_model:,
+                      calibration_data:, prevalence:)
       context_names = contexts.values.flatten
       support_rows = train + calibration
       {
@@ -210,6 +244,7 @@ module Vangrail
         'interactions' => interactions.to_h { |name| [name, parameters.fetch(name)] },
         'context_offsets' => context_names.to_h { |name| [name, parameters.fetch(name)] },
         'covariance_diagonal' => covariance,
+        'threat_model' => threat_model,
         'score_ranges' => score_ranges(support_rows, features),
         'supported' => CONTEXTS.to_h { |name| ["#{name}s", support_rows.map { |row| row[name] }.uniq.sort] },
         'calibration' => calibration_data,

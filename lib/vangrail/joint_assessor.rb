@@ -18,7 +18,8 @@ module Vangrail
       raise ArgumentError, 'too many readers' if ids.size > JointRiskArtifact::MAX_READERS
     end
 
-    def assess(text, side:, origin:, language:, domain:, prior:, confidence: 0.95, **context)
+    def assess(text, side:, origin:, language:, domain:, prior: nil, scenario: nil,
+               confidence: 0.95, **context)
       results = readers.map do |reader|
         score(reader, text, side: side, origin: origin, language: language,
                             domain: domain, **context)
@@ -30,6 +31,7 @@ module Vangrail
         language: language,
         domain: domain,
         prior: prior,
+        scenario: scenario,
         confidence: confidence,
       )
     end
