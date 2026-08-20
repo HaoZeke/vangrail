@@ -20,9 +20,8 @@ module Vangrail
                               allowed: feature_schema, exact: true)
       validate_numeric_table!('OOD feature scales', ood['feature_scales'],
                               allowed: feature_schema, exact: true)
-      unless ood['feature_scales'].values.all?(&:positive?)
-        raise ProtocolError, 'OOD feature scales must be positive'
-      end
+      raise ProtocolError, 'OOD feature scales must be positive' unless ood['feature_scales'].values.all?(&:positive?)
+
       validate_finite!('OOD maximum squared distance', ood['max_squared_distance'])
       raise ProtocolError, 'OOD maximum squared distance must be positive' unless ood['max_squared_distance'].positive?
 
@@ -40,11 +39,13 @@ module Vangrail
         unless rule.is_a?(Hash) && rule.keys.sort == %w[features max_standardized_difference]
           raise ProtocolError, 'an OOD disagreement rule must name features and a maximum difference'
         end
+
         features = rule['features']
         unless features.is_a?(Array) && features.size == 2 && features.uniq.size == 2 &&
                features.all? { |feature| feature_schema.include?(feature) }
           raise ProtocolError, 'an OOD disagreement rule must name two distinct artifact features'
         end
+
         limit_value = rule['max_standardized_difference']
         unless finite?(limit_value) && limit_value.positive?
           raise ProtocolError, 'an OOD disagreement maximum must be finite and positive'

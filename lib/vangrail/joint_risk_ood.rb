@@ -10,9 +10,7 @@ module Vangrail
     def validate_calibration_age!
       expiry = Time.iso8601(artifact.ood.fetch('calibration_valid_until'))
       observed_at = clock.call
-      unless observed_at.is_a?(Time)
-        raise JointRiskModel::Abstention, 'risk model clock did not return a Time'
-      end
+      raise JointRiskModel::Abstention, 'risk model clock did not return a Time' unless observed_at.is_a?(Time)
       return unless observed_at > expiry
 
       raise JointRiskModel::Abstention, "calibration expired at #{expiry.utc.iso8601}"
