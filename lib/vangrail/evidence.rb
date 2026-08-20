@@ -99,6 +99,10 @@ module Vangrail
     # beta posteriors gives the rate rectangle at least `confidence` posterior
     # mass by the union bound.
     def bits_interval(fired, confidence:)
+      unless confidence.is_a?(Numeric) && confidence.finite? && confidence.positive? && confidence < 1
+        raise ArgumentError, 'confidence must be finite and strictly between 0 and 1'
+      end
+
       tail = (1 - confidence) / 4.0
       detection_low, detection_high = rate_interval(:detection, attacks_caught, attacks, tail)
       false_alarm_low, false_alarm_high = rate_interval(:false_alarm, benign_flagged, benign, tail)
