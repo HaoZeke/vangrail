@@ -60,4 +60,14 @@ class TestBayesTraining < Minitest::Test
     assert_equal called.uniq, called
     assert predictions.all? { |row| row[:role] == :test }
   end
+
+  def test_threshold_selection_rejects_predictions_from_another_role
+    predictions = [{ id: 'calibration-a', label: :benign, role: :calibration, score: 3.0 }]
+
+    error = assert_raises(ArgumentError) do
+      Vangrail::BayesTraining.select_threshold(predictions)
+    end
+
+    assert_match(/threshold/, error.message)
+  end
 end
