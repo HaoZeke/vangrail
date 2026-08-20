@@ -99,7 +99,7 @@ module Vangrail
 
   # Complete authorization point for calls routed through the public adapter.
   class ReferenceMonitor
-    CONSTRAINT_KEYS = %i[type origins equals in pattern].freeze
+    CONSTRAINT_KEYS = %i[type origins integrity equals in pattern].freeze
     TYPES = {
       string: String,
       integer: Integer,
@@ -222,6 +222,10 @@ module Vangrail
       if constraint.key?(:origins)
         origin_reason = origin_denial(cell, constraint[:origins])
         return origin_reason if origin_reason
+      end
+      if constraint.key?(:integrity)
+        required = Array(constraint[:integrity]).map(&:to_sym)
+        return :argument_integrity unless required.all? { |principal| cell.integrity.include?(principal) }
       end
       return :argument_literal if constraint.key?(:equals) && cell.raw != constraint[:equals]
       return :argument_value if constraint.key?(:in) && !Array(constraint[:in]).include?(cell.raw)
