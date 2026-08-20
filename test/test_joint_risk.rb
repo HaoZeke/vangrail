@@ -22,7 +22,7 @@ class TestJointRisk < Minitest::Test
       'covariance_diagonal' => {
         'intercept' => 0.04,
         'lexical.score' => 0.09,
-        'encoder.score' => 0.16,
+        'encoder.score' => 0.36,
         'lexical.score*encoder.score' => 0.01,
       },
       'score_ranges' => {
