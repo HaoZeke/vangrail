@@ -59,10 +59,19 @@ module Vangrail
       refusal = preauthorization_refusal(name, handler_arguments, call)
       return refusal if refusal
 
+      begin
+        prepared = tools.prepare_transaction(name, handler_arguments, self, call: call)
+      rescue StandardError => e
+        return refuse(name, handler_arguments, 'transaction_prepare',
+                      "#{e.class}: #{e.message}", call: call)
+      end
       authorization = monitor.authorize(call)
-      return authorization_refusal(name, handler_arguments, call, authorization) if authorization.denied?
+      if authorization.denied?
+        tools.rollback_transaction(prepared, self)
+        return authorization_refusal(name, handler_arguments, call, authorization)
+      end
 
-      execute_authorized(name, handler_arguments, call, authorization)
+      execute_authorized(name, handler_arguments, call, authorization, prepared)
     end
 
     def invoked?(name)
@@ -100,8 +109,9 @@ module Vangrail
                                                            authorization: authorization)
     end
 
-    def execute_authorized(name, arguments, call, authorization)
-      cell = tools.dispatch(name, arguments, self, authorization: authorization)
+    def execute_authorized(name, arguments, call, authorization, prepared)
+      cell = tools.dispatch(name, arguments, self, authorization: authorization,
+                                                   transaction: prepared)
       monitor.finish(call, success: true)
       result = Result.passed(rail: name.to_s)
       record_invocation(name, arguments, result, cell, call: call, authorization: authorization)

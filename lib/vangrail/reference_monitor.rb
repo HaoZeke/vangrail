@@ -162,6 +162,7 @@ module Vangrail
       @claimed = {}
       @finished = {}
       @confirmations = {}
+      @transactions = {}
       @completed = []
       @mutex = Mutex.new
     end
@@ -233,6 +234,35 @@ module Vangrail
           @confirmations[call.id] = token
           audit.record(:confirmation, call_id: call.id, confirmation_id: token.id, actor: actor)
         end
+      end
+    end
+
+    def prepare_transaction(call, prepared)
+      raise ArgumentError, 'call must be a Call' unless call.is_a?(Call)
+      unless prepared.is_a?(PreparedTransaction) && prepared.tool == call.tool &&
+             prepared.call_id == call.id && prepared.fingerprint == call.fingerprint
+        raise PrivilegeError, 'transaction does not match the call'
+      end
+
+      @mutex.synchronize do
+        raise PrivilegeError, 'call belongs to another conversation' if call.conversation_id != plan.id
+        raise PrivilegeError, 'authorized calls cannot be prepared' if @authorized.key?(call.id)
+
+        @transactions[call.id] = prepared
+        audit.record(:transaction_prepared, call_id: call.id, transaction_id: prepared.id,
+                                            tool: call.tool)
+        prepared
+      end
+    end
+
+    def finish_transaction(prepared, committed:)
+      @mutex.synchronize do
+        return false unless @transactions[prepared.call_id].equal?(prepared)
+
+        type = committed ? :transaction_committed : :transaction_rolled_back
+        audit.record(type, call_id: prepared.call_id, transaction_id: prepared.id,
+                           tool: prepared.tool)
+        true
       end
     end
 
@@ -325,8 +355,8 @@ module Vangrail
       if grant.confirmation_required? && !valid_confirmation?(call)
         return deny(call, :confirmation, 'call requires a monitor-issued confirmation')
       end
-      if grant.transaction_required? && !call.transaction?
-        return deny(call, :transaction, 'call requires a transaction')
+      if grant.transaction_required? && !valid_transaction?(call)
+        return deny(call, :transaction, 'call requires a prepared transaction')
       end
       if grant.effect != :read && call.idempotency_key.to_s.empty?
         return deny(call, :idempotency, 'side-effecting call requires an idempotency key')
@@ -354,6 +384,11 @@ module Vangrail
     def valid_confirmation?(call)
       token = @confirmations[call.id]
       token&.equal?(call.confirmation) && token.fingerprint == call.fingerprint
+    end
+
+    def valid_transaction?(call)
+      prepared = @transactions[call.id]
+      prepared&.prepared? && prepared.fingerprint == call.fingerprint
     end
 
     def deny(call, code, reason)
