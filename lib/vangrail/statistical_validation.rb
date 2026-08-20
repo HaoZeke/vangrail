@@ -166,9 +166,9 @@ module Vangrail
       case_ids = Array(artifact['case_ids'])
       unique_values!(case_ids, "artifact #{artifact['id']} case ids")
       expected_role = case_ids.map { |id| prediction_by_id(id)&.fetch('role', nil) }.uniq
-      raise ArtifactError, "artifact #{artifact['id']} case ids do not match its role" unless expected_role == [artifact['role']]
+      return case_ids if expected_role == [artifact['role']]
 
-      case_ids
+      raise ArtifactError, "artifact #{artifact['id']} case ids do not match its role"
     end
 
     def artifact_record(artifact, size, case_ids)
