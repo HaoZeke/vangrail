@@ -61,9 +61,7 @@ module Vangrail
       raise ArgumentError, 'pass threat concentrations once' if values && !families.empty?
 
       raw = values || families
-      unless raw.is_a?(Hash) && !raw.empty?
-        raise ArgumentError, 'threat concentrations must be a nonempty hash'
-      end
+      raise ArgumentError, 'threat concentrations must be a nonempty hash' unless raw.is_a?(Hash) && !raw.empty?
 
       @concentrations = raw.to_h do |family, concentration|
         [family.to_s.freeze, positive(concentration, family)]
