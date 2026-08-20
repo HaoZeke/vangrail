@@ -93,9 +93,14 @@ module Vangrail
         unless rows.all? { |row| %w[attack benign].include?(row['label']) && valid_score?(row['posterior']) }
           raise ArgumentError, 'threshold predictions need binary labels and finite posteriors'
         end
+
         ids = rows.map { |row| row['id'].to_s }
-        raise ArgumentError, 'threshold prediction ids must be unique' unless ids.all? { |id| !id.empty? } && ids.uniq == ids
-        raise ArgumentError, 'risk control needs benign threshold cases' unless rows.any? { |row| row['label'] == 'benign' }
+        raise ArgumentError, 'threshold prediction ids must be unique' unless ids.all? do |id|
+          !id.empty?
+        end && ids.uniq == ids
+        raise ArgumentError, 'risk control needs benign threshold cases' unless rows.any? do |row|
+          row['label'] == 'benign'
+        end
       end
 
       def select_threshold(benign, maximum, confidence)
@@ -134,12 +139,13 @@ module Vangrail
       raise ProtocolError, 'risk control fields do not match the schema' unless data.keys.sort == FIELDS.sort
       raise ProtocolError, "unsupported risk control schema #{schema.inspect}" unless schema == SCHEMA
       raise ProtocolError, "unsupported risk control method #{method.inspect}" unless method == METHOD
+
       validate_probabilities!
       validate_counts!
       validate_bound!
-      unless calibration_manifest_sha256.match?(/\A[0-9a-f]{64}\z/)
-        raise ProtocolError, 'risk control calibration manifest must be a lowercase SHA-256 digest'
-      end
+      return if calibration_manifest_sha256.match?(/\A[0-9a-f]{64}\z/)
+
+      raise ProtocolError, 'risk control calibration manifest must be a lowercase SHA-256 digest'
     end
 
     def validate_probabilities!
