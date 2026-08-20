@@ -78,13 +78,13 @@ class TestEngine < Minitest::Test
 
   def test_output_is_judged_as_usable_utf8
     secrets = Vangrail::Rails::Secrets.new
-    raw = "Set api_key=sk-abcdefghij\xFFklmnopqrstuvwx1234 in the file.".dup
-                                                                       .force_encoding(Encoding::ASCII_8BIT)
+    raw = (+"Set api_key=sk-abcdefghij\xFFklmnopqrstuvwx1234 in the file.")
+          .force_encoding(Encoding::ASCII_8BIT)
     result = Vangrail::Engine.new(output: [secrets]).check_output(raw)
 
     assert_predicate result, :modified?
     refute_includes result.content, 'sk-live-9c2f1'
-    assert result.content.valid_encoding?
+    assert_predicate result.content, :valid_encoding?
   end
 
   def test_rails_that_do_not_apply_to_the_side_are_skipped
@@ -241,7 +241,7 @@ class TestEngine < Minitest::Test
     engine = Vangrail::Engine.new(
       output: [Vangrail::Rails::Secrets.new,
                Vangrail::Rails::Watermark.new(key: 'k', issuer: 'issuer')],
-      cache: false
+      cache: false,
     )
     result = engine.check_output('Set api_key=sk-live-abcdefghijklmnop in the config.')
 
@@ -251,6 +251,7 @@ class TestEngine < Minitest::Test
     # Against the rail's own table rather than a literal, so the assertion
     # follows a renamed category and names no provider here.
     redaction = Vangrail::Rails::Secrets::DEFAULT_PATTERNS.keys
+
     assert_operator (result.categories & redaction).length, :>=, 1,
                     'the redacting rail contributed no category to the merged result'
     assert_includes result.categories, 'watermark'
@@ -279,7 +280,7 @@ class TestEngine < Minitest::Test
       output: [Vangrail::Rails::Secrets.new,
                Vangrail::Rails::Pattern.new(patterns: { 'refuse' => /config/ }, name: 'refuser',
                                             sides: [:output])],
-      cache: false
+      cache: false,
     )
     result = engine.check_output('Set api_key=sk-live-abcdefghijklmnop in the config.')
 

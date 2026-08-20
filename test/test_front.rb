@@ -13,9 +13,9 @@ class TestFront < Minitest::Test
     Vangrail::Engine.new(
       input: [ScriptedRail.new(R.blocked(rail: 'input', reason: 'no ticket'), name: 'input')],
       context: [ScriptedRail.new(lambda { |text, _|
-                                  text.include?('poison') ? R.blocked(rail: 'context', reason: 'poison') : R.passed(rail: 'context')
-                                }, name: 'context')],
-      output: [ScriptedRail.new(R.modified(rail: 'secrets', content: 'key [redacted]'), name: 'secrets')]
+        text.include?('poison') ? R.blocked(rail: 'context', reason: 'poison') : R.passed(rail: 'context')
+      }, name: 'context')],
+      output: [ScriptedRail.new(R.modified(rail: 'secrets', content: 'key [redacted]'), name: 'secrets')],
     )
   end
 
@@ -28,7 +28,7 @@ class TestFront < Minitest::Test
 
     assert_equal 'blocked', body['status']
     assert_equal 'input', body['rail']
-    assert_equal true, body['certain']
+    assert body['certain']
     assert_equal 'no ticket', body['reason']
   end
 
@@ -40,7 +40,7 @@ class TestFront < Minitest::Test
   end
 
   def test_screen_drops_the_blocked_page
-    body = front.dispatch('screen', 'documents' => ['clean', 'poison'])
+    body = front.dispatch('screen', 'documents' => %w[clean poison])
 
     assert_equal ['clean'], body['kept']
     assert_equal 1, body['rejected'].size
@@ -63,7 +63,7 @@ class TestFront < Minitest::Test
       health = http.get_json('/v1/health')
       result = http.post_json('/v1/check_input', 'text' => 'hello')
 
-      assert_equal true, health['ok']
+      assert health['ok']
       assert_equal Vangrail::VERSION, health['version']
       assert_equal 'blocked', result['status']
     end
@@ -87,7 +87,7 @@ class TestFront < Minitest::Test
     body = JSON.parse(out)
 
     assert_equal 'passed', body['status']
-    assert_equal false, body['certain']
+    refute body['certain']
   end
 
   def test_the_cli_exits_two_when_blocked

@@ -32,7 +32,7 @@ module Vangrail
                        required(payload, 'text'),
                        user_input: payload['user_input'],
                        passages: payload['passages'],
-                       **context_of(payload)
+                       **context_of(payload),
                      ))
     end
 

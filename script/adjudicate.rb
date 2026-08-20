@@ -33,7 +33,7 @@ RAILS = (Vangrail::Builder.deterministic(:context) +
 
 def offending(rail, text)
   clauses = Vangrail::NLP.clauses(text)
-  hit = clauses.find { |clause| rail.call(clause, side: :context).blocked? }
+  hit = clauses.detect { |clause| rail.call(clause, side: :context).blocked? }
   return hit.gsub(/\s+/, ' ')[0, 200] if hit
 
   # A rail that only fires on the whole document is reporting something about

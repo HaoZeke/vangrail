@@ -44,7 +44,7 @@ class TestProvider < Minitest::Test
       Vangrail::Providers::Gateway::Spec.new(
         name: 'hub', base_url: 'https://gateway.invalid/api/v0',
         models: { judge: 'some/instruct' }, key_env: 'HUB_KEY'
-      )
+      ),
     )
 
     assert_equal %w[llmlite hub], Vangrail::Provider.names
@@ -69,7 +69,7 @@ class TestProvider < Minitest::Test
       Vangrail::Providers.register_gateway(
         Vangrail::Providers::Gateway::Spec.new(
           name: 'hub', base_url: 'https://gateway.invalid/api/v0', key_env: 'HUB_KEY',
-        )
+        ),
       )
     end
 
@@ -167,7 +167,7 @@ class TestProvider < Minitest::Test
         models: { judge: 'some/instruct', guard: 'some/guard' },
         guard_preset: :apriel_guard, key_env: 'HUB_KEY'
       ),
-      env: { 'HUB_KEY' => 'tok' }
+      env: { 'HUB_KEY' => 'tok' },
     )
     hub = Vangrail::Provider['hub']
 

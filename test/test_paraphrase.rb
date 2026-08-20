@@ -156,7 +156,7 @@ class TestParaphrase < Minitest::Test
   # it is still two doublings clear of the failure it guards.
   def test_a_page_full_of_concepts_costs_what_its_length_costs
     hostile = lambda do |count|
-      (['ignore'] * count + ['padding'] * 40 + ['instructions'] * count).join(' ')
+      ((['ignore'] * count) + (['padding'] * 40) + (['instructions'] * count)).join(' ')
     end
     guard = Vangrail::Rails::Paraphrase.new(sides: [:context])
     small = hostile.call(500)

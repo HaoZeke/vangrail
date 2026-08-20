@@ -11,7 +11,7 @@ require_relative 'version'
 module Vangrail
   # JSON on stdin, JSON on stdout. The HTTP server is the same envelope.
   class CLI
-    USAGE = <<~TEXT
+    USAGE = <<~TEXT.freeze
       vangrail #{VERSION}
 
       vangrail check-input [--text STRING]

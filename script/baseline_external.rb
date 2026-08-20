@@ -149,7 +149,7 @@ File.write(OUTPUT, JSON.pretty_generate(report))
 
 puts
 puts "#{attacks.size} in-the-wild jailbreaks, #{benign.size} ordinary prompts, #{FOLDS}-fold cross-validation"
-puts format('  %-28s %8s %10s %12s', 'detector', 'caught', 'detection', 'false alarm')
+puts '  detector                       caught  detection  false alarm'
 puts format('  %-28s %8d %10.3f %12.4f', 'rails (hand-written)', rail_caught,
             report['rails']['detection'], report['rails']['false_alarm'])
 puts format('  %-28s %8d %10.3f %12.4f', 'bag-of-stems, matched FPR', bag_caught,

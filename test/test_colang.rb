@@ -46,7 +46,7 @@ class TestColang < Minitest::Test
     assert_equal 'my_action', call.action
     assert_equal 3, call.arguments['threshold'].value
     assert_equal 'high', call.arguments['label'].value
-    assert_equal true, call.arguments['flag'].value
+    assert call.arguments['flag'].value
   end
 
   # One value grammar: the same literal is a value in assign, if, and arguments.
@@ -244,7 +244,7 @@ class TestColang < Minitest::Test
         $ok = execute probe(user=$user_message, alias=$user_input, bot=$bot_message)
     CO
     interpret(source, { 'probe' => ->(args, _) { seen = args } }, flow: 'check',
-                                                                 context: { text: 'hello', side: :input })
+                                                                  context: { text: 'hello', side: :input })
 
     assert_equal 'hello', seen['user']
     assert_equal 'hello', seen['alias']
@@ -258,7 +258,7 @@ class TestColang < Minitest::Test
         $ok = execute probe(user=$user_message, alias=$user_input, bot=$bot_message)
     CO
     interpret(source, { 'probe' => ->(args, _) { seen = args } }, flow: 'check',
-                                                                 context: { text: 'a page', side: :context })
+                                                                  context: { text: 'a page', side: :context })
 
     assert_equal 'a page', seen['user']
     assert_equal 'a page', seen['alias']
@@ -272,7 +272,7 @@ class TestColang < Minitest::Test
         $ok = execute probe(bot=$bot_message, alias=$bot_response, user=$user_message)
     CO
     interpret(source, { 'probe' => ->(args, _) { seen = args } }, flow: 'check',
-                                                                 context: { text: 'the answer', side: :output })
+                                                                  context: { text: 'the answer', side: :output })
 
     assert_equal 'the answer', seen['bot']
     assert_equal 'the answer', seen['alias']
@@ -312,7 +312,7 @@ class TestColang < Minitest::Test
   def test_assigning_bot_response_is_a_rewrite
     source = "define flow mask\n  $bot_response = execute redact\n"
     outcome = interpret(source, { 'redact' => ->(_a, _c) { 'masked answer' } }, flow: 'mask',
-                                                                               context: { side: :output })
+                                                                                context: { side: :output })
 
     assert_equal :modified, outcome.status
     assert_equal 'masked answer', outcome.content

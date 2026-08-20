@@ -88,7 +88,7 @@ end
 
 def summarise(label, table)
   puts label
-  puts format('  %-24s %8s %10s %8s %10s', 'rail', 'caught', 'flagged', 'bits', 'at 95%')
+  puts '  rail                       caught    flagged     bits     at 95%'
   table.each do |name, row|
     entry = Vangrail::Evidence.new(rail: name, attacks_caught: row[:caught], attacks: row[:attacks],
                                    benign_flagged: row[:flagged], benign: row[:benign])

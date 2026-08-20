@@ -30,7 +30,7 @@ SOURCES = {
   'jailbreak_prompts_2023_12_25.csv' =>
     'https://raw.githubusercontent.com/verazuo/jailbreak_llms/main/data/prompts/jailbreak_prompts_2023_12_25.csv',
   'regular_prompts_2023_12_25.csv' =>
-    'https://raw.githubusercontent.com/verazuo/jailbreak_llms/main/data/prompts/regular_prompts_2023_12_25.csv'
+    'https://raw.githubusercontent.com/verazuo/jailbreak_llms/main/data/prompts/regular_prompts_2023_12_25.csv',
 }.freeze
 
 FileUtils.mkdir_p(DEST)

@@ -65,7 +65,7 @@ module LocalCorpus
   def doc_paths
     Dir.glob(File.join(DOC_ROOT, '**', '*'))
        .select { |p| File.file?(p) && p.match?(/\.(md|txt|rst)\z|README|CHANGELOG|NEWS/i) }
-       .reject { |p| p.match?(/LICEN[CS]E|COPYING/i) }
+       .grep_v(/LICEN[CS]E|COPYING/i)
        .sort
   end
 

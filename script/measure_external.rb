@@ -121,7 +121,7 @@ File.write(OUTPUT, JSON.pretty_generate(report))
   data = report[side]
   puts
   puts "#{side}: #{data['attacks']} attacks, #{data['benign']} benign (#{data['source']})"
-  puts format('  %-24s %8s %8s %8s %10s', 'rail', 'caught', 'flagged', 'bits', 'at 95%')
+  puts '  rail                       caught  flagged     bits     at 95%'
   data['rails'].each do |name, row|
     puts format('  %-24s %8d %8d %+8.1f %+10.1f', name, row['caught'], row['flagged'], row['bits'],
                 row['bits_defensible'])

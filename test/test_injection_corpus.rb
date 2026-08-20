@@ -223,7 +223,7 @@ class TestInjectionCorpus < Minitest::Test
   def test_the_corpus_file_loads_without_minitest
     path = File.expand_path('corpus', __dir__)
     script = "require #{path.inspect}; abort('minitest') if defined?(Minitest); print 'ok'"
-    actual = IO.popen([Gem.ruby, '-e', script], err: [:child, :out], &:read)
+    actual = IO.popen([Gem.ruby, '-e', script], err: %i[child out], &:read)
 
     assert_equal 'ok', actual
   end

@@ -58,7 +58,7 @@ end
 
 File.write(OUTPUT, JSON.pretty_generate(report))
 
-puts format('%-42s %8s %10s', 'BIPIA family', 'attacks', 'any rail')
+puts 'BIPIA family                                attacks   any rail'
 report.sort_by { |_, row| -row['any_rail'].fdiv(row['attacks']) }.each do |name, row|
   puts format('%-42s %8d %10d', name, row['attacks'], row['any_rail'])
 end

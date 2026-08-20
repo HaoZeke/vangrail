@@ -141,9 +141,7 @@ module Vangrail
       result.with_rewrites(union)
     end
 
-    def buffer
-      @buffer
-    end
+    attr_reader :buffer
 
     def due?
       buffer.length - @emitted >= @interval

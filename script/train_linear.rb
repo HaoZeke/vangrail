@@ -142,7 +142,7 @@ File.write(OUTPUT, JSON.pretty_generate(report))
 
 puts
 puts "#{attacks.size} in-the-wild jailbreaks, #{benign.size} ordinary prompts, #{FOLDS}-fold cross-validation"
-puts format('  %-34s %8s %10s %12s', 'detector', 'caught', 'detection', 'false alarm')
+puts '  detector                             caught  detection  false alarm'
 puts format('  %-34s %8d %10.3f %12.4f', 'rails (hand-written)', rail_caught,
             report['rails']['detection'], rail_fpr)
 puts format('  %-34s %8d %10.3f %12.4f', 'linear, matched false-alarm rate', caught,
@@ -161,6 +161,6 @@ if EMIT
   File.write(EMIT, JSON.generate(model.to_h))
   puts
   puts format('wrote %<path>s (%<size>d KB, threshold %<threshold>+.2f)', path: EMIT,
-              size: File.size(EMIT) / 1024, threshold: matched)
-  puts 'GUARDRAILS_LINEAR_MODEL=' + EMIT + ' GUARDRAILS_RAILS=input,linear'
+                                                                          size: File.size(EMIT) / 1024, threshold: matched)
+  puts "GUARDRAILS_LINEAR_MODEL=#{EMIT} GUARDRAILS_RAILS=input,linear"
 end

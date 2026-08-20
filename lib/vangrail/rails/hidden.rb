@@ -97,9 +97,7 @@ module Vangrail
               rails.each do |rail|
                 result = rail.call(current, context)
                 extra = ["hidden:#{carrier}"]
-                if result.blocked?
-                  throw :blocked, wrapped_block(result, extra, carrier)
-                end
+                throw :blocked, wrapped_block(result, extra, carrier) if result.blocked?
 
                 if result.modified?
                   current = result.content.to_s
@@ -119,8 +117,8 @@ module Vangrail
         if modified
           result, extra, carrier = modified
           return modify(rewritten, categories: (result.categories || []) + extra,
-                        reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})",
-                        certain: result.certain? && uncertain.nil?)
+                                   reason: "#{result.reason} (hidden in #{carrier.tr('_', ' ')})",
+                                   certain: result.certain? && uncertain.nil?)
         end
         return unchecked(uncertain.reason) if uncertain
 

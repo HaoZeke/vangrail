@@ -60,11 +60,11 @@ report = {
   'seconds' => elapsed,
   'source' => 'installed man pages and package documentation',
   'counts' => counts,
-  'rates' => counts.transform_values { |hits| (hits.fdiv(seen)).round(6) },
+  'rates' => counts.transform_values { |hits| hits.fdiv(seen).round(6) },
   'bounds' => counts.transform_values do |hits|
     Vangrail::Beta.quantile(0.95, hits + 0.5, seen - hits + 0.5).round(6)
   end,
-  'flagged' => flagged
+  'flagged' => flagged,
 }
 
 require 'fileutils'
@@ -72,7 +72,7 @@ FileUtils.mkdir_p(File.dirname(OUTPUT))
 File.write(OUTPUT, JSON.pretty_generate(report))
 
 puts format('%<n>d real documents in %<s>ds', n: seen, s: elapsed)
-puts format('%-24s %8s %10s %12s', 'rail', 'flagged', 'rate', '95% bound')
+puts 'rail                      flagged       rate    95% bound'
 counts.each do |name, hits|
   puts format('%-24s %8d %10.5f %12.5f', name, hits, report['rates'][name], report['bounds'][name])
 end

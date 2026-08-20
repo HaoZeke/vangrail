@@ -39,7 +39,7 @@ class TestSession < Minitest::Test
     'injected_instructions' => Vangrail::Evidence.new(rail: 'injected_instructions',
                                                       group: 'injected_instructions',
                                                       attacks_caught: 600, attacks: 1000,
-                                                      benign_flagged: 50, benign: 1000)
+                                                      benign_flagged: 50, benign: 1000),
   }.freeze
 
   # What one probe is worth under that table, computed rather than assumed, so

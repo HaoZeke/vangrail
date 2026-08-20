@@ -43,7 +43,7 @@ class TestWatermark < Minitest::Test
   def test_it_adds_only_variation_selectors
     added = marked.each_char.to_a - ANSWER.each_char.to_a
 
-    assert_empty added.reject { |c| c.match?(/[\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/) }
+    assert_empty(added.grep_v(/[\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/))
   end
 
   # The one that would be a real bug: a selector inside a command is a command
@@ -119,7 +119,7 @@ class TestWatermark < Minitest::Test
   def test_every_byte_value_round_trips
     bytes = (0..255).to_a
 
-    assert_equal [bytes], W.decode(W.encode(bytes)).then { |d| [d.flatten] }
+    assert_equal([bytes], W.decode(W.encode(bytes)).then { |d| [d.flatten] })
   end
 
   def test_marking_twice_does_not_stack_selectors
@@ -190,6 +190,7 @@ class TestWatermark < Minitest::Test
       verdict = guard.push(chunk)
       refute_predicate verdict, :modified? if verdict
     end
+
     refute W.marked?(guard.content)
 
     final = guard.finish

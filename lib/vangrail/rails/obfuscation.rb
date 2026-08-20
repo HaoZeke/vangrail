@@ -69,7 +69,7 @@ module Vangrail
       INVISIBLE = Regexp.new(
         '[\\u{0008}\\u{00AD}\\u{034F}\\u{061C}\\u{180E}\\u{200B}-\\u{200F}' \
         '\\u{202A}-\\u{202E}\\u{2060}-\\u{206F}\\u{FEFF}\\u{FFFD}' \
-        '\\u{E0000}-\\u{E007F}]'
+        '\\u{E0000}-\\u{E007F}]',
       )
 
       # Variation selectors, which are the one invisible carrier with an honest
@@ -221,8 +221,8 @@ module Vangrail
         if modified
           result, extra, name = modified
           return [modify(published, categories: (result.categories || []) + extra,
-                         reason: reason_for(name, result),
-                         certain: result.certain? && uncertain.nil?), nil]
+                                    reason: reason_for(name, result),
+                                    certain: result.certain? && uncertain.nil?), nil]
         end
 
         [nil, uncertain]
@@ -377,9 +377,9 @@ module Vangrail
       # Each run turned into bytes and kept only if it reads as text. A run that
       # decodes to a key, a hash, or a truncated payload contributes nothing and
       # would otherwise hand a rail a string of control characters to judge.
-      def decode_runs(body, pattern)
+      def decode_runs(body, pattern, &block)
         pieces = body.scan(pattern).filter_map do |run|
-          bytes = run.each_char.map { |c| yield(c) }
+          bytes = run.each_char.map(&block)
           next if bytes.any? { |b| b.negative? || b > 0xFF }
 
           readable_bytes(bytes)

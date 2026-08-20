@@ -220,7 +220,7 @@ class TestStreamGuard < Minitest::Test
     cache = Vangrail::ResultCache.new
     engine = Vangrail::Engine.new(
       output: [Vangrail::Rails::Watermark.new(key: 'k', issuer: 'issuer')],
-      cache: cache
+      cache: cache,
     )
     answer = "The limit is 1000 SBU per project.\n"
 
@@ -242,7 +242,7 @@ class TestStreamGuard < Minitest::Test
     cache = Vangrail::ResultCache.new
     engine = Vangrail::Engine.new(
       output: [Vangrail::Rails::Watermark.new(key: 'k', issuer: 'issuer')],
-      cache: cache
+      cache: cache,
     )
     result = engine.check_output('Answers are marked in this deployment.')
 

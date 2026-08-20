@@ -46,7 +46,7 @@ module Vangrail
 
       def next_token(index)
         char = @text[index]
-        if char == '"' || char == "'"
+        if ['"', "'"].include?(char)
           read_string(index)
         elsif char == '$' && (name = @text[(index + 1)..][/\A\w+/])
           [[:var, name], index + 1 + name.length]

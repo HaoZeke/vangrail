@@ -38,7 +38,7 @@ LocalCorpus.each_document(limit: LIMIT) do |text, _path|
   warn "  #{seen}, #{(Time.now - started).round}s" if (seen % 2000).zero?
 end
 
-union = vectors.count { |row| row.any? }
+union = vectors.count(&:any?)
 per_rail = NAMES.each_with_index.to_h { |name, i| [name, vectors.count { |row| row[i] }] }
 
 # Phi over the real corpus, which is the number the grouping rule should have
@@ -66,7 +66,7 @@ report = {
   'union_bound' => Vangrail::Beta.quantile(0.95, union + 0.5, seen - union + 0.5).round(5),
   'per_rail' => per_rail,
   'per_rail_rate' => per_rail.transform_values { |hits| hits.fdiv(seen).round(5) },
-  'correlations' => correlations.sort_by { |_, value| -value }.to_h
+  'correlations' => correlations.sort_by { |_, value| -value }.to_h,
 }
 
 File.write(OUTPUT, JSON.pretty_generate(report))

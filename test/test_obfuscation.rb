@@ -294,7 +294,7 @@ class TestObfuscation < Minitest::Test
 
   # One byte per selector, so a payload is a run and a run is what gets removed.
   def test_a_variation_selector_run_is_stripped
-    payload = 'sbatch job.sh' + [0xFE01, 0xE0100, 0xFE0F].pack('U*')
+    payload = "sbatch job.sh#{[0xFE01, 0xE0100, 0xFE0F].pack('U*')}"
     result = check(payload)
 
     assert_predicate result, :modified?
@@ -436,7 +436,7 @@ class TestAnUnappliableRewrite < Minitest::Test
 
   # U+FB01, the fi ligature, so the fold that finds the credential is not
   # length-preserving and there is no span to splice.
-  PAGE = "The conﬁg says api_key=sk-live-abcdefghijklmnop here."
+  PAGE = 'The conﬁg says api_key=sk-live-abcdefghijklmnop here.'
   CREDENTIAL = 'sk-live-abcdefghijklmnop'
 
   def rail
@@ -481,7 +481,7 @@ class TestAnUnappliableRewrite < Minitest::Test
 
   def test_a_carrier_payload_never_edits_the_visible_text
     ['api_key=sk-live-abcdefghij', # shorter than the page
-     ('api_key=sk-live-abcdefghijklmnop' + ' x' * 5)[0, VISIBLE.length], # the same length
+     "api_key=sk-live-abcdefghijklmnop#{' x' * 5}"[0, VISIBLE.length], # the same length
      "api_key=sk-live-abcdefghijklmnop#{' padding' * 6}"].each do |payload|
       result = rail.call(tagged(payload), side: :context)
 

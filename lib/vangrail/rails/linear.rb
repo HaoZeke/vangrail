@@ -55,7 +55,7 @@ module Vangrail
 
         block(categories: ['linear'],
               reason: format('scores %<value>+.2f against a threshold of %<threshold>+.2f', value: value,
-                                                                                           threshold: threshold))
+                                                                                            threshold: threshold))
       end
 
       private

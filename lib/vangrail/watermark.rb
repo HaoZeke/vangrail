@@ -252,7 +252,7 @@ module Vangrail
       segments(text).map do |segment|
         fences = segment.scan(FENCE).length
         was_open = in_fence
-        in_fence = fences.odd? ? !in_fence : in_fence
+        in_fence = !in_fence if fences.odd?
         next segment if was_open || fences.positive?
         next segment if segment.match?(/\A\s*\z/) || segment.match?(INDENTED)
 

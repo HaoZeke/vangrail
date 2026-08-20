@@ -45,7 +45,7 @@ module Vangrail
     #
     # Preferred: a Gateway::Spec. The 0.1.0 keywords still work and become one.
     def register_gateway(spec = nil, env: ENV, **kwargs)
-      spec = spec.is_a?(Gateway::Spec) ? spec : Gateway::Spec.new(**(spec || kwargs))
+      spec = Gateway::Spec.new(**(spec || kwargs)) unless spec.is_a?(Gateway::Spec)
       registered_specs.reject! { |s| s.name == spec.name }
       registered_specs << spec
       Provider.register(Gateway.provider(spec, env))

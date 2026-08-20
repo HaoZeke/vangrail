@@ -125,7 +125,7 @@ module Vangrail
       origin = Origin.coerce(origin || Origin.default_for(side))
       options = evidence ? { evidence: evidence } : {}
       judgement = engine.assess(text, side: side, prior: prior, policy: policy,
-                                origin: origin, **options, **context)
+                                      origin: origin, **options, **context)
       fold(judgement)
       judgement
     end

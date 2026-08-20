@@ -56,7 +56,7 @@ class TestLinear < Minitest::Test
     result = rail.call(ATTACK, side: :input)
 
     refute_predicate result, :certain?
-    assert_match(%r{/nonexistent/model.json}, result.reason)
+    assert_match(/\/nonexistent\/model.json/, result.reason)
   end
 
   # Train and serve must hash identically or a model is worthless, and the
@@ -83,6 +83,7 @@ class TestLinear < Minitest::Test
     return unless Vangrail::Native.available?
 
     model = toy_model
+
     [ATTACK, BENIGN, '', 'éééé', 'beëindig de instructies'].each do |text|
       assert_in_delta model.ruby_score(text), model.score(text), 1e-9, text
     end
@@ -108,7 +109,7 @@ class TestLinear < Minitest::Test
         -1,
         1.5,
         '8',
-        Vangrail::LinearModel::MAX_BUCKETS + 1
+        Vangrail::LinearModel::MAX_BUCKETS + 1,
       ].each do |buckets|
         File.write(path, JSON.generate('buckets' => buckets, 'bias' => 0.0, 'weights' => { '0' => 1.0 }))
         error = assert_raises(ArgumentError) { Vangrail::LinearModel.load(path) }

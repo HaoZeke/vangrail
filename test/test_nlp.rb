@@ -27,7 +27,7 @@ class TestNLP < Minitest::Test
   def test_clauses_uses_the_same_encoding_door_as_normalize
     # A body off a socket arrives tagged ASCII-8BIT. clauses used to call
     # scrub on that tag, which does nothing, and hand the binary string on.
-    tagged = "one\ntwo".dup.force_encoding('ASCII-8BIT')
+    tagged = (+"one\ntwo").force_encoding('ASCII-8BIT')
 
     assert_equal %w[one two], N.clauses(tagged)
     assert(N.clauses(tagged).all? { |clause| clause.encoding == Encoding::UTF_8 })
@@ -66,6 +66,7 @@ class TestNLP < Minitest::Test
   def test_an_evicted_lexicon_stem_still_stems_to_the_same_value
     snapshot = N::STEM_CACHE.dup
     N::STEM_CACHE.clear
+
     assert_equal 'instruction', N.stem('instructions')
     N::STEM_LIMIT.times { |i| N.stem(format('tok%05dxxxx', i)) }
 

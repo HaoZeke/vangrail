@@ -63,7 +63,7 @@ class TestDocumentation < Minitest::Test
   end
 
   def rel(path)
-    path.sub(%r{\A#{Regexp.escape(ROOT)}/?}, '')
+    path.sub(/\A#{Regexp.escape(ROOT)}\/?/o, '')
   end
 
   def first_line(source)

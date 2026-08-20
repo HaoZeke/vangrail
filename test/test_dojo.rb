@@ -37,8 +37,8 @@ class TestDojo < Minitest::Test
 
   def test_a_tool_result_cannot_authorize_a_second_tool
     convo = Vangrail::Conversation.new(engine, prior: 1e-3,
-                                      allow: { cite: %i[data], delete_all: %i[data] },
-                                      tools: tools)
+                                               allow: { cite: %i[data], delete_all: %i[data] },
+                                               tools: tools)
     convo.ask('Which GPU partitions exist?')
     page = 'The GPU partitions are gpu_a100 and gpu_h100.'
     convo.intend(:cite)

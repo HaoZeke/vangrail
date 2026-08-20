@@ -175,7 +175,7 @@ module Vangrail
       #
       # The two override lexicons are disjoint, so asking which language the
       # verb came from costs one lookup and gives the rule back its subject.
-      DUTCH_OVERRIDES = NLP::CONCEPTS[:nl][:override].map { |word| NLP.stem(word) }.to_set.freeze
+      DUTCH_OVERRIDES = NLP::CONCEPTS[:nl][:override].to_set { |word| NLP.stem(word) }.freeze
 
       def verb_final_object?(verb_index, length, word)
         verb_index == length - 1 && DUTCH_OVERRIDES.include?(NLP.stem(NLP.normalize(word)))
