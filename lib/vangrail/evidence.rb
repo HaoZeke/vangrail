@@ -59,14 +59,9 @@ module Vangrail
     # two bits of evidence that nobody measured, and reporting the point
     # estimate spends them.
     #
-    # Pessimistic on both sides at once: detection at the low end of its
-    # posterior and false alarms at the high end. That single operating point is
-    # conservative for a hit and for silence alike, because both ratios move the
-    # same way under it.
-    # Memoised, because the bound is a function of counts that never change and
-    # the inverse of an incomplete beta is sixty bisections of a continued
-    # fraction. Computed once per entry per confidence level; the rails call it
-    # on every check.
+    # Marginal one-sided rate bounds are useful summaries. A likelihood ratio
+    # needs simultaneous bounds on both rates; `bits_interval` supplies that
+    # joint statement.
     def detection_bound(confidence)
       bounds[[:detection, confidence]] ||=
         Beta.quantile(1 - confidence, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
@@ -92,9 +87,11 @@ module Vangrail
     def bits(fired, confidence: nil)
       return Math.log2(fired ? ratio_fired : ratio_silent) if confidence.nil?
 
-      detection = detection_bound(confidence)
-      false_alarm = false_alarm_bound(confidence)
-      Math.log2(fired ? detection / false_alarm : (1 - detection) / (1 - false_alarm))
+      low, high = bits_interval(fired, confidence: confidence)
+      return low if low.positive?
+      return high if high.negative?
+
+      0.0
     end
 
     # A joint credible interval for the observation's likelihood ratio, in
