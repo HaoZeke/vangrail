@@ -84,7 +84,7 @@ class TestPerformance < Minitest::Test
       'model_json' => report.dig('artifacts', 'model_json_sha256'),
     )
 
-    assert_equal %w[benchmark_risk core_library linear_model model_json native_lock native_source],
+    assert_equal %w[benchmark_risk core_library linear_model model_json native_lock native_source performance_report_table],
                  digests.keys.sort
     assert(digests.values.all? { |digest| digest.match?(/\A[0-9a-f]{64}\z/) })
   end
