@@ -58,9 +58,7 @@ module Vangrail
 
       ids = cases.map { |row| row['case_id'] }
       invalid_id = ids.any? { |id| id.to_s.empty? }
-      if invalid_id || ids.uniq != ids
-        raise ArtifactError, 'every benchmark case needs a unique case_id'
-      end
+      raise ArtifactError, 'every benchmark case needs a unique case_id' if invalid_id || ids.uniq != ids
 
       statuses = cases.map { |row| row['status'] }
       unknown = statuses - STATUSES
