@@ -97,6 +97,30 @@ module Vangrail
       Math.log2(fired ? detection / false_alarm : (1 - detection) / (1 - false_alarm))
     end
 
+    # A joint credible interval for the observation's likelihood ratio, in
+    # bits. Splitting the excluded mass across both tails of both independent
+    # beta posteriors gives the rate rectangle at least `confidence` posterior
+    # mass by the union bound.
+    def bits_interval(fired, confidence:)
+      tail = (1 - confidence) / 4.0
+      detection_low = bounds[[:detection_quantile, tail]] ||=
+        Beta.quantile(tail, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
+      detection_high = bounds[[:detection_quantile, 1 - tail]] ||=
+        Beta.quantile(1 - tail, attacks_caught + 0.5, attacks - attacks_caught + 0.5)
+      false_alarm_low = bounds[[:false_alarm_quantile, tail]] ||=
+        Beta.quantile(tail, benign_flagged + 0.5, benign - benign_flagged + 0.5)
+      false_alarm_high = bounds[[:false_alarm_quantile, 1 - tail]] ||=
+        Beta.quantile(1 - tail, benign_flagged + 0.5, benign - benign_flagged + 0.5)
+
+      ratios = if fired
+                 [detection_low / false_alarm_high, detection_high / false_alarm_low]
+               else
+                 [(1 - detection_high) / (1 - false_alarm_low),
+                  (1 - detection_low) / (1 - false_alarm_high)]
+               end
+      ratios.map { |ratio| Math.log2(ratio) }
+    end
+
     # How much of the question this rail actually answers, at a given base rate.
     #
     # Detection and false-alarm rates describe a rail; they do not describe what
