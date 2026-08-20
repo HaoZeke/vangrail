@@ -5,6 +5,7 @@ require 'open3'
 require 'tmpdir'
 require_relative 'helper'
 require_relative '../script/benchmark_risk'
+require_relative '../script/performance_report_table'
 
 class TestPerformance < Minitest::Test
   def report
@@ -88,19 +89,33 @@ class TestPerformance < Minitest::Test
     assert(digests.values.all? { |digest| digest.match?(/\A[0-9a-f]{64}\z/) })
   end
 
-  def test_cli_writes_one_atomic_machine_readable_report
+  def test_report_table_regenerates_cost_scaling_and_artifact_rows
+    table = Vangrail::PerformanceReportTable.render(report)
+
+    assert_includes table, '| kernel | implementation | characters | median ms | p95 ms | median allocations | p95 RSS KiB |'
+    assert_includes table, '| scaling dimension | implementation | work growth | latency growth | normalized growth |'
+    assert_includes table, '| artifact | bytes | SHA-256 |'
+    assert_includes table, '| source | SHA-256 |'
+    assert_includes table, "| native parity | #{report.dig('parity', 'status')} |"
+    report.fetch('source_sha256').each_value { |sha256| assert_includes table, sha256 }
+    assert_includes table, report.dig('artifacts', 'core_library_sha256')
+  end
+
+  def test_cli_writes_atomic_machine_readable_and_rendered_reports
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'risk-performance.json')
+      table = File.join(dir, 'risk-performance.md')
       command = [
         Gem.ruby, File.expand_path('../script/benchmark_risk.rb', __dir__),
         '--lengths', '64', '--samples', '1', '--iterations', '1', '--warmup', '0',
-        '--buckets', '128', '--no-startup', '--output', path
+        '--buckets', '128', '--no-startup', '--output', path, '--table', table
       ]
       stdout, stderr, status = Open3.capture3(*command)
 
       assert_predicate status, :success?, stderr
       assert_equal JSON.parse(stdout), JSON.parse(File.read(path))
-      refute_path_exists "#{path}.tmp"
+      assert_includes File.read(table), '| kernel | implementation | characters |'
+      assert_empty Dir[File.join(dir, '.*.tmp*')]
     end
   end
 
