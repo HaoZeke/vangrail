@@ -47,7 +47,7 @@ module Vangrail
     # authorization agree. Every refusal is recorded without calling the
     # handler.
     def invoke(target, arguments: nil, sink: nil, confirmation: nil, transaction: false,
-               idempotency_key: nil)
+               idempotency_key: nil, risk: nil)
       call = target if target.is_a?(Call)
       name = call ? call.tool : target.to_sym
       raise ArgumentError, "unknown tool #{name}" unless tools.key?(name)
@@ -65,7 +65,7 @@ module Vangrail
         return refuse(name, handler_arguments, 'transaction_prepare',
                       "#{e.class}: #{e.message}", call: call)
       end
-      authorization = monitor.authorize(call)
+      authorization = monitor.authorize(call, risk: risk)
       if authorization.denied?
         tools.rollback_transaction(prepared, self)
         return authorization_refusal(name, handler_arguments, call, authorization)
