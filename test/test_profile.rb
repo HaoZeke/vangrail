@@ -47,7 +47,10 @@ class TestProfile < Minitest::Test
     set = tools
 
     assert_raises(Vangrail::PrivilegeError) { set.call(:cite, 'x', nil) }
-    assert_equal 'ok page', set.fire(:cite, 'ok page', nil)
+    refute_respond_to set, :fire
+    assert_raises(Vangrail::PrivilegeError) do
+      set.dispatch(:cite, 'ok page', nil, authorization: nil)
+    end
   end
 
   def test_strict_refuses_a_mutating_tool

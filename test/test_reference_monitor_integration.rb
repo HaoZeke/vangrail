@@ -10,10 +10,13 @@ class TestReferenceMonitorIntegration < Minitest::Test
   def test_an_explicit_plan_routes_calls_through_the_monitor
     received = []
     tools = Vangrail::Tools.new.tap do |registry|
-      registry.register(:cite, readonly: true) { |arguments, _| received << arguments }
+      registry.register(:cite, readonly: true) do |arguments, _|
+        received << arguments
+        'citation'
+      end
     end
     plan = Vangrail::Plan.new(id: 'conversation-7')
-    plan.read(:cite, arguments: { document: :data }, uses: 1)
+    plan.read(:cite, arguments: { document: :data }, sinks: :reader, uses: 1)
     conversation = Vangrail::Conversation.new(engine, plan: plan, tools: tools)
     conversation.ask('Cite the partition page.')
 
@@ -21,16 +24,22 @@ class TestReferenceMonitorIntegration < Minitest::Test
       Vangrail::Call.new(
         tool: :cite,
         request: Vangrail::Cell.user('Cite the partition page.', capabilities: :cite),
-        arguments: { document: Vangrail::Cell.data('gpu_a100') },
+        arguments: {
+          document: Vangrail::Cell.data('gpu_a100', confidentiality: :reader),
+        },
         conversation_id: conversation.plan.id,
+        sink: :reader,
       ),
     )
     second = conversation.invoke(
       Vangrail::Call.new(
         tool: :cite,
         request: Vangrail::Cell.user('Cite the partition page.', capabilities: :cite),
-        arguments: { document: Vangrail::Cell.data('gpu_h100') },
+        arguments: {
+          document: Vangrail::Cell.data('gpu_h100', confidentiality: :reader),
+        },
         conversation_id: conversation.plan.id,
+        sink: :reader,
       ),
     )
 
@@ -39,6 +48,11 @@ class TestReferenceMonitorIntegration < Minitest::Test
     assert_includes second.reason, 'uses_exhausted'
     assert_equal [{ document: 'gpu_a100' }], received
     assert_equal 2, conversation.invocations.size
+    output = conversation.invocations.first.fetch(:cell)
+    assert_equal %i[tool data user], output.origins.map(&:kind)
+    assert_empty output.integrity
+    assert_equal %i[reader], output.confidentiality
+    assert_empty output.capabilities
   end
 
   def test_a_plan_is_locked_when_the_conversation_accepts_it
