@@ -66,7 +66,10 @@ module Vangrail
 
     def atomic_write(path, bytes)
       raise ProtocolError, "output already exists: #{path}" if File.exist?(path)
-      raise ProtocolError, "output directory does not exist: #{File.dirname(path)}" unless Dir.exist?(File.dirname(path))
+      unless Dir.exist?(File.dirname(path))
+        raise ProtocolError,
+              "output directory does not exist: #{File.dirname(path)}"
+      end
 
       temporary = Tempfile.new([".#{File.basename(path)}", '.tmp'], File.dirname(path))
       temporary.binmode

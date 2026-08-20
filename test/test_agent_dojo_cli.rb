@@ -58,7 +58,7 @@ class TestAgentDojoCli < Minitest::Test
       '--output', @output,
       '--model-id', 'model-v1',
       '--defense', 'reference-monitor-v1',
-      '--seed', '31',
+      '--seed', '31'
     )
   end
 
