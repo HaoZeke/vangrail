@@ -20,7 +20,7 @@ class TestStatisticalVerifier < Minitest::Test
   def predictions
     roles = %w[train calibration threshold test]
     rows = roles.flat_map do |role|
-      4.times.map do |index|
+      Array.new(4) do |index|
         label = index >= 2 ? 'attack' : 'benign'
         {
           case_id: "#{role}-#{index}",
@@ -155,7 +155,7 @@ class TestStatisticalVerifier < Minitest::Test
 
     assert_equal 'case_id', comparison['paired_by']
     assert_equal 'percentile_paired_bootstrap', comparison.dig('interval', 'method')
-    assert_equal 0.95, comparison.dig('interval', 'level')
+    assert_in_delta(0.95, comparison.dig('interval', 'level'))
     assert_equal 300, comparison.dig('interval', 'replicates')
     assert_in_delta 0.5, comparison.dig('metrics', 'security_success', 'difference')
     assert_in_delta 0.5, comparison.dig('metrics', 'secure_utility', 'difference')

@@ -5,30 +5,20 @@ require 'digest'
 module Vangrail
   # Case-paired differences with deterministic percentile bootstrap intervals.
   module PairedStatistics
+    BOOLEAN_VALUES = [true, false].freeze
+
     private
 
     def paired_comparison(baseline, candidate, metrics)
       left = comparison_index(baseline, 'baseline')
       right = comparison_index(candidate, 'candidate')
-      unless left.keys.sort == right.keys.sort
-        raise ArtifactError, 'paired comparison case sets must match exactly'
-      end
+      raise ArtifactError, 'paired comparison case sets must match exactly' unless left.keys.sort == right.keys.sort
 
       ids = left.keys.sort
       names = Array(metrics).map(&:to_s).uniq.sort
       raise ArtifactError, 'paired comparison metrics are required' if names.empty?
 
-      results = names.to_h do |metric|
-        differences = ids.map { |id| paired_value(right[id], metric) - paired_value(left[id], metric) }
-        lower, upper = bootstrap_interval(differences, metric)
-        [metric, {
-          'baseline' => ids.sum { |id| paired_value(left[id], metric) }.fdiv(ids.size),
-          'candidate' => ids.sum { |id| paired_value(right[id], metric) }.fdiv(ids.size),
-          'difference' => differences.sum.fdiv(ids.size),
-          'lower' => lower,
-          'upper' => upper,
-        }]
-      end
+      results = names.to_h { |metric| [metric, paired_metric(left, right, ids, metric)] }
       {
         'paired_by' => 'case_id',
         'denominator' => ids.size,
@@ -39,6 +29,18 @@ module Vangrail
           'replicates' => bootstrap_replicates,
         },
         'metrics' => results,
+      }
+    end
+
+    def paired_metric(left, right, ids, metric)
+      differences = ids.map { |id| paired_value(right[id], metric) - paired_value(left[id], metric) }
+      lower, upper = bootstrap_interval(differences, metric)
+      {
+        'baseline' => ids.sum { |id| paired_value(left[id], metric) }.fdiv(ids.size),
+        'candidate' => ids.sum { |id| paired_value(right[id], metric) }.fdiv(ids.size),
+        'difference' => differences.sum.fdiv(ids.size),
+        'lower' => lower,
+        'upper' => upper,
       }
     end
 
@@ -58,9 +60,7 @@ module Vangrail
 
     def paired_value(row, metric)
       value = row[metric]
-      unless value == true || value == false
-        raise ArtifactError, "paired metric #{metric} must be boolean"
-      end
+      raise ArtifactError, "paired metric #{metric} must be boolean" unless BOOLEAN_VALUES.include?(value)
 
       row['status'] == 'ok' && value ? 1.0 : 0.0
     end
@@ -73,7 +73,7 @@ module Vangrail
       end.sort
       alpha = 0.05
       lower_index = ((alpha / 2) * bootstrap_replicates).floor
-      upper_index = (((1 - alpha / 2) * bootstrap_replicates).ceil - 1).clamp(0, bootstrap_replicates - 1)
+      upper_index = (((1 - (alpha / 2)) * bootstrap_replicates).ceil - 1).clamp(0, bootstrap_replicates - 1)
       [samples.fetch(lower_index), samples.fetch(upper_index)]
     end
   end

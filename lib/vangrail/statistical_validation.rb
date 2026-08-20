@@ -14,6 +14,7 @@ module Vangrail
     ].freeze
     THRESHOLD_SCHEMA = 'vangrail-threshold-provenance-v1'
     DIGEST = /\A[0-9a-f]{64}\z/
+    BOOLEAN_VALUES = [true, false].freeze
     MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 
     private
@@ -79,35 +80,42 @@ module Vangrail
     end
 
     def validate_threshold!
+      validate_threshold_identity!
+      validate_threshold_cases!
+      validate_threshold_artifact!
+      validate_interval!(threshold['interval'])
+    end
+
+    def validate_threshold_identity!
       raise ArtifactError, 'threshold provenance must be an object' unless threshold.is_a?(Hash)
-      unless threshold['schema'] == THRESHOLD_SCHEMA
-        raise ArtifactError, "threshold schema must be #{THRESHOLD_SCHEMA}"
-      end
+      raise ArtifactError, "threshold schema must be #{THRESHOLD_SCHEMA}" unless threshold['schema'] == THRESHOLD_SCHEMA
       raise ArtifactError, 'threshold id is required' if threshold['id'].to_s.empty?
 
       probability!(threshold['value'], 'threshold value')
-      unless threshold['selected_on'] == 'threshold'
-        raise ArtifactError, 'threshold must be selected on the threshold split'
-      end
+      return if threshold['selected_on'] == 'threshold'
 
+      raise ArtifactError, 'threshold must be selected on the threshold split'
+    end
+
+    def validate_threshold_cases!
       selected = Array(threshold['case_ids'])
       unique_values!(selected, 'threshold case ids')
       expected = predictions.select { |row| row['role'] == 'threshold' }.map { |row| row['case_id'] }.sort
-      unless selected.sort == expected
-        raise ArtifactError, 'threshold case ids must equal the threshold split'
-      end
+      raise ArtifactError, 'threshold case ids must equal the threshold split' unless selected.sort == expected
+    end
 
+    def validate_threshold_artifact!
       raise ArtifactError, 'threshold artifact id is required' if threshold['artifact_id'].to_s.empty?
-      unless threshold['artifact_sha256'].to_s.match?(DIGEST)
-        raise ArtifactError, 'threshold artifact SHA-256 is invalid'
-      end
-      validate_interval!(threshold['interval'])
+      return if threshold['artifact_sha256'].to_s.match?(DIGEST)
+
+      raise ArtifactError, 'threshold artifact SHA-256 is invalid'
     end
 
     def validate_interval!(interval)
       unless interval.is_a?(Hash) && !interval['method'].to_s.empty?
         raise ArtifactError, 'threshold interval method is required'
       end
+
       level = interval['level']
       return if level.is_a?(Numeric) && level.finite? && level.between?(0.0, 1.0) && ![0.0, 1.0].include?(level)
 
@@ -122,35 +130,48 @@ module Vangrail
       unique_field!(artifacts, 'id', 'unique artifact ids')
       @verified_artifacts = artifacts.map { |artifact| validate_artifact!(artifact) }.sort_by { |row| row['id'] }
       selected = @verified_artifacts.detect { |artifact| artifact['id'] == threshold['artifact_id'] }
-      unless selected && selected['sha256'] == threshold['artifact_sha256']
-        raise ArtifactError, 'threshold provenance does not match a verified artifact'
-      end
+      return if selected && selected['sha256'] == threshold['artifact_sha256']
+
+      raise ArtifactError, 'threshold provenance does not match a verified artifact'
     end
 
     def validate_artifact!(artifact)
+      validate_artifact_identity!(artifact)
+      size = validate_artifact_hash!(artifact)
+      case_ids = validate_artifact_cases!(artifact)
+      artifact_record(artifact, size, case_ids)
+    rescue Errno::ENOENT, Errno::ENOTDIR => e
+      raise ArtifactError, "artifact #{artifact['id']} is unavailable: #{e.message}"
+    end
+
+    def validate_artifact_identity!(artifact)
       %w[id path sha256 role case_ids].each do |field|
         raise ArtifactError, "artifact #{field} is required" unless artifact.key?(field)
       end
       member!(artifact['role'], ROLES - ['test'], 'artifact role')
-      unless artifact['sha256'].to_s.match?(DIGEST)
-        raise ArtifactError, "artifact #{artifact['id']} SHA-256 is invalid"
-      end
+      raise ArtifactError, "artifact #{artifact['id']} SHA-256 is invalid" unless artifact['sha256'].to_s.match?(DIGEST)
+    end
 
+    def validate_artifact_hash!(artifact)
       size = File.size(artifact['path'])
       raise ArtifactError, "artifact #{artifact['id']} exceeds #{MAX_ARTIFACT_BYTES} bytes" if size > MAX_ARTIFACT_BYTES
 
       actual = Digest::SHA256.file(artifact['path']).hexdigest
-      unless actual == artifact['sha256']
-        raise ArtifactError, "artifact #{artifact['id']} hash does not match"
-      end
+      raise ArtifactError, "artifact #{artifact['id']} hash does not match" unless actual == artifact['sha256']
 
+      size
+    end
+
+    def validate_artifact_cases!(artifact)
       case_ids = Array(artifact['case_ids'])
       unique_values!(case_ids, "artifact #{artifact['id']} case ids")
       expected_role = case_ids.map { |id| prediction_by_id(id)&.fetch('role', nil) }.uniq
-      unless expected_role == [artifact['role']]
-        raise ArtifactError, "artifact #{artifact['id']} case ids do not match its role"
-      end
+      raise ArtifactError, "artifact #{artifact['id']} case ids do not match its role" unless expected_role == [artifact['role']]
 
+      case_ids
+    end
+
+    def artifact_record(artifact, size, case_ids)
       {
         'id' => artifact['id'],
         'sha256' => artifact['sha256'],
@@ -158,8 +179,6 @@ module Vangrail
         'role' => artifact['role'],
         'case_ids' => case_ids.sort,
       }
-    rescue Errno::ENOENT, Errno::ENOTDIR => e
-      raise ArtifactError, "artifact #{artifact['id']} is unavailable: #{e.message}"
     end
 
     def prediction_by_id(id)
@@ -180,7 +199,7 @@ module Vangrail
     end
 
     def boolean!(value, name)
-      return if value == true || value == false
+      return if BOOLEAN_VALUES.include?(value)
 
       raise ArtifactError, "#{name} must be boolean"
     end
