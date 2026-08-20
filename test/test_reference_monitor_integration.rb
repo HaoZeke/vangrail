@@ -156,4 +156,30 @@ class TestReferenceMonitorIntegration < Minitest::Test
     assert_includes plan.audit.events.map(&:type), :transaction_committed
     assert_includes plan.audit.events.map(&:type), :transaction_rolled_back
   end
+
+  def test_conversation_threads_risk_as_a_restriction
+    calls = 0
+    tools = Vangrail::Tools.new.tap do |registry|
+      registry.register(:search, readonly: true) do
+        calls += 1
+        'result'
+      end
+    end
+    plan = Vangrail::Plan.new(id: 'conversation-7')
+    plan.read(:search, arguments: {})
+    conversation = Vangrail::Conversation.new(engine, plan: plan, tools: tools)
+    conversation.ask('Search the handbook.')
+    call = Vangrail::Call.new(
+      tool: :search,
+      request: Vangrail::Cell.user('Search the handbook.', capabilities: :search),
+      arguments: {},
+      conversation_id: plan.id,
+    )
+
+    result = conversation.invoke(call, risk: Vangrail::Result.blocked(rail: 'risk'))
+
+    assert_predicate result, :blocked?
+    assert_includes result.reason, 'risk_blocked'
+    assert_equal 0, calls
+  end
 end
