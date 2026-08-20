@@ -61,10 +61,7 @@ impl Table {
             ));
         }
         if stride == 0 {
-            return Err(Error::new(
-                exception_arg_error(),
-                "stride must be positive",
-            ));
+            return Err(Error::new(exception_arg_error(), "stride must be positive"));
         }
 
         let mut acc = HashMap::<usize, f64>::new();
@@ -128,7 +125,9 @@ fn character_bucket(gram: [char; 4], buckets: usize) -> usize {
 }
 
 fn exception_arg_error() -> magnus::ExceptionClass {
-    Ruby::get().expect("not on a Ruby thread").exception_arg_error()
+    Ruby::get()
+        .expect("not on a Ruby thread")
+        .exception_arg_error()
 }
 
 fn usize_arg(value: i64, name: &str) -> Result<usize, Error> {
