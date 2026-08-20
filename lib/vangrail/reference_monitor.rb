@@ -219,16 +219,13 @@ module Vangrail
 
     def confirm(call, actor:)
       raise ArgumentError, 'call must be a Call' unless call.is_a?(Call)
-      unless actor.is_a?(Cell) && actor.privileged?
-        raise PrivilegeError, 'confirmation requires a privileged actor'
-      end
+      raise PrivilegeError, 'confirmation requires a privileged actor' unless actor.is_a?(Cell) && actor.privileged?
 
       @mutex.synchronize do
         raise PrivilegeError, 'call belongs to another conversation' if call.conversation_id != plan.id
+
         grants = plan.grants_for(call.tool)
-        unless grants.any?(&:confirmation_required?)
-          raise PrivilegeError, "call #{call.tool} has no confirmation grant"
-        end
+        raise PrivilegeError, "call #{call.tool} has no confirmation grant" unless grants.any?(&:confirmation_required?)
         raise PrivilegeError, 'authorized calls cannot be reconfirmed' if @authorized.key?(call.id)
 
         Confirmation.new(call, actor).tap do |token|
@@ -359,6 +356,7 @@ module Vangrail
       if grant.transaction_required? && !valid_transaction?(call)
         return deny(call, :transaction, 'call requires a prepared transaction')
       end
+
       risk_reason = risk_denial(call, risk)
       return risk_reason if risk_reason
       if grant.effect != :read && call.idempotency_key.to_s.empty?
@@ -386,7 +384,7 @@ module Vangrail
 
     def valid_confirmation?(call)
       token = @confirmations[call.id]
-      token&.equal?(call.confirmation) && token.fingerprint == call.fingerprint
+      token.equal?(call.confirmation) && token.fingerprint == call.fingerprint
     end
 
     def valid_transaction?(call)
