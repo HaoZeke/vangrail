@@ -7,6 +7,9 @@ require_relative 'benchmark_run'
 module Vangrail
   # Imports a pinned AgentDojo trace tree without loading its Python package.
   class AgentDojoAdapter
+    PACKAGE_VERSION = '0.1.35'
+    PACKAGE_SHA256 = '9eacbc89d996f8656b235ad7b626bcf840b1ace7101174ca62d790c7c6d62956'
+    BENCHMARK_VERSION = 'v1.2.2'
     ADAPTER_SCHEMA = 'agentdojo-traces-v0.1.35'
     MAX_TRACE_BYTES = 16 * 1024 * 1024
     MAX_TRACES = 100_000
@@ -20,7 +23,8 @@ module Vangrail
 
     attr_reader :package_version, :package_sha256, :benchmark_version
 
-    def initialize(package_version:, package_sha256:, benchmark_version:)
+    def initialize(package_version: PACKAGE_VERSION, package_sha256: PACKAGE_SHA256,
+                   benchmark_version: BENCHMARK_VERSION)
       @package_version = required_string(package_version, 'package version')
       @package_sha256 = required_digest(package_sha256, 'package SHA-256')
       @benchmark_version = required_string(benchmark_version, 'benchmark version')
