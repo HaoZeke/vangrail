@@ -219,8 +219,7 @@ module Vangrail
       bins.each { |bin| bin[:bits] = bits_for(bin, n_attack, n_benign).round(3) }
     end
 
-    def generate(output: OUT, seed: SPLIT_SEED, io: $stdout, err: $stderr)
-      partitions = grouped_partition(training_cases, seed: seed)
+    def fit_partitions(partitions)
       train_rows = partitions.fetch(:train)
       attack_texts = train_rows.select { |row| row[:label] == :attack }
                                .flat_map { |row| row.fetch(:training_texts) }.uniq
@@ -233,33 +232,58 @@ module Vangrail
       threshold = select_threshold(predictions.fetch(:threshold))
       measured = performance(predictions.fetch(:test), threshold: threshold)
       bins = calibration_bins(predictions.fetch(:calibration))
+      { attack_texts: attack_texts, benign_texts: benign_texts, weights: weights,
+        predictions: predictions, threshold: threshold, performance: measured, calibration: bins }
+    end
 
-      err.puts "training clauses: #{attack_texts.size} attack, #{benign_texts.size} benign"
-      io.puts format('disjoint split %<seed>s, threshold %<threshold>+d bits', seed: seed, threshold: threshold)
-      io.puts format('  final-test attacks above threshold: %<caught>d/%<attacks>d', **measured)
-      io.puts format('  final-test benign above threshold:  %<flagged>d/%<benign>d', **measured)
+    def print_report(fit, seed:, output_stream:, error_stream:)
+      measured = fit.fetch(:performance)
+      bins = fit.fetch(:calibration)
+      error_stream.puts "training clauses: #{fit.fetch(:attack_texts).size} attack, " \
+                        "#{fit.fetch(:benign_texts).size} benign"
+      output_stream.puts format('disjoint split %<seed>s, threshold %<threshold>+d bits',
+                                seed: seed, threshold: fit.fetch(:threshold))
+      output_stream.puts format('  final-test attacks above threshold: %<caught>d/%<attacks>d', **measured)
+      output_stream.puts format('  final-test benign above threshold:  %<flagged>d/%<benign>d', **measured)
 
-      io.puts
-      io.puts "calibration-role scores (#{EDGES.size} bands, #{bins.size} after pooling violators):"
+      output_stream.puts
+      output_stream.puts "calibration-role scores (#{EDGES.size} bands, #{bins.size} after pooling violators):"
       bins.each_with_index do |bin, i|
         ceiling = bins[i + 1] ? bins[i + 1][:floor] : Float::INFINITY
-        io.puts format('  %6.1f to %-6.1f  attacks %3d  benign %3d  -> %+.2f bits (95%% joint)',
-                       bin[:floor], ceiling, bin[:attacks], bin[:benign], bin[:bits])
+        output_stream.puts format('  %6.1f to %-6.1f  attacks %3d  benign %3d  -> %+.2f bits (95%% joint)',
+                                  bin[:floor], ceiling, bin[:attacks], bin[:benign], bin[:bits])
       end
+    end
 
-      calibration_lines = bins.map do |bin|
-        floor = bin[:floor].finite? ? bin[:floor] : '-Float::INFINITY'
-        "        [#{floor}, #{bin[:bits]}], # #{bin[:attacks]} attacks, #{bin[:benign]} benign"
-      end
-      entries = weights.sort_by { |_, weight| -weight }.map do |feature, weight|
-        "        #{feature.inspect} => #{weight}"
-      end
-      role_counts = partitions.transform_values do |rows|
+    def role_counts(partitions)
+      partitions.transform_values do |rows|
         { attack: rows.count { |row| row[:label] == :attack },
           benign: rows.count { |row| row[:label] == :benign } }
       end
+    end
 
-      File.write(output, <<~RUBY)
+    def calibration_source(bins)
+      bins.map do |bin|
+        floor = bin[:floor].finite? ? bin[:floor] : '-Float::INFINITY'
+        "        [#{floor}, #{bin[:bits]}], # #{bin[:attacks]} attacks, #{bin[:benign]} benign"
+      end.join("\n")
+    end
+
+    def weights_source(weights)
+      weights.sort_by { |_, weight| -weight }
+             .map { |feature, weight| "        #{feature.inspect} => #{weight}" }.join(",\n")
+    end
+
+    def artifact_source(partitions, fit, seed:)
+      attack_texts = fit.fetch(:attack_texts)
+      benign_texts = fit.fetch(:benign_texts)
+      measured = fit.fetch(:performance)
+      threshold = fit.fetch(:threshold)
+      calibration_lines = calibration_source(fit.fetch(:calibration))
+      entries = weights_source(fit.fetch(:weights))
+      counts = role_counts(partitions)
+
+      <<~RUBY
         # frozen_string_literal: true
 
         module Vangrail
@@ -279,7 +303,7 @@ module Vangrail
           # #{measured[:flagged]} of #{measured[:benign]} benign documents above it.
           module BayesData
             SPLIT_SEED = #{seed.inspect}
-            ROLE_COUNTS = #{role_counts.inspect}.freeze
+            ROLE_COUNTS = #{counts.inspect}.freeze
             THRESHOLD = #{threshold}
 
             # Score band => bits, fitted only on calibration-role scores and read at
@@ -287,7 +311,7 @@ module Vangrail
             # A raw naive Bayes score is not a likelihood ratio; this is what turns it
             # into one the corpus can defend.
             CALIBRATION = [
-        #{calibration_lines.join("\n")}
+        #{calibration_lines}
             ].freeze
 
             # Final-test performance at THRESHOLD, for the evidence table.
@@ -297,15 +321,20 @@ module Vangrail
             BENIGN = #{measured[:benign]}
 
             WEIGHTS = {
-        #{entries.join(",\n")}
+        #{entries}
             }.freeze
           end
         end
       RUBY
+    end
 
-      io.puts "wrote #{output}"
-      { partitions: partitions, predictions: predictions, performance: measured,
-        calibration: bins, threshold: threshold, weights: weights }
+    def generate(output: OUT, seed: SPLIT_SEED, output_stream: $stdout, error_stream: $stderr)
+      partitions = grouped_partition(training_cases, seed: seed)
+      fit = fit_partitions(partitions)
+      print_report(fit, seed: seed, output_stream: output_stream, error_stream: error_stream)
+      File.write(output, artifact_source(partitions, fit, seed: seed))
+      output_stream.puts "wrote #{output}"
+      fit.merge(partitions: partitions)
     end
   end
 end
