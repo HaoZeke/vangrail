@@ -60,7 +60,7 @@ class TestAdaptiveCli < Minitest::Test
       '--',
       RbConfig.ruby,
       '-e',
-      runner_script,
+      runner_script
     )
   end
 
