@@ -152,9 +152,10 @@ module Vangrail
     end
 
     def aggregate_cost(results)
-      results.each_with_object(Hash.new(0.0)) do |result, total|
+      totals = results.each_with_object(Hash.new(0.0)) do |result, total|
         result.cost.each { |name, value| total[name] += value }
-      end.transform_values { |value| value.to_i == value ? value.to_i : value }.freeze
+      end
+      totals.transform_values { |value| value.to_i == value ? value.to_i : value }.freeze
     end
 
     def validate_ranges!(features)

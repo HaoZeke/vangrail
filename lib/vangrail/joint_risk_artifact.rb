@@ -2,11 +2,14 @@
 
 require 'digest'
 require 'json'
+require_relative 'artifact_data'
 require_relative 'errors'
 
 module Vangrail
   # Bounded, versioned posterior approximation consumed by stdlib inference.
   class JointRiskArtifact
+    include ArtifactData
+
     SCHEMA = 'vangrail-joint-risk-v1'
     METHODS = %w[laplace_diagonal].freeze
     MAX_BYTES = 4 * 1024 * 1024
@@ -253,34 +256,5 @@ module Vangrail
       value.is_a?(Numeric) && value.finite?
     end
 
-    def stringify(value)
-      case value
-      when Hash then value.to_h { |key, nested| [key.to_s, stringify(nested)] }
-      when Array then value.map { |nested| stringify(nested) }
-      when Symbol then value.to_s
-      else value
-      end
-    end
-
-    def immutable(value)
-      case value
-      when Hash then value.to_h { |key, nested| [key.freeze, immutable(nested)] }.freeze
-      when Array then value.map { |nested| immutable(nested) }.freeze
-      when String then value.freeze
-      else value.freeze
-      end
-    end
-
-    def canonical(value)
-      JSON.generate(sort_hashes(value))
-    end
-
-    def sort_hashes(value)
-      case value
-      when Hash then value.keys.sort.to_h { |key| [key, sort_hashes(value[key])] }
-      when Array then value.map { |nested| sort_hashes(nested) }
-      else value
-      end
-    end
   end
 end
