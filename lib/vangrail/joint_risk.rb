@@ -241,15 +241,16 @@ module Vangrail
 
       q = probability - 0.5
       r = q * q
-      (((((a[0] * r) + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
-        (((((b[0] * r) + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+      polynomial(a, r) * q / ((polynomial(b, r) * r) + 1)
     end
 
     def normal_tail(probability, numerator, denominator)
       q = Math.sqrt(-2 * Math.log(probability))
-      (((((numerator[0] * q) + numerator[1]) * q + numerator[2]) * q + numerator[3]) * q +
-        numerator[4]) * q + numerator[5]) /
-        ((((denominator[0] * q) + denominator[1]) * q + denominator[2]) * q + denominator[3]) * q + 1)
+      polynomial(numerator, q) / ((polynomial(denominator, q) * q) + 1)
+    end
+
+    def polynomial(coefficients, value)
+      coefficients.drop(1).reduce(coefficients.first) { |sum, coefficient| (sum * value) + coefficient }
     end
   end
 end
