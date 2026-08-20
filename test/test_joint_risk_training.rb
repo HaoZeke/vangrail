@@ -4,7 +4,7 @@ require_relative 'helper'
 require_relative '../script/joint_risk_training'
 
 class TestJointRiskTraining < Minitest::Test
-  ROLES = { train: 24, calibration: 12, test: 12 }.freeze
+  ROLES = { train: 24, calibration: 12, threshold: 12, test: 12 }.freeze
 
   def cases
     ROLES.flat_map do |role, count|
@@ -47,6 +47,7 @@ class TestJointRiskTraining < Minitest::Test
       interactions: [['lexical.score', 'encoder.score']],
       disagreement_pairs: [['lexical.score', 'encoder.score']],
       calibration_valid_until: '2030-01-01T00:00:00Z',
+      max_false_positive_rate: 0.5,
       iterations: 80,
     )
   end
@@ -62,6 +63,8 @@ class TestJointRiskTraining < Minitest::Test
     assert_equal '2030-01-01T00:00:00Z', artifact.ood['calibration_valid_until']
     assert_equal 1, artifact.ood['disagreement_rules'].size
     assert_operator artifact.ood['max_squared_distance'], :>, 0
+    assert_equal 'learn_then_test_binomial', artifact.risk_control['method']
+    assert_operator artifact.risk_control['false_positive_upper_bound'], :<=, 0.5
     assert_equal ROLES.transform_keys(&:to_s), report.fetch('role_counts')
     assert_equal 12, report.dig('test', 'cases')
     assert_operator report.dig('test', 'brier'), :<, 0.25
@@ -91,6 +94,19 @@ class TestJointRiskTraining < Minitest::Test
     changed, = fit(relabelled)
 
     refute_equal artifact.sha256, changed.sha256
+  end
+
+  def test_threshold_labels_change_the_risk_control_artifact
+    artifact, = fit
+    relabelled = cases.map do |row|
+      next row unless row[:role] == :threshold
+
+      row.merge(label: row[:label] == :attack ? :benign : :attack)
+    end
+    changed, = fit(relabelled)
+
+    refute_equal artifact.sha256, changed.sha256
+    refute_equal artifact.risk_control, changed.risk_control
   end
 
   def test_groups_cannot_cross_evaluation_roles

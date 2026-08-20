@@ -20,6 +20,7 @@ module JointRiskFixture
       'threat_model' => threat_model_data,
       'covariance_diagonal' => covariance_data,
       'ood' => ood_data,
+      'risk_control' => risk_control_data,
       'score_ranges' => {
         'lexical.score' => [-3.0, 3.0],
         'encoder.score' => [-3.0, 3.0],
@@ -64,6 +65,20 @@ module JointRiskFixture
         },
       ],
       'calibration_valid_until' => '9999-12-31T23:59:59Z',
+    }
+  end
+
+  def risk_control_data
+    {
+      'schema' => 'vangrail-risk-control-v1',
+      'method' => 'learn_then_test_binomial',
+      'block_at' => 0.8,
+      'max_false_positive_rate' => 0.1,
+      'confidence' => 0.95,
+      'benign_cases' => 100,
+      'false_positives' => 2,
+      'false_positive_upper_bound' => 0.061_619_657_106_511_71,
+      'calibration_manifest_sha256' => 'b' * 64,
     }
   end
 
