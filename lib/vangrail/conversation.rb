@@ -222,6 +222,5 @@ module Vangrail
     def content_of(result, fallback)
       result.respond_to?(:content_or) ? result.content_or(fallback.to_s) : fallback.to_s
     end
-
   end
 end

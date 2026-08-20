@@ -93,7 +93,7 @@ module Vangrail
     def authorization_refusal(name, arguments, call, authorization)
       reason = "#{authorization.reason_code}: #{authorization.reason}"
       refuse(name, arguments, 'reference_monitor', reason, call: call,
-                                                          authorization: authorization)
+                                                           authorization: authorization)
     end
 
     def execute_authorized(name, arguments, call, authorization)
@@ -106,7 +106,7 @@ module Vangrail
     rescue StandardError => e
       monitor.finish(call, success: false)
       refuse(name, arguments, 'handler', "#{e.class}: #{e.message}", call: call,
-                                                                         authorization: authorization)
+                                                                     authorization: authorization)
     end
 
     def run_pre_invoke(name, arguments, call)
