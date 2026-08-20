@@ -4,6 +4,7 @@ require_relative 'helper'
 require_relative '../script/bayes_training'
 require 'open3'
 require 'rbconfig'
+require 'stringio'
 
 class TestBayesTraining < Minitest::Test
   def test_a_source_group_has_exactly_one_evaluation_role
@@ -105,5 +106,29 @@ class TestBayesTraining < Minitest::Test
     assert_predicate status, :success?, stderr
     assert_empty stdout
     assert_empty stderr
+  end
+
+  def test_generation_reports_only_disjoint_final_test_groups
+    require_relative '../script/train_bayes'
+
+    Dir.mktmpdir do |directory|
+      output = File.join(directory, 'bayes_data.rb')
+      report = Vangrail::BayesTraining.generate(output: output, seed: 'paper-v1',
+                                                 io: StringIO.new, err: StringIO.new)
+      groups = report.fetch(:partitions).transform_values do |rows|
+        rows.map { |row| row.fetch(:group) }.uniq
+      end
+
+      groups.each do |role, members|
+        others = groups.reject { |other, _| other == role }.values.flatten
+        assert_empty members & others, "#{role} groups appear in another role"
+      end
+
+      test_rows = report.fetch(:partitions).fetch(:test)
+      performance = report.fetch(:performance)
+      assert_equal test_rows.count { |row| row[:label] == :attack }, performance.fetch(:attacks)
+      assert_equal test_rows.count { |row| row[:label] == :benign }, performance.fetch(:benign)
+      assert_path_exists output
+    end
   end
 end
