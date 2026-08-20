@@ -88,6 +88,7 @@ class TestPerformance < Minitest::Test
 
     expected = %w[
       benchmark_risk core_library linear_model model_json native_lock native_source performance_report_table
+      risk_benchmark_cli risk_benchmark_scaling
     ]
 
     assert_equal expected, digests.keys.sort
