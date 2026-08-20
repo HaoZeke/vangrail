@@ -77,7 +77,7 @@ class TestProfile < Minitest::Test
   def test_a_pre_invoke_hook_can_still_block
     hook = ->(name, _args, _convo) { name != :cite }
     convo = Vangrail::Conversation.new(engine, prior: 1e-3, profile: :workspace, tools: tools,
-                                     hooks: { pre_invoke: hook })
+                                               hooks: { pre_invoke: hook })
     convo.ask('Which GPU partitions exist?')
     convo.intend(:cite)
     convo.screen([{ 'text' => 'gpu_a100' }])
@@ -112,16 +112,16 @@ class TestProfile < Minitest::Test
   def test_readonly_is_false_for_a_missing_tool
     set = tools
 
-    assert_equal true, set.readonly?(:cite)
-    assert_equal false, set.readonly?(:delete_all)
-    assert_equal false, set.readonly?(:unknown)
+    assert set.readonly?(:cite)
+    refute set.readonly?(:delete_all)
+    refute set.readonly?(:unknown)
   end
 
   def test_from_rails_predicates_are_booleans
     actions = Vangrail::Actions.from_rails
 
-    assert_equal false, actions['self_check_input'].call({}, { text: 'x' })
-    assert_equal false, actions['self_check_output'].call({}, { text: 'x' })
-    assert_equal false, actions['self_check_facts'].call({}, { text: 'x' })
+    refute actions['self_check_input'].call({}, { text: 'x' })
+    refute actions['self_check_output'].call({}, { text: 'x' })
+    refute actions['self_check_facts'].call({}, { text: 'x' })
   end
 end

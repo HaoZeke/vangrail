@@ -49,6 +49,7 @@ class TestReferenceMonitorIntegration < Minitest::Test
     assert_equal [{ document: 'gpu_a100' }], received
     assert_equal 2, conversation.invocations.size
     output = conversation.invocations.first.fetch(:cell)
+
     assert_equal %i[tool data user], output.origins.map(&:kind)
     assert_empty output.integrity
     assert_equal %i[reader], output.confidentiality
@@ -111,6 +112,7 @@ class TestReferenceMonitorIntegration < Minitest::Test
     assert_equal 0, calls
     attempt = plan.audit.events.detect { |event| event.type == :call_attempt }
     decision = plan.audit.events.reverse.detect { |event| event.type == :authorization }
+
     refute_nil attempt
     assert_equal 'deny', decision.data['reason_code']
   end
