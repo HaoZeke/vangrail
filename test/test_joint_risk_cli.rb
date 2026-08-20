@@ -74,7 +74,7 @@ class TestJointRiskCli < Minitest::Test
       assert_equal 'vangrail-joint-risk-training-manifest-v1', manifest['schema']
       assert_equal artifact_sha, manifest.dig('outputs', 'artifact', 'sha256')
       assert_equal ROLES.transform_keys(&:to_s), manifest['role_counts']
-      assert_equal 60, manifest.fetch('splits').values.sum { |split| split.fetch('case_ids').size }
+      assert_equal(60, manifest.fetch('splits').values.sum { |split| split.fetch('case_ids').size })
       assert_equal 'vangrail-joint-risk-model-card-v1', card['schema']
       assert_equal artifact.id, card['artifact_id']
       assert_equal artifact_sha, card['artifact_file_sha256']
@@ -122,7 +122,7 @@ class TestJointRiskCli < Minitest::Test
       '--artifact', paths.fetch(:artifact),
       '--report', paths.fetch(:report),
       '--model-card', paths.fetch(:model_card),
-      '--manifest', paths.fetch(:manifest),
+      '--manifest', paths.fetch(:manifest)
     )
   end
 

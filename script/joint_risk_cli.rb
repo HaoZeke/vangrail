@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'digest'
+require 'fileutils'
 require 'json'
 require 'optparse'
 require 'tempfile'
@@ -66,7 +67,10 @@ module Vangrail
       required = %i[cases config] + OUTPUT_NAMES
       missing = required.reject { |name| paths.key?(name) }
       raise OptionParser::MissingArgument, missing.join(', ') unless missing.empty?
-      raise OptionParser::InvalidArgument, 'output paths must be distinct' unless paths.values_at(*OUTPUT_NAMES).uniq.size == 4
+      unless paths.values_at(*OUTPUT_NAMES).uniq.size == 4
+        raise OptionParser::InvalidArgument,
+              'output paths must be distinct'
+      end
 
       paths.transform_values { |path| File.expand_path(path) }.freeze
     end
@@ -211,7 +215,10 @@ module Vangrail
     def atomic_write(payloads)
       payloads.each_key do |path|
         raise ProtocolError, "output already exists: #{path}" if File.exist?(path)
-        raise ProtocolError, "output directory does not exist: #{File.dirname(path)}" unless Dir.exist?(File.dirname(path))
+        unless Dir.exist?(File.dirname(path))
+          raise ProtocolError,
+                "output directory does not exist: #{File.dirname(path)}"
+        end
       end
 
       staged = payloads.to_h { |path, bytes| [path, stage(path, bytes)] }
@@ -222,7 +229,7 @@ module Vangrail
         published << path
       end
     rescue StandardError
-      published&.each { |path| File.unlink(path) if File.exist?(path) }
+      published&.each { |path| FileUtils.rm_f(path) }
       raise
     ensure
       staged&.each_value(&:close!)
