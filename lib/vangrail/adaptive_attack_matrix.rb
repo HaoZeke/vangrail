@@ -29,7 +29,7 @@ module Vangrail
 
     attr_reader :data, :sha256
 
-    def initialize(raw)
+    def initialize(raw, source_sha256: nil)
       raise ArtifactError, 'adaptive attack matrix must be a hash' unless raw.is_a?(Hash)
 
       @data = stringify(raw)
@@ -37,9 +37,24 @@ module Vangrail
       encoded = canonical(@data)
       raise ArtifactError, "adaptive attack matrix exceeds #{MAX_BYTES} bytes" if encoded.bytesize > MAX_BYTES
 
-      @sha256 = Digest::SHA256.hexdigest(encoded).freeze
+      @sha256 = (source_sha256 || Digest::SHA256.hexdigest(encoded)).freeze
       @data = immutable(@data)
       freeze
+    end
+
+    def self.load(path, expected_sha256: nil)
+      size = File.size(path)
+      raise ArtifactError, "adaptive attack matrix exceeds #{MAX_BYTES} bytes" if size > MAX_BYTES
+
+      bytes = File.binread(path)
+      actual = Digest::SHA256.hexdigest(bytes)
+      if expected_sha256 && actual != expected_sha256
+        raise ArtifactError, 'adaptive attack matrix hash does not match'
+      end
+
+      new(JSON.parse(bytes), source_sha256: actual)
+    rescue JSON::ParserError => e
+      raise ArtifactError, "adaptive attack matrix is not JSON: #{e.message}"
     end
 
     def to_h
