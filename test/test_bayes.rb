@@ -144,4 +144,11 @@ class TestBayes < Minitest::Test
     refute_includes default.rail_names(:context), 'bayes'
     assert_includes asked.rail_names(:context), 'bayes'
   end
+
+  def test_the_split_manifest_ships_with_the_generated_artifact
+    gemspec = Gem::Specification.load(File.expand_path('../vangrail.gemspec', __dir__))
+
+    assert_includes gemspec.files, 'lib/vangrail/bayes_data.rb'
+    assert_includes gemspec.files, 'lib/vangrail/bayes_data.manifest.json'
+  end
 end
