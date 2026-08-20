@@ -19,7 +19,12 @@ module Vangrail
       end
       role_cycle = ROLE_WEIGHTS.flat_map { |role, weight| [role] * weight }
 
-      strata.each_value do |members|
+      strata.each do |labels, members|
+        if members.size < role_cycle.size
+          raise ArgumentError,
+                "#{labels.join('/')} needs at least #{role_cycle.size} source groups to fill evaluation roles"
+        end
+
         ordered = members.sort_by do |group, _rows|
           Digest::SHA256.hexdigest("#{seed}\0#{group}")
         end
