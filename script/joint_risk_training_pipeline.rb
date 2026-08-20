@@ -33,7 +33,7 @@ module Vangrail
       fit_calibration_layers
       artifact = build_artifact
       [artifact, JointRiskTraining.report(@rows, @test, artifact, @interaction_names,
-                                         @context_terms, @parameters)]
+                                          @context_terms, @parameters)]
     end
 
     private
