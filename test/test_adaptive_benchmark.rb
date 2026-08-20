@@ -2,6 +2,7 @@
 
 require 'json'
 require 'rbconfig'
+require 'digest'
 require_relative 'helper'
 
 class TestAdaptiveBenchmark < Minitest::Test
@@ -110,6 +111,24 @@ class TestAdaptiveBenchmark < Minitest::Test
     assert_raises(Vangrail::ArtifactError) { matrix_with(duplicate) }
     assert_raises(Vangrail::ArtifactError) { matrix_with(unknown) }
     assert_raises(Vangrail::ArtifactError) { matrix_with(invalid_budget) }
+  end
+
+  def test_checked_in_matrix_covers_every_registered_threat_family
+    path = File.expand_path('../evaluation/adaptive_attack_matrix.json', __dir__)
+    checksum = Digest::SHA256.file(path).hexdigest
+    loaded = Vangrail::AdaptiveAttackMatrix.load(path, expected_sha256: checksum)
+    cases = loaded.to_h.fetch('cases')
+
+    assert_equal checksum, loaded.sha256
+    assert_equal Vangrail::AdaptiveAttackMatrix::FAMILIES.sort,
+                 cases.map { |row| row.fetch('family') }.sort
+    assert cases.all? { |row| row.fetch('split') == 'test' }
+    assert cases.all? { |row| row.dig('scenario', 'package_version') == '0.1.35' }
+    assert cases.all? { |row| row.dig('scenario', 'benchmark_version') == 'v1.2.2' }
+
+    assert_raises(Vangrail::ArtifactError) do
+      Vangrail::AdaptiveAttackMatrix.load(path, expected_sha256: '0' * 64)
+    end
   end
 
   def test_command_runner_uses_bounded_json_without_a_shell_or_inherited_environment
