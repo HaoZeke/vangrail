@@ -221,8 +221,8 @@ class TestJudgement < Minitest::Test
                              name: 'anti_informative', sides: [:context])
     isolated = Vangrail::Engine.new(context: [hit, quiet], cache: false)
 
-    full = isolated.assess('x', side: :context, prior: 1e-2, evidence: table)
-    early = isolated.assess('x', side: :context, prior: 1e-2, evidence: table, escalate: true)
+    full = isolated.assess('x', side: :context, prior: 2e-2, evidence: table)
+    early = isolated.assess('x', side: :context, prior: 2e-2, evidence: table, escalate: true)
 
     assert_predicate full, :block?
     assert_equal full.action, early.action
