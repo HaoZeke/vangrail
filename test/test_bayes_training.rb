@@ -2,6 +2,8 @@
 
 require_relative 'helper'
 require_relative '../script/bayes_training'
+require 'digest'
+require 'json'
 require 'open3'
 require 'rbconfig'
 require 'stringio'
@@ -152,6 +154,25 @@ class TestBayesTraining < Minitest::Test
       assert_equal test_rows.count { |row| row[:label] == :attack }, performance.fetch(:attacks)
       assert_equal test_rows.count { |row| row[:label] == :benign }, performance.fetch(:benign)
       assert_path_exists output
+    end
+  end
+
+  def test_generation_writes_a_hashed_split_manifest
+    require_relative '../script/train_bayes'
+
+    Dir.mktmpdir do |directory|
+      output = File.join(directory, 'bayes_data.rb')
+      Vangrail::BayesTraining.generate(output: output, output_stream: StringIO.new,
+                                       error_stream: StringIO.new)
+      manifest_path = File.join(directory, 'bayes_data.manifest.json')
+
+      assert_path_exists manifest_path
+      manifest = JSON.parse(File.read(manifest_path))
+      assert_equal 'vangrail-bayes-split-v1', manifest.fetch('schema')
+      assert_equal Digest::SHA256.file(output).hexdigest, manifest.dig('artifact', 'sha256')
+      assert_equal 96, manifest.fetch('cases').size
+      assert_equal 96, manifest.fetch('cases').map { |row| row.fetch('id') }.uniq.size
+      assert manifest.fetch('cases').all? { |row| row.fetch('sha256').match?(/\A[0-9a-f]{64}\z/) }
     end
   end
 end
