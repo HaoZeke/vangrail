@@ -85,15 +85,27 @@ class TestScoreProvider < Minitest::Test
     input_error = assert_raises(Vangrail::ProtocolError) do
       command_provider(max_input_bytes: 64).score('x' * 256, side: :context)
     end
-    output_error = assert_raises(Vangrail::ProtocolError) do
-      command_provider(
-        command: [RbConfig.ruby, '-e', "$stdout.write('x' * 2048)"],
-        max_output_bytes: 128,
-      ).score('danger', side: :context)
+    output_error = nil
+    _stdout, stderr = capture_io do
+      output_error = assert_raises(Vangrail::ProtocolError) do
+        command_provider(
+          command: [RbConfig.ruby, '-e', "$stdout.write('x' * 2048)"],
+          max_output_bytes: 128,
+        ).score('danger', side: :context)
+      end
     end
 
     assert_match(/request exceeds/, input_error.message)
     assert_match(/output exceeds/, output_error.message)
+    assert_empty stderr
+  end
+
+  def test_constructor_reports_the_invalid_field
+    command_error = assert_raises(ArgumentError) { command_provider(command: []) }
+    timeout_error = assert_raises(ArgumentError) { command_provider(timeout: Float::INFINITY) }
+
+    assert_equal 'command is required', command_error.message
+    assert_equal 'timeout must be a positive finite number', timeout_error.message
   end
 
   def test_endpoint_provider_uses_the_same_versioned_protocol
