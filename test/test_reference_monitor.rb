@@ -167,4 +167,33 @@ class TestReferenceMonitor < Minitest::Test
     assert_predicate monitor.authorize(call), :allowed?
     assert_equal :replay, monitor.authorize(call).reason_code
   end
+
+  def test_argument_constraints_can_require_endorsed_integrity
+    audit = Vangrail::AuditLog.new
+    flow = Vangrail::FlowPolicy.new(
+      endorsements: { validated: { actors: :system, integrity: :validator } },
+      audit: audit,
+    )
+    plan = Vangrail::Plan.new(id: 'conversation-7', audit: audit)
+    plan.read(
+      :index,
+      arguments: {
+        document: { type: :string, origins: :data, integrity: :validator },
+      },
+    )
+    monitor = Vangrail::ReferenceMonitor.new(plan)
+    raw = Vangrail::Cell.data('reviewed page')
+    endorsed = flow.endorse(:validated, raw, actor: Vangrail::Cell.system('validator'))
+    build_call = lambda do |document|
+      Vangrail::Call.new(
+        tool: :index,
+        request: request(:index),
+        arguments: { document: document },
+        conversation_id: 'conversation-7',
+      )
+    end
+
+    assert_equal :argument_integrity, monitor.authorize(build_call.call(raw)).reason_code
+    assert_predicate monitor.authorize(build_call.call(endorsed)), :allowed?
+  end
 end
