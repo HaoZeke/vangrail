@@ -112,8 +112,9 @@ class TestDocumentation < Minitest::Test
                        .map { |src| "#{rel(path)}: #{first_line(src)}" }
     end
 
-    message = "these self-contained examples call from_env or Client " \
+    message = 'these self-contained examples call from_env or Client ' \
               "and are not in NEEDS_NETWORK:\n  #{unnamed.join("\n  ")}"
+
     assert_empty unnamed, message
   end
 
