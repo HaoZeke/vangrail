@@ -27,6 +27,8 @@
 # source group belongs to exactly one role.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
+require 'digest'
+require 'json'
 require 'vangrail'
 require_relative 'handbook_corpus'
 require_relative 'bayes_training'
@@ -313,13 +315,51 @@ module Vangrail
       RUBY
     end
 
-    def generate(output: OUT, seed: SPLIT_SEED, output_stream: $stdout, error_stream: $stderr)
+    def default_manifest_path(output)
+      "#{output.delete_suffix('.rb')}.manifest.json"
+    end
+
+    def manifest_cases(partitions)
+      ROLES.flat_map do |role|
+        partitions.fetch(role).sort_by { |row| row.fetch(:id) }.map do |row|
+          content = JSON.generate(document: row.fetch(:document), training_texts: row.fetch(:training_texts))
+          { id: row.fetch(:id), group: row.fetch(:group), label: row.fetch(:label), role: role,
+            sha256: Digest::SHA256.hexdigest(content) }
+        end
+      end
+    end
+
+    def manifest_data(output, partitions, fit, seed:)
+      {
+        schema: 'vangrail-bayes-split-v1',
+        split_seed: seed,
+        role_weights: ROLE_WEIGHTS,
+        role_counts: role_counts(partitions),
+        cases: manifest_cases(partitions),
+        artifact: {
+          file: File.basename(output),
+          sha256: Digest::SHA256.file(output).hexdigest,
+          features: fit.fetch(:weights).size,
+          threshold: fit.fetch(:threshold),
+        },
+        final_test: fit.fetch(:performance),
+      }
+    end
+
+    def write_manifest(path, output, partitions, fit, seed:)
+      File.write(path, "#{JSON.pretty_generate(manifest_data(output, partitions, fit, seed: seed))}\n")
+    end
+
+    def generate(output: OUT, manifest: nil, seed: SPLIT_SEED, output_stream: $stdout, error_stream: $stderr)
       partitions = grouped_partition(training_cases, seed: seed)
       fit = fit_partitions(partitions)
       print_report(fit, seed: seed, output_stream: output_stream, error_stream: error_stream)
       File.write(output, artifact_source(partitions, fit, seed: seed))
+      manifest ||= default_manifest_path(output)
+      write_manifest(manifest, output, partitions, fit, seed: seed)
       output_stream.puts "wrote #{output}"
-      fit.merge(partitions: partitions)
+      output_stream.puts "wrote #{manifest}"
+      fit.merge(partitions: partitions, manifest: manifest)
     end
   end
 end
