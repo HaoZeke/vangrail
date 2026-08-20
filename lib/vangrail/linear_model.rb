@@ -8,12 +8,12 @@ module Vangrail
   # A linear classifier over hashed n-grams, loaded from a file somebody fitted.
   #
   # No weights ship with this gem, and that is the finding rather than an
-  # omission. The classifier that does ship, Rails::Bayes, was fitted on 48
-  # hand-written clauses and catches 15 of 48 held out; the same architecture
-  # fitted on 15,140 real prompts catches three quarters of them. The difference
-  # is the corpus, and the corpus has to be the deployment's, because a model
-  # fitted on somebody else's traffic is the thing this repository spent a long
-  # time measuring the cost of.
+  # omission. The classifier that does ship, Rails::Bayes, has only thirty
+  # attack training clauses and an honestly weak 3/6 detection, 2/6 false-alarm
+  # final test; the same architecture fitted on 15,140 real prompts catches three
+  # quarters of them. The difference is the corpus, and the corpus has to be the
+  # deployment's, because a model fitted on somebody else's traffic is not a
+  # measurement of local traffic.
   #
   # Weights do not compress into a readable table either. Pruning the fitted
   # model to its 20,000 largest weights costs 26 points of detection, because

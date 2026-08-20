@@ -12,8 +12,7 @@
 # filtering settled on decades ago for the same reason: many weak indicators,
 # each nearly worthless, adding up.
 #
-# Three things keep it honest, and the third is the one that decides whether the
-# rail ships at all.
+# Four disjoint source-group roles keep the result auditable.
 #
 # Features are selected rather than kept, by mutual information against the
 # class, which is what the junk-mail literature did and what keeps a table of a
@@ -22,10 +21,10 @@
 # Counts are smoothed with a Dirichlet prior, so a feature seen only in attacks
 # does not make the classifier certain on the strength of three sightings.
 #
-# And the score reported below is cross-validated, never the training score. A
-# classifier fitted to 318 documents and evaluated on the same 318 is a
-# memoriser with a good opinion of itself, and the whole point of putting a
-# number in the README is that somebody can believe it.
+# The train role fits features and weights. The calibration role maps score
+# bands to joint likelihood-ratio bounds. The threshold role chooses the
+# operating point. Only the final-test role supplies reported denominators. A
+# source group belongs to exactly one role.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'vangrail'
@@ -151,13 +150,13 @@ module Vangrail
     # word and the pair containing it both vote, so the raw score overstates its own
     # evidence, sometimes by an order of magnitude. That failure is documented as
     # well as any result in this literature, and the standard repair is to fit the
-    # map from score to probability on held-out data rather than to trust the model
-    # to produce one.
+    # map from score to probability on a separate calibration role rather than to
+    # trust the model to produce one.
     #
-    # Binned rather than a fitted curve, because 48 held-out attacks cannot support
-    # a curve, and the bins are read back through the same Beta bound as every other
-    # operating point in the gem. That caps what this rail can claim at whatever the
-    # corpus can defend, which for a corpus this size is a few bits.
+    # Binned rather than a fitted curve, because six calibration attacks cannot
+    # support a curve. The bins use the same joint Beta bound as every other
+    # operating point in the gem, including zero when the sample cannot defend a
+    # direction.
     EDGES = [-Float::INFINITY, 0.0, 4.0, 8.0, 12.0].freeze
 
     def bin_for(value)

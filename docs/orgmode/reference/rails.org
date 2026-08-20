@@ -192,37 +192,39 @@ about the handbook.
 
 A raw naive Bayes score is not a likelihood ratio. The features are counted as
 independent and are not -- a word and the pair containing it both vote -- so the
-score overstates itself, in this corpus by a factor of nearly four. What ships
-is a map from score band to evidence, fitted on held-out folds rather than on
-the model's own opinion, pooled to monotone by the isotonic rule, and read
-through the same Beta bound as every other operating point:
+score overstates itself. What ships is a map from score band to evidence,
+fitted only on the calibration role rather than on the model's own opinion,
+pooled to monotone by the isotonic rule, and read through a simultaneous Beta
+likelihood-ratio bound:
 
-| Score band | Held out            | Worth      |
-|------------+---------------------+------------|
-| below 0    | 0 attacks, 231 benign | -14.6 bits |
-| 0 to 4     | 22 attacks, 8 benign  | +2.6 bits  |
-| above 4    | 26 attacks, 1 benign  | +4.7 bits  |
+| Score band | Calibration role   | Worth     |
+|------------+--------------------+-----------|
+| below 0    | 0 attacks, 6 benign | -0.6 bits |
+| 0 to 4     | 3 attacks, 0 benign | 0.0 bits  |
+| 4 to 8     | 0 attacks, 0 benign | 0.0 bits  |
+| 8 to 12    | 1 attack, 0 benign  | 0.0 bits  |
+| above 12   | 2 attacks, 0 benign | 0.0 bits  |
 
 The threshold still decides the block, because a threshold needs only an
-ordering. A score between 0 and that threshold sits in a band both classes
-occupy, so the rail returns =passed= with =certain?= false and contributes
-no bits. Above the threshold no held-out benign document landed; at or
-below 0 no held-out attack did. The calibrated bits are what reach a
-posterior, and only when the score is a decision.
+ordering. A positive score at or below the threshold was not selected by the
+threshold role, so the rail returns =passed= with =certain?= false. The six-case
+calibration role cannot defend positive likelihood-ratio evidence at 95% joint
+credibility, so those bands contribute no bits. Threshold decisions and
+posterior evidence remain separate outputs.
 
 *** What it is worth here, and what it is for
 
-Cross-validated over five folds on 48 attack clauses and 56 benign ones, at a
-threshold no held-out benign document reached: 15 of 48 attacks caught. The
-lexicon rails catch three quarters.
+The fixed source-group split assigns 30 attack and 30 benign groups to training,
+and 6+6 groups to each of calibration, threshold selection, and final test. At
+the threshold selected without final-test labels, 3 of 6 attacks and 2 of 6
+benign pages score above it. This small local artifact is not headline evidence.
 
-That is a fact about the corpus rather than about the method. Forty-eight
-training clauses written to be varied share almost no vocabulary with the
-held-out ones, and the junk-mail filters this borrows from were fitted on
-millions of examples. It ships anyway, off by default, because the value is the
-path rather than the weights: run =script/train_bayes.rb= against a corpus of
-your own traffic and the rail is fitted to the attacks you receive, with a
-cross-validated number and a fresh calibration attached.
+That is a fact about the corpus rather than about the method. Thirty training
+clauses written to be varied share almost no vocabulary with the final-test
+ones, and the junk-mail filters this borrows from were fitted on millions of
+examples. It ships off by default because the value is the path rather than the
+weights: run =script/train_bayes.rb= against a corpus of your own traffic and
+retain disjoint calibration, threshold, and final-test roles.
 
 ** Rails::Language
 

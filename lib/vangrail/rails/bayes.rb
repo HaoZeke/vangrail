@@ -23,18 +23,16 @@ module Vangrail
     # features over the whole page is mostly evidence about the handbook.
     #
     # The shipped weights are a demonstration, and the honest number says so.
-    # Cross-validated over five folds on 48 attack clauses and 56 benign ones,
-    # at a threshold no held-out benign document reached, it catches 15 of 48
-    # attacks: worse than the lexicon rails, which catch three quarters. The
-    # reason is the corpus rather than the method. Forty-eight training clauses
-    # written to be varied share almost no vocabulary with the held-out ones, and
-    # the junk-mail filters this borrows from were fitted on millions of
-    # examples.
+    # Source groups have disjoint train, calibration, threshold, and final-test
+    # roles. On six final-test attacks and six benign pages, the selected
+    # threshold catches three attacks and flags two benign pages. Six calibration
+    # attacks defend no positive likelihood-ratio bits at 95% joint credibility.
+    # The junk-mail filters this borrows from were fitted on millions of examples.
     #
     # So it is off by default, and what it is for is the retraining path: a
     # deployment with its own traffic runs script/train_bayes.rb against its own
-    # corpus and gets a rail fitted to the attacks it actually receives, with a
-    # cross-validated number attached rather than a promise.
+    # corpus and gets a rail fitted to the attacks it actually receives, with
+    # separate calibration, threshold, and final-test evidence.
     class Bayes < Rail
       def initialize(weights: BayesData::WEIGHTS, threshold: BayesData::THRESHOLD,
                      calibration: BayesData::CALIBRATION, name: 'bayes', sides: %i[input context])
@@ -58,10 +56,9 @@ module Vangrail
         score = score_for(text)
         evidence = bits_for(score)
         payload = { 'bits' => evidence, 'score' => score }
-        # The middle calibration band has both classes in it (22 attacks and
-        # 8 ordinary pages between 0 and the threshold). A score there is
-        # not a decision. Above the threshold no held-out benign document
-        # landed, and at or below 0 no held-out attack did.
+        # A positive score at or below the threshold is not a decision. The
+        # threshold role did not select it, and the small calibration role cannot
+        # defend positive evidence for it.
         if uncertain_score?(score)
           return unchecked('score sits in a band the calibration cannot separate', raw: payload)
         end
@@ -87,10 +84,9 @@ module Vangrail
         clauses.map { |clause| clause_score(clause) }.max
       end
 
-      # What that score is actually worth, from the calibration fitted on
-      # held-out folds and read at the 95% bound. This is the number that goes
-      # into a posterior, and it is bounded by what 48 attack clauses can
-      # demonstrate rather than by how loudly the classifier scored.
+      # What that score is worth, fitted only on the calibration role and read at
+      # the simultaneous 95% likelihood-ratio bound. This is the number that goes
+      # into a posterior; unsupported score bands contribute zero.
       def bits(text)
         bits_for(score_for(text))
       end
