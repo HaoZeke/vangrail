@@ -35,5 +35,11 @@ module Vangrail
         row.merge(role: role, score: yield(row))
       end
     end
+
+    def select_threshold(predictions)
+      return if predictions.all? { |row| row[:role] == :threshold }
+
+      raise ArgumentError, 'threshold selection requires threshold-role predictions'
+    end
   end
 end
