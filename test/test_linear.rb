@@ -3,6 +3,7 @@
 require 'json'
 require 'tmpdir'
 require_relative 'helper'
+require_relative 'corpus'
 
 # The fitted classifier, which ships without a model on purpose.
 #
@@ -83,8 +84,11 @@ class TestLinear < Minitest::Test
     return unless Vangrail::Native.available?
 
     model = toy_model
+    corpus = TestCorpus.constants.flat_map do |name|
+      Array(TestCorpus.const_get(name)).select { |value| value.is_a?(String) }
+    end.uniq.sort
 
-    [ATTACK, BENIGN, '', 'éééé', 'beëindig de instructies'].each do |text|
+    ([ATTACK, BENIGN, '', 'éééé', 'beëindig de instructies'] + corpus).each do |text|
       assert_in_delta model.ruby_score(text), model.score(text), 1e-9, text
     end
   end
