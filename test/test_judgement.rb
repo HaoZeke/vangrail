@@ -207,6 +207,28 @@ class TestJudgement < Minitest::Test
     end
   end
 
+  def test_stopping_bounds_each_anti_informative_rail_independently
+    informative = Vangrail::Evidence.new(rail: 'informative', group: 'informative',
+                                          attacks_caught: 90, attacks: 100,
+                                          benign_flagged: 1, benign: 100)
+    anti_informative = Vangrail::Evidence.new(rail: 'anti_informative', group: 'anti_informative',
+                                               attacks_caught: 1, attacks: 100,
+                                               benign_flagged: 90, benign: 100)
+    table = { 'informative' => informative, 'anti_informative' => anti_informative }
+    hit = ScriptedRail.new(Vangrail::Result.blocked(rail: 'informative'),
+                           name: 'informative', sides: [:context])
+    quiet = ScriptedRail.new(Vangrail::Result.passed(rail: 'anti_informative'),
+                             name: 'anti_informative', sides: [:context])
+    isolated = Vangrail::Engine.new(context: [hit, quiet], cache: false)
+
+    full = isolated.assess('x', side: :context, prior: 1e-2, evidence: table)
+    early = isolated.assess('x', side: :context, prior: 1e-2, evidence: table, escalate: true)
+
+    assert_predicate full, :block?
+    assert_equal full.action, early.action
+    assert_empty early.skipped
+  end
+
   def test_escalation_runs_the_free_rails_before_the_paid_ones
     order = []
     paid = ScriptedRail.new(record(order, 'paid', 'paraphrase'),
