@@ -243,6 +243,7 @@ module Vangrail
       root = File.expand_path('..', __dir__)
       {
         'benchmark_risk' => file_digest(File.join(root, 'script', 'benchmark_risk.rb')),
+        'performance_report_table' => file_digest(File.join(root, 'script', 'performance_report_table.rb')),
         'linear_model' => file_digest(File.join(root, 'lib', 'vangrail', 'linear_model.rb')),
         'native_source' => file_digest(File.join(root, 'ext', 'vangrail_native', 'src', 'lib.rs')),
         'native_lock' => file_digest(File.join(root, 'ext', 'vangrail_native', 'Cargo.lock')),
