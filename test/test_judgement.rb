@@ -209,11 +209,11 @@ class TestJudgement < Minitest::Test
 
   def test_stopping_bounds_each_anti_informative_rail_independently
     informative = Vangrail::Evidence.new(rail: 'informative', group: 'informative',
-                                          attacks_caught: 90, attacks: 100,
-                                          benign_flagged: 1, benign: 100)
+                                         attacks_caught: 90, attacks: 100,
+                                         benign_flagged: 1, benign: 100)
     anti_informative = Vangrail::Evidence.new(rail: 'anti_informative', group: 'anti_informative',
-                                               attacks_caught: 1, attacks: 100,
-                                               benign_flagged: 90, benign: 100)
+                                              attacks_caught: 1, attacks: 100,
+                                              benign_flagged: 90, benign: 100)
     table = { 'informative' => informative, 'anti_informative' => anti_informative }
     hit = ScriptedRail.new(Vangrail::Result.blocked(rail: 'informative'),
                            name: 'informative', sides: [:context])

@@ -24,12 +24,12 @@ class TestBayesTraining < Minitest::Test
     assigned = roles.filter_map { |role, rows| role if rows.any? { |row| row[:group] == 'attack-a' } }
 
     assert_equal 1, assigned.size
-    assert_equal 2, roles.fetch(assigned.first).count { |row| row[:group] == 'attack-a' }
+    assert_equal(2, roles.fetch(assigned.first).count { |row| row[:group] == 'attack-a' })
   end
 
   def test_each_label_stratum_uses_the_declared_role_weights
     cases = %i[attack benign].flat_map do |label|
-      8.times.map do |index|
+      Array.new(8) do |index|
         { id: "#{label}-#{index}", label: label, group: "#{label}-#{index}", text: index.to_s }
       end
     end
@@ -46,7 +46,7 @@ class TestBayesTraining < Minitest::Test
 
   def test_each_case_in_a_role_receives_one_prediction
     cases = %i[attack benign].flat_map do |label|
-      8.times.map do |index|
+      Array.new(8) do |index|
         { id: "#{label}-#{index}", label: label, group: "#{label}-#{index}", text: index.to_s }
       end
     end
@@ -59,9 +59,10 @@ class TestBayesTraining < Minitest::Test
     end
 
     expected_ids = roles.fetch(:test).map { |row| row[:id] }
+
     assert_equal expected_ids, called
     assert_equal called.uniq, called
-    assert predictions.all? { |row| row[:role] == :test }
+    assert(predictions.all? { |row| row[:role] == :test })
   end
 
   def test_threshold_selection_rejects_predictions_from_another_role
@@ -114,18 +115,20 @@ class TestBayesTraining < Minitest::Test
     Dir.mktmpdir do |directory|
       output = File.join(directory, 'bayes_data.rb')
       report = Vangrail::BayesTraining.generate(output: output, seed: 'paper-v1',
-                                                 io: StringIO.new, err: StringIO.new)
+                                                io: StringIO.new, err: StringIO.new)
       groups = report.fetch(:partitions).transform_values do |rows|
         rows.map { |row| row.fetch(:group) }.uniq
       end
 
       groups.each do |role, members|
         others = groups.reject { |other, _| other == role }.values.flatten
+
         assert_empty members & others, "#{role} groups appear in another role"
       end
 
       test_rows = report.fetch(:partitions).fetch(:test)
       performance = report.fetch(:performance)
+
       assert_equal test_rows.count { |row| row[:label] == :attack }, performance.fetch(:attacks)
       assert_equal test_rows.count { |row| row[:label] == :benign }, performance.fetch(:benign)
       assert_path_exists output

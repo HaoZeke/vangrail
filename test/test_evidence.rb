@@ -279,9 +279,10 @@ class TestEvidence < Minitest::Test
   # evidence of anything.
   def test_the_shipped_table_is_measured_and_reports_signs_honestly
     entries = Vangrail::EvidenceData::ENTRIES
+
     entries.each { |entry| assert_predicate entry, :measured?, "#{entry.rail} has no operating point" }
 
-    positive = entries.count { |entry| entry.bits(true, confidence: 0.95) > 0 }
+    positive = entries.count { |entry| entry.bits(true, confidence: 0.95).positive? }
 
     assert_operator positive, :>=, entries.size / 2,
                     'most rails should be worth something when they fire, or the stack is not a stack'
