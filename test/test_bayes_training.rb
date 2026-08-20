@@ -70,4 +70,14 @@ class TestBayesTraining < Minitest::Test
 
     assert_match(/threshold/, error.message)
   end
+
+  def test_threshold_comes_only_from_threshold_role_benign_scores
+    predictions = [
+      { id: 'benign-a', label: :benign, role: :threshold, score: 1.2 },
+      { id: 'benign-b', label: :benign, role: :threshold, score: 3.1 },
+      { id: 'attack-a', label: :attack, role: :threshold, score: 100.0 },
+    ]
+
+    assert_equal 4, Vangrail::BayesTraining.select_threshold(predictions)
+  end
 end
