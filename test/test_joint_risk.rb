@@ -159,6 +159,30 @@ class TestJointRisk < Minitest::Test
     assert_raises(Vangrail::ProtocolError) { Vangrail::JointRiskArtifact.new(oversized) }
   end
 
+  def test_platt_calibration_is_part_of_the_posterior_and_interval
+    calibrated = artifact_data.merge(
+      'calibration' => {
+        'id' => 'calibration-v2',
+        'method' => 'platt',
+        'intercept' => -0.4,
+        'slope' => 1.5,
+        'covariance_diagonal' => { 'intercept' => 0.01, 'slope' => 0.04 },
+      },
+    )
+    model = Vangrail::JointRiskModel.new(Vangrail::JointRiskArtifact.new(calibrated))
+    estimate = model.estimate(
+      [score(:lexical, 'lexical-v1', 0.5), score(:encoder, 'encoder-v1', 1.0)],
+      side: :context, origin: :data, language: :en, domain: :handbook, prior: 0.5,
+    )
+    base_logit = -2.0 + 0.5 + 2.0 + 0.25 + 0.2 + 0.1
+    expected = 1.0 / (1.0 + Math.exp(-(-0.4 + (1.5 * base_logit))))
+
+    assert_in_delta expected, estimate.posterior, 1e-12
+    assert_equal 'calibration-v2', estimate.calibration_id
+    assert_operator estimate.interval.first, :<, estimate.posterior
+    assert_operator estimate.interval.last, :>, estimate.posterior
+  end
+
   def test_joint_assessor_runs_optional_readers_without_runtime_model_dependencies
     provider = lambda do |model_id, value|
       lambda do |_text, side:, **_context|
