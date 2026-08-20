@@ -102,32 +102,11 @@ module Vangrail
       validate_probability!(confidence, 'confidence')
       context = normalized_context(side: side, origin: origin, language: language, domain: domain)
       validate_context!(context)
-      features, cost = collect_features(Array(results), side)
-      validate_ranges!(features)
-
-      eta = linear_predictor(features, context)
-      variance = posterior_variance(features, context)
-      eta, variance = calibrate(eta, variance)
-      threat_shift, threat_variance, threat_mixture = threat_adjustment(scenario)
-      eta += prior_offset(prior) + threat_shift
-      variance += scenario_variance(scenario) + threat_variance
-      radius = normal_quantile((1 + confidence) / 2.0) * Math.sqrt(variance)
-      RiskEstimate.new(
-        artifact_id: artifact.id,
-        posterior_method: artifact.posterior_method,
-        calibration_id: artifact.calibration.fetch('id'),
-        status: :ok,
-        posterior: logistic(eta),
-        interval: [logistic(eta - radius), logistic(eta + radius)],
-        features: features,
-        cost: cost,
-        context: estimate_context(context, prior, threat_mixture),
-      )
+      values = inference(results, side, context, prior, scenario, confidence)
+      RiskEstimate.new(**artifact_identity, status: :ok, **values)
     rescue Abstention => e
       RiskEstimate.new(
-        artifact_id: artifact.id,
-        posterior_method: artifact.posterior_method,
-        calibration_id: artifact.calibration.fetch('id'),
+        **artifact_identity,
         status: :abstained,
         reason: e.message,
         context: defined?(context) ? context : {},
@@ -135,6 +114,38 @@ module Vangrail
     end
 
     private
+
+    def inference(results, side, context, prior, scenario, confidence)
+      features, cost = collect_features(Array(results), side)
+      validate_ranges!(features)
+      eta, variance, threat_mixture = posterior_parameters(features, context, prior, scenario)
+      radius = normal_quantile((1 + confidence) / 2.0) * Math.sqrt(variance)
+      {
+        posterior: logistic(eta),
+        interval: [logistic(eta - radius), logistic(eta + radius)],
+        features: features,
+        cost: cost,
+        context: estimate_context(context, prior, threat_mixture),
+      }
+    end
+
+    def posterior_parameters(features, context, prior, scenario)
+      eta = linear_predictor(features, context)
+      variance = posterior_variance(features, context)
+      eta, variance = calibrate(eta, variance)
+      threat_shift, threat_variance, threat_mixture = threat_adjustment(scenario)
+      eta += prior_offset(prior) + threat_shift
+      variance += scenario_variance(scenario) + threat_variance
+      [eta, variance, threat_mixture]
+    end
+
+    def artifact_identity
+      {
+        artifact_id: artifact.id,
+        posterior_method: artifact.posterior_method,
+        calibration_id: artifact.calibration.fetch('id'),
+      }
+    end
 
     def resolve_scenario(prior, scenario)
       raise ArgumentError, 'pass prior or scenario, not both' if prior && scenario

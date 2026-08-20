@@ -206,24 +206,32 @@ module Vangrail
     end
 
     def fit_threat_model(rows, parameters, interactions, contexts)
-      attacks = rows.select { |row| row[:label] == :attack }
-      logits = attacks.group_by { |row| row[:threat_family] }.transform_values do |members|
-        members.map { |row| dot(parameters, design(row, interactions, contexts)) }
-      end
-      overall = logits.values.flatten.sum.fdiv(attacks.size)
-      composition = logits.to_h { |family, values| [family, values.size.fdiv(attacks.size)] }
-      offsets = logits.to_h { |family, values| [family, values.sum.fdiv(values.size) - overall] }
-      covariance = logits.to_h do |family, values|
-        mean = values.sum.fdiv(values.size)
-        squared_error = values.sum { |value| (value - mean)**2 }
-        variance = values.size > 1 ? squared_error / (values.size * (values.size - 1)) : 1.0
-        [family, [variance, EPSILON].max]
-      end
+      logits = threat_logits(rows, parameters, interactions, contexts)
+      count = logits.values.sum(&:size)
+      overall = logits.values.sum(&:sum).fdiv(count)
       {
-        'training_composition' => composition,
-        'log_likelihood_offsets' => offsets,
-        'covariance_diagonal' => covariance,
+        'training_composition' => logits.to_h { |family, values| [family, values.size.fdiv(count)] },
+        'log_likelihood_offsets' => logits.to_h do |family, values|
+          [family, values.sum.fdiv(values.size) - overall]
+        end,
+        'covariance_diagonal' => logits.transform_values { |values| threat_covariance(values) },
       }
+    end
+
+    def threat_logits(rows, parameters, interactions, contexts)
+      rows.select { |row| row[:label] == :attack }
+          .group_by { |row| row[:threat_family] }
+          .transform_values do |members|
+            members.map { |row| dot(parameters, design(row, interactions, contexts)) }
+          end
+    end
+
+    def threat_covariance(values)
+      return 1.0 if values.size == 1
+
+      mean = values.sum.fdiv(values.size)
+      squared_error = values.sum { |value| (value - mean)**2 }
+      [squared_error / (values.size * (values.size - 1)), EPSILON].max
     end
 
     def artifact_hash(id:, train:, calibration:, features:, readers:, normalization:,

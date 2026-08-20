@@ -4,11 +4,13 @@ require 'digest'
 require 'json'
 require_relative 'artifact_data'
 require_relative 'errors'
+require_relative 'joint_risk_artifact_threats'
 
 module Vangrail
   # Bounded, versioned posterior approximation consumed by stdlib inference.
   class JointRiskArtifact
     include ArtifactData
+    include JointRiskArtifactThreats
 
     SCHEMA = 'vangrail-joint-risk-v1'
     METHODS = %w[laplace_diagonal].freeze
@@ -205,30 +207,6 @@ module Vangrail
 
         validate_finite!("interaction #{name}", value)
       end
-    end
-
-    def validate_threat_model!
-      model = data['threat_model']
-      unless model.is_a?(Hash) &&
-             model.keys.sort == %w[covariance_diagonal log_likelihood_offsets training_composition]
-        raise ProtocolError, 'threat_model must name composition, offsets, and covariance'
-      end
-
-      composition = model['training_composition']
-      unless composition.is_a?(Hash) && composition.size.between?(1, MAX_THREAT_FAMILIES) &&
-             composition.keys.all? { |family| family.is_a?(String) && !family.empty? }
-        raise ProtocolError, "training threat composition must contain 1..#{MAX_THREAT_FAMILIES} families"
-      end
-
-      validate_numeric_table!('training threat composition', composition)
-      unless composition.values.all?(&:positive?) && (composition.values.sum - 1.0).abs <= 1e-9
-        raise ProtocolError, 'training threat composition must contain positive probabilities summing to one'
-      end
-
-      validate_numeric_table!('threat offsets', model['log_likelihood_offsets'],
-                              allowed: composition.keys, exact: true)
-      validate_numeric_table!('threat covariance', model['covariance_diagonal'],
-                              allowed: composition.keys, exact: true, nonnegative: true)
     end
 
     def validate_ranges!
