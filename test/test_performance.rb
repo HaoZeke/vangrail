@@ -48,6 +48,21 @@ class TestPerformance < Minitest::Test
     assert_operator large.dig('work', 'tokens'), :>=, small.dig('work', 'tokens')
   end
 
+  def test_each_declared_dimension_has_raw_scaling_samples
+    curves = report.fetch('scaling')
+
+    assert_equal report.fetch('declared_dimensions').sort,
+                 curves.map { |row| row.fetch('dimension') }.uniq.sort
+    curves.each do |row|
+      assert_equal 2, row.fetch('samples').size
+      assert_operator row.fetch('work').fetch('items'), :>, 0
+      assert(row.fetch('samples').all? { |sample| sample.fetch('latency_ms') >= 0 })
+    end
+
+    bounded = curves.select { |row| row.fetch('dimension') == 'cache_cardinality' }
+    assert(bounded.all? { |row| row.dig('shape', 'retained_entries') <= row.dig('shape', 'cache_limit') })
+  end
+
   def test_parity_is_measured_or_native_absence_is_explicit
     parity = report.fetch('parity')
 
