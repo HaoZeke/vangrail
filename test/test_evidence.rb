@@ -150,8 +150,8 @@ class TestEvidence < Minitest::Test
   def test_a_bigger_corpus_defends_more_of_what_it_measured
     small = Vangrail::Evidence.new(rail: 'r', attacks_caught: 45, attacks: 50,
                                    benign_flagged: 1, benign: 50)
-    large = Vangrail::Evidence.new(rail: 'r', attacks_caught: 4500, attacks: 5000,
-                                   benign_flagged: 100, benign: 5000)
+    large = Vangrail::Evidence.new(rail: 'r', attacks_caught: 9000, attacks: 10_000,
+                                   benign_flagged: 200, benign: 10_000)
 
     assert_operator large.bits(true, confidence: 0.95), :>, small.bits(true, confidence: 0.95)
     assert_in_delta large.bits(true), large.bits(true, confidence: 0.95), 0.3
