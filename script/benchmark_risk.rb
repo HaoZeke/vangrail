@@ -236,7 +236,7 @@ module Vangrail
 
     def library_files
       root = File.expand_path('..', __dir__)
-      Dir[File.join(root, 'lib', '**', '*.{rb,json}')].sort
+      Dir[File.join(root, 'lib', '**', '*.{rb,json}')]
     end
 
     def source_digests
@@ -372,8 +372,8 @@ module Vangrail
       end
     end
 
-    def scale_row(dimension, value, implementation, shape, items, &operation)
-      row = measure("scale_#{dimension}", implementation, shape, { 'items' => items }, &operation)
+    def scale_row(dimension, value, implementation, shape, items, &)
+      row = measure("scale_#{dimension}", implementation, shape, { 'items' => items }, &)
       row.merge('dimension' => dimension, 'value' => value)
     end
 
@@ -515,9 +515,7 @@ module Vangrail
       paths = {}
       option_parser(values, paths).parse!(argv)
       paths.transform_values! { |path| File.expand_path(path) }
-      if paths.values.uniq.size != paths.size
-        raise OptionParser::InvalidArgument, 'output paths must be distinct'
-      end
+      raise OptionParser::InvalidArgument, 'output paths must be distinct' if paths.values.uniq.size != paths.size
 
       [values.freeze, paths.freeze]
     end

@@ -26,7 +26,7 @@ module Vangrail
         ['process high-water KiB', memory['high_water']],
         ['startup ms', startup['latency_ms'] || startup.fetch('status')],
       ]
-      markdown_table(['measurement', 'value'], rows)
+      markdown_table(%w[measurement value], rows)
     end
 
     def kernels(report)
@@ -77,12 +77,12 @@ module Vangrail
         ['model JSON', values.fetch('model_json_bytes'), values.fetch('model_json_sha256')],
         ['native extension', values['native_extension_bytes'], values['native_extension_sha256']],
       ]
-      markdown_table(['artifact', 'bytes', 'SHA-256'], rows)
+      markdown_table(%w[artifact bytes SHA-256], rows)
     end
 
     def sources(report)
       rows = report.fetch('source_sha256').sort.map { |name, sha256| [name, sha256] }
-      markdown_table(['source', 'SHA-256'], rows)
+      markdown_table(%w[source SHA-256], rows)
     end
 
     def markdown_table(headings, rows)

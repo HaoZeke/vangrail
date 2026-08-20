@@ -26,7 +26,7 @@ class TestExternalCorpusFetch < Minitest::Test
     manifest = JSON.parse(File.read(File.expand_path('../evaluation/benchmark_sources.json', __dir__)))
     external = manifest.fetch('external_corpora')
 
-    assert_equal COMMITS, external.fetch('repositories').transform_values { |row| row.fetch('source_commit') }
+    assert_equal(COMMITS, external.fetch('repositories').transform_values { |row| row.fetch('source_commit') })
     assert_equal FILES.keys.sort, external.fetch('files').keys.sort
 
     FILES.each do |name, (corpus, bytes, sha256)|
@@ -36,8 +36,8 @@ class TestExternalCorpusFetch < Minitest::Test
       assert_equal corpus, row.fetch('corpus')
       assert_equal bytes, row.fetch('bytes')
       assert_equal sha256, row.fetch('sha256')
-      assert_match(%r{/#{commit}/}, row.fetch('url'))
-      refute_match(%r{/(main|master)/}, row.fetch('url'))
+      assert_match(/\/#{commit}\//, row.fetch('url'))
+      refute_match(/\/(main|master)\//, row.fetch('url'))
     end
   end
 
@@ -46,7 +46,7 @@ class TestExternalCorpusFetch < Minitest::Test
 
     Dir.mktmpdir do |dir|
       File.binwrite(File.join(dir, 'corpus.json'), payload)
-      download = lambda { |_url| flunk 'valid cache must not be downloaded' }
+      download = ->(_url) { flunk 'valid cache must not be downloaded' }
 
       fetcher(dir, payload, download: download).fetch_all
 

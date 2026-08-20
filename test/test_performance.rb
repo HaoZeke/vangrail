@@ -23,6 +23,7 @@ class TestPerformance < Minitest::Test
     assert_equal 'vangrail-risk-performance-v1', report.fetch('schema')
     expected = %w[features prepare ruby_score]
     expected << 'native_score' if Vangrail::Native.available?
+
     assert_equal expected.sort, report.fetch('profiles').map { |row| row.fetch('kernel') }.uniq.sort
 
     report.fetch('profiles').each do |profile|
@@ -61,6 +62,7 @@ class TestPerformance < Minitest::Test
     end
 
     bounded = curves.select { |row| row.fetch('dimension') == 'cache_cardinality' }
+
     assert(bounded.all? { |row| row.dig('shape', 'retained_entries') <= row.dig('shape', 'cache_limit') })
   end
 
@@ -87,6 +89,7 @@ class TestPerformance < Minitest::Test
     expected = %w[
       benchmark_risk core_library linear_model model_json native_lock native_source performance_report_table
     ]
+
     assert_equal expected, digests.keys.sort
     assert(digests.values.all? { |digest| digest.match?(/\A[0-9a-f]{64}\z/) })
   end
@@ -96,6 +99,7 @@ class TestPerformance < Minitest::Test
 
     header = '| kernel | implementation | characters | median ms | p95 ms | ' \
              'median allocations | p95 RSS KiB |'
+
     assert_includes table, header
     assert_includes table, '| scaling dimension | implementation | work growth | latency growth | normalized growth |'
     assert_includes table, '| artifact | bytes | SHA-256 |'
