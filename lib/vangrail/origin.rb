@@ -128,7 +128,11 @@ module Vangrail
 
       @integrity = normalize(integrity.equal?(DEFAULT_INTEGRITY) ? default_integrity : integrity)
       @confidentiality = normalize_optional(confidentiality)
-      @capabilities = normalize_optional(capabilities)
+      @capabilities = if @provenance.any?(&:untrusted?)
+                        [].freeze
+                      else
+                        normalize_optional(capabilities)
+                      end
       freeze
     end
 
@@ -150,6 +154,18 @@ module Vangrail
         confidentiality: restrict(confidentiality, other.confidentiality),
         capabilities: merge_capabilities(other, combined_provenance),
       )
+    end
+
+    def ==(other)
+      other.is_a?(self.class) && other.provenance == provenance &&
+        other.integrity == integrity && other.confidentiality == confidentiality &&
+        other.capabilities == capabilities
+    end
+
+    alias eql? ==
+
+    def hash
+      [self.class, provenance, integrity, confidentiality, capabilities].hash
     end
 
     def to_h
@@ -285,6 +301,12 @@ module Vangrail
       end
     end
 
+    # A parser, serializer, summarizer, or extractor supplies a new value but
+    # cannot change the security metadata attached to it.
+    def derive(derived_value)
+      self.class.new(derived_value, label: label)
+    end
+
     # Union of origins. The value is the caller's combination; this only
     # tracks what touched it.
     def mix(other, value: self.value)
@@ -296,7 +318,7 @@ module Vangrail
     # A quoted or extracted form still carries every origin and every
     # remaining capability. Quoting is not a privilege escalation.
     def quote
-      self.class.new(value, label: label)
+      derive(value)
     end
 
     def to_h
