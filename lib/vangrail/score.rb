@@ -158,7 +158,7 @@ module Vangrail
       raise ProtocolError, "reader #{id} returned #{raw.class}, expected a hash" unless raw.is_a?(Hash)
 
       ScoreResult.ok(
-        reader_id: id,
+        reader_id: fetch(raw, :reader_id) || id,
         model_id: fetch(raw, :model_id),
         feature_schema: fetch(raw, :feature_schema),
         side: fetch(raw, :side) || side,
