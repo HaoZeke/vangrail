@@ -44,6 +44,18 @@ class TestBayesTraining < Minitest::Test
     end
   end
 
+  def test_a_label_stratum_must_fill_the_declared_role_cycle
+    cases = Array.new(7) do |index|
+      { id: "attack-#{index}", label: :attack, group: "attack-#{index}", text: index.to_s }
+    end
+
+    error = assert_raises(ArgumentError) do
+      Vangrail::BayesTraining.grouped_partition(cases, seed: 'paper-v1')
+    end
+
+    assert_match(/8 source groups/, error.message)
+  end
+
   def test_each_case_in_a_role_receives_one_prediction
     cases = %i[attack benign].flat_map do |label|
       Array.new(8) do |index|
