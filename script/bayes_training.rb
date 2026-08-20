@@ -37,9 +37,11 @@ module Vangrail
     end
 
     def select_threshold(predictions)
-      return if predictions.all? { |row| row[:role] == :threshold }
+      unless predictions.all? { |row| row[:role] == :threshold }
+        raise ArgumentError, 'threshold selection requires threshold-role predictions'
+      end
 
-      raise ArgumentError, 'threshold selection requires threshold-role predictions'
+      predictions.select { |row| row[:label] == :benign }.map { |row| row.fetch(:score) }.max.ceil
     end
   end
 end
