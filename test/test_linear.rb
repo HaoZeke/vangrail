@@ -143,6 +143,21 @@ class TestLinear < Minitest::Test
     refute features.key?(Vangrail::LinearModel.bucket(skipped))
   end
 
+  def test_prepared_text_is_normalized_once
+    calls = 0
+    normalize = Vangrail::NLP.method(:normalize)
+
+    prepared = Vangrail::NLP.stub(:normalize, lambda { |text|
+      calls += 1
+      normalize.call(text)
+    }) do
+      Vangrail::LinearModel.prepared('Alpha-beta')
+    end
+
+    assert_equal ['Alpha-beta', %w[alpha beta], 'alpha beta'], prepared
+    assert_equal 1, calls
+  end
+
   def test_stride_is_written_into_the_file_and_required_on_load
     dumped = toy_model.to_h
 
