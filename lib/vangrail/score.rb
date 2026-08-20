@@ -79,9 +79,7 @@ module Vangrail
       raise ArgumentError, 'numeric fields must be a hash' unless values.is_a?(Hash)
 
       values.each_with_object({}) do |(name, value), normalized|
-        unless value.is_a?(Numeric) && value.finite?
-          raise ArgumentError, "#{name} must be a finite number"
-        end
+        raise ArgumentError, "#{name} must be a finite number" unless value.is_a?(Numeric) && value.finite?
 
         normalized[name.to_s.freeze] = value
       end.freeze

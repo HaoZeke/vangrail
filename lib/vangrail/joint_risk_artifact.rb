@@ -37,9 +37,7 @@ module Vangrail
 
       bytes = File.binread(path)
       actual = Digest::SHA256.hexdigest(bytes)
-      if expected_sha256 && actual != expected_sha256
-        raise ProtocolError, 'joint risk artifact hash does not match'
-      end
+      raise ProtocolError, 'joint risk artifact hash does not match' if expected_sha256 && actual != expected_sha256
 
       new(JSON.parse(bytes), source_sha256: actual)
     rescue JSON::ParserError => e
@@ -159,10 +157,12 @@ module Vangrail
                spec['feature_schema'].is_a?(Array) && !spec['feature_schema'].empty?
           raise ProtocolError, "reader #{reader_id.inspect} has an invalid identity"
         end
+
         expected = spec['feature_schema'].map { |feature| "#{reader_id}.#{feature}" }
         unless (expected - feature_schema).empty?
           raise ProtocolError, "reader #{reader_id} names features outside feature_schema"
         end
+
         expected
       end
       return if covered.sort == feature_schema.sort
@@ -173,11 +173,11 @@ module Vangrail
     def validate_parameters!
       validate_finite!('intercept', data['intercept'])
       validate_numeric_table!('coefficients', data['coefficients'], allowed: feature_schema,
-                                                               exact: true)
+                                                                    exact: true)
       validate_interactions!
       allowed = ['intercept'] + feature_schema + interactions.keys
       validate_numeric_table!('covariance_diagonal', data['covariance_diagonal'], allowed: allowed,
-                                                                             nonnegative: true)
+                                                                                  nonnegative: true)
       validate_numeric_table!('context_offsets', data['context_offsets'])
       validate_ranges!
     end
@@ -193,6 +193,7 @@ module Vangrail
         unless parts.size == 2 && parts.all? { |feature| feature_schema.include?(feature) }
           raise ProtocolError, "interaction #{name.inspect} names an unknown feature"
         end
+
         validate_finite!("interaction #{name}", value)
       end
     end

@@ -167,7 +167,7 @@ module Vangrail
     end
 
     def normalized_context(**values)
-      values.transform_values { |value| value.to_s }.freeze
+      values.transform_values(&:to_s).freeze
     end
 
     def validate_context!(context)
