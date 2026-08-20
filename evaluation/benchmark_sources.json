@@ -9,6 +9,48 @@
     "benchmark_version": "v1.2.2",
     "trace_adapter": "agentdojo-traces-v0.1.35"
   },
+  "external_corpora": {
+    "repositories": {
+      "bipia": {
+        "repository": "https://github.com/microsoft/BIPIA",
+        "source_commit": "a004b69ec0dd446e0afd461d98cb5e96e120a5d0"
+      },
+      "jailbreak_llms": {
+        "repository": "https://github.com/verazuo/jailbreak_llms",
+        "source_commit": "4f4031bf8be187f4478c7f94f42b08714722c12e"
+      }
+    },
+    "files": {
+      "bipia_text_attack_test.json": {
+        "corpus": "bipia",
+        "path": "benchmark/text_attack_test.json",
+        "url": "https://raw.githubusercontent.com/microsoft/BIPIA/a004b69ec0dd446e0afd461d98cb5e96e120a5d0/benchmark/text_attack_test.json",
+        "bytes": 6322,
+        "sha256": "75750e7b4e8b34e8f9d88d89b357aeaaf02bd07f9e493ccd37eda74a0cd7c7f8"
+      },
+      "bipia_code_attack_test.json": {
+        "corpus": "bipia",
+        "path": "benchmark/code_attack_test.json",
+        "url": "https://raw.githubusercontent.com/microsoft/BIPIA/a004b69ec0dd446e0afd461d98cb5e96e120a5d0/benchmark/code_attack_test.json",
+        "bytes": 16356,
+        "sha256": "892545c5aaec0645b1ded65dc7816b3d70e9ef4eadcba2301a7a3db93676b6e0"
+      },
+      "jailbreak_prompts_2023_12_25.csv": {
+        "corpus": "jailbreak_llms",
+        "path": "data/prompts/jailbreak_prompts_2023_12_25.csv",
+        "url": "https://raw.githubusercontent.com/verazuo/jailbreak_llms/4f4031bf8be187f4478c7f94f42b08714722c12e/data/prompts/jailbreak_prompts_2023_12_25.csv",
+        "bytes": 3778717,
+        "sha256": "accf97463de96c33c48453dfee9600191ff6fd5a0c43f3f11d5ebf98d1a5de55"
+      },
+      "regular_prompts_2023_12_25.csv": {
+        "corpus": "jailbreak_llms",
+        "path": "data/prompts/regular_prompts_2023_12_25.csv",
+        "url": "https://raw.githubusercontent.com/verazuo/jailbreak_llms/4f4031bf8be187f4478c7f94f42b08714722c12e/data/prompts/regular_prompts_2023_12_25.csv",
+        "bytes": 24307583,
+        "sha256": "fb82e3f88fbd5d9c6edf8927b138510f339b85012cab24d41d13e1665a9c5819"
+      }
+    }
+  },
   "adaptive_matrix": {
     "path": "adaptive_attack_matrix.json",
     "schema": "vangrail-adaptive-attack-matrix-v1",
