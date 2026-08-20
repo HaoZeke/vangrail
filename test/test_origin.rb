@@ -62,10 +62,11 @@ class TestOrigin < Minitest::Test
   end
 
   def test_nested_values_have_labelled_leaves
-    cell = Vangrail::Cell.data({
+    nested = {
       'query' => 'GPU partitions',
       'filters' => ['available', { 'site' => 'terra' }],
-    })
+    }
+    cell = Vangrail::Cell.data(nested)
 
     assert_instance_of Vangrail::Cell, cell['query']
     assert_instance_of Vangrail::Cell, cell['filters'][0]
