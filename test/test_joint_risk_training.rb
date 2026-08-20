@@ -55,20 +55,32 @@ class TestJointRiskTraining < Minitest::Test
   def test_trainer_emits_a_loadable_laplace_artifact_and_final_test_report
     artifact, report = fit
 
+    assert_model_artifact(artifact)
+    assert_support_artifact(artifact)
+    assert_test_report(report)
+  end
+
+  def assert_model_artifact(artifact)
     assert_instance_of Vangrail::JointRiskArtifact, artifact
     assert_equal 'laplace_diagonal', artifact.posterior_method
     assert_equal 'platt', artifact.calibration['method']
     assert_equal %w[exfiltration override], artifact.threat_model['training_composition'].keys.sort
     assert_in_delta 1.0, artifact.threat_model['training_composition'].values.sum
+    assert_match(/\A[0-9a-f]{64}\z/, artifact.data['training_manifest_sha256'])
+  end
+
+  def assert_support_artifact(artifact)
     assert_equal '2030-01-01T00:00:00Z', artifact.ood['calibration_valid_until']
     assert_equal 1, artifact.ood['disagreement_rules'].size
     assert_operator artifact.ood['max_squared_distance'], :>, 0
     assert_equal 'learn_then_test_binomial', artifact.risk_control['method']
     assert_operator artifact.risk_control['false_positive_upper_bound'], :<=, 0.5
+  end
+
+  def assert_test_report(report)
     assert_equal ROLES.transform_keys(&:to_s), report.fetch('role_counts')
     assert_equal 12, report.dig('test', 'cases')
     assert_operator report.dig('test', 'brier'), :<, 0.25
-    assert_match(/\A[0-9a-f]{64}\z/, artifact.data['training_manifest_sha256'])
   end
 
   def test_final_test_labels_cannot_change_the_artifact
