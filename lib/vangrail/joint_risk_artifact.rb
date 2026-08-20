@@ -4,6 +4,7 @@ require 'digest'
 require 'json'
 require_relative 'artifact_data'
 require_relative 'errors'
+require_relative 'joint_risk_artifact_accessors'
 require_relative 'joint_risk_artifact_threats'
 require_relative 'joint_risk_artifact_ood'
 
@@ -11,6 +12,7 @@ module Vangrail
   # Bounded, versioned posterior approximation consumed by stdlib inference.
   class JointRiskArtifact
     include ArtifactData
+    include JointRiskArtifactAccessors
     include JointRiskArtifactThreats
     include JointRiskArtifactOod
 
@@ -51,70 +53,6 @@ module Vangrail
       new(JSON.parse(bytes), source_sha256: actual)
     rescue JSON::ParserError => e
       raise ProtocolError, "joint risk artifact is not JSON: #{e.message}"
-    end
-
-    def id
-      data.fetch('id')
-    end
-
-    def posterior_method
-      data.fetch('posterior_method')
-    end
-
-    def training_prevalence
-      data.fetch('training_prevalence')
-    end
-
-    def feature_schema
-      data.fetch('feature_schema')
-    end
-
-    def normalization
-      data.fetch('normalization')
-    end
-
-    def readers
-      data.fetch('readers')
-    end
-
-    def intercept
-      data.fetch('intercept')
-    end
-
-    def coefficients
-      data.fetch('coefficients')
-    end
-
-    def interactions
-      data.fetch('interactions')
-    end
-
-    def context_offsets
-      data.fetch('context_offsets')
-    end
-
-    def covariance_diagonal
-      data.fetch('covariance_diagonal')
-    end
-
-    def threat_model
-      data.fetch('threat_model')
-    end
-
-    def ood
-      data.fetch('ood')
-    end
-
-    def score_ranges
-      data.fetch('score_ranges')
-    end
-
-    def supported
-      data.fetch('supported')
-    end
-
-    def calibration
-      data.fetch('calibration')
     end
 
     def to_h
