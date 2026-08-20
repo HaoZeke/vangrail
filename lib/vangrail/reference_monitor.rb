@@ -213,6 +213,7 @@ module Vangrail
     def hash_constraint_denial(cell, constraint)
       return :argument_constraint unless (constraint.keys - CONSTRAINT_KEYS).empty?
       return :argument_type unless type_matches?(cell.raw, constraint[:type])
+
       if constraint.key?(:origins)
         origin_reason = origin_denial(cell, constraint[:origins])
         return origin_reason if origin_reason

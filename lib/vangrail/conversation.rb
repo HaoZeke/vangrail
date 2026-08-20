@@ -112,7 +112,7 @@ module Vangrail
       ctx = { history: seen, **@base_context, **context }
       result = if @session
                  judgement = engine.assess(text, side: :input, origin: Origin.user,
-                                           **session_assess, **ctx)
+                                                 **session_assess, **ctx)
                  @session.fold(judgement)
                  result_from(judgement)
                else
@@ -244,7 +244,7 @@ module Vangrail
         reason = "#{authorization.reason_code}: #{authorization.reason}"
         result = Result.blocked(rail: 'reference_monitor', reason: reason)
         record_invocation(name, handler_arguments, result, nil, call: call,
-                                                               authorization: authorization)
+                                                                authorization: authorization)
         return result
       end
 
@@ -254,14 +254,14 @@ module Vangrail
         monitor.finish(call, success: false)
         result = Result.blocked(rail: 'handler', reason: "#{e.class}: #{e.message}")
         record_invocation(name, handler_arguments, result, nil, call: call,
-                                                               authorization: authorization)
+                                                                authorization: authorization)
         return result
       end
       monitor.finish(call, success: true)
       cell = value.is_a?(Cell) ? value : Cell.tool(value)
       result = Result.passed(rail: name.to_s)
       record_invocation(name, handler_arguments, result, cell, call: call,
-                                                            authorization: authorization)
+                                                               authorization: authorization)
       result
     end
 
