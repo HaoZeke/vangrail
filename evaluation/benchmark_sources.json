@@ -1,0 +1,17 @@
+{
+  "schema": "vangrail-benchmark-sources-v1",
+  "agentdojo": {
+    "repository": "https://github.com/ethz-spylab/agentdojo",
+    "source_commit": "a75aba7631d3ca5fb7ab938965c97ead2f9ff84b",
+    "package_version": "0.1.35",
+    "package_url": "https://files.pythonhosted.org/packages/source/a/agentdojo/agentdojo-0.1.35.tar.gz",
+    "package_sha256": "9eacbc89d996f8656b235ad7b626bcf840b1ace7101174ca62d790c7c6d62956",
+    "benchmark_version": "v1.2.2",
+    "trace_adapter": "agentdojo-traces-v0.1.35"
+  },
+  "adaptive_matrix": {
+    "path": "adaptive_attack_matrix.json",
+    "schema": "vangrail-adaptive-attack-matrix-v1",
+    "sha256": "97332bf8efd7e887640b3f2cd482a2dbfa90e778fe1d56e373d73ac3684d97e8"
+  }
+}
