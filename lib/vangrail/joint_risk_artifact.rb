@@ -219,6 +219,7 @@ module Vangrail
              composition.keys.all? { |family| family.is_a?(String) && !family.empty? }
         raise ProtocolError, "training threat composition must contain 1..#{MAX_THREAT_FAMILIES} families"
       end
+
       validate_numeric_table!('training threat composition', composition)
       unless composition.values.all?(&:positive?) && (composition.values.sum - 1.0).abs <= 1e-9
         raise ProtocolError, 'training threat composition must contain positive probabilities summing to one'
