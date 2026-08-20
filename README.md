@@ -31,7 +31,16 @@ It provides:
 - deterministic rails that need no network
 - model-backed rails that call a local proxy first, then whatever endpoint
   you name
+- provenance-labelled values and a locked plan for monitored tool calls
+- versioned score providers for optional encoder, embedding, and judge readers
+- checksum-verified joint-risk and evaluation artifacts
 - a Colang 1.0 rail-flow subset executed in process
+
+Detection and authority are separate. A risk result may restrict an explicit
+tool grant, but it cannot create one. Heavy readers remain optional processes
+or endpoints; the core gem does not gain their runtime dependencies. The
+optional `vangrail-native` gem accelerates the hashed linear kernel without
+changing the Ruby fallback.
 
 ## Install
 
@@ -86,6 +95,8 @@ end
 | Point the model rails at a local proxy | [llmlite](docs/orgmode/howto/using-llmlite.org) |
 | Name any other endpoint | [Choosing an endpoint](docs/orgmode/howto/choosing-an-endpoint.org) |
 | Screen retrieved documents | [Screening](docs/orgmode/howto/screening-documents.org) |
+| Enforce arguments, sinks, confirmation, and use counts | [Enforce tool calls](docs/orgmode/howto/enforcing-tool-calls.org) |
+| Understand optional readers and joint risk | [Detection is not authority](docs/orgmode/explanation/two-planes.org) |
 | Look up a variable or a rail | [Environment](docs/orgmode/reference/environment.org), [rails](docs/orgmode/reference/rails.org) |
 | Read why `certain?` exists | [Three statuses](docs/orgmode/explanation/three-statuses.org) |
 | Read what this does not do | [Coverage](docs/orgmode/explanation/coverage.org) |

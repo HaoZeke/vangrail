@@ -1,0 +1,112 @@
+#+TITLE: Detection Is Not Authority
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Detection Is Not Authority
+
+Vangrail has two deliberately unequal planes.
+
+The *risk plane* reads text and produces scores, uncertainty, and an action
+restriction. It can be wrong, unavailable, off distribution, or too uncertain
+to choose an action. The *enforcement plane* carries provenance and checks a
+locked plan before any tool handler runs. It does not grant authority because
+a detector called some text benign.
+
+That asymmetry is the boundary: risk may remove authority, never create it.
+
+** The enforcement plane
+
+=Cell= recursively labels values with provenance, integrity,
+confidentiality, and capabilities. Labels accumulate through mixing,
+extraction, derivation, serialization, and tool results. Untrusted provenance
+removes capabilities and cannot be promoted by quoting or paraphrasing.
+
+=Plan= holds structured =Grant= objects. =ReferenceMonitor= checks the exact
+argument schema, allowed origins and values, sinks, integrity, confirmation,
+transaction state, ordering, use count, replay identity, and idempotency key.
+=Conversation#invoke= is the public dispatch path; =Tools#call= refuses direct
+execution.
+
+Those are policy invariants rather than empirical claims. They remain in force
+when every detector is absent.
+
+** The risk plane
+
+A reader returns a versioned =ScoreResult= naming its reader, model, feature
+schema, side, scores, intervals, and cost. =OptionalReader= accepts an in-process
+provider, a bounded JSON command, or a caller-configured endpoint. No provider
+means abstention:
+
+#+begin_src ruby
+require 'vangrail'
+
+reader = Vangrail::OptionalReader.new(
+  id: :encoder,
+  model_id: 'encoder-v1',
+  feature_schema: ['risk'],
+)
+result = reader.score('retrieved page', side: :context)
+raise 'missing reader was treated as evidence' unless result.abstained?
+#+end_src
+
+Network failure, timeout, malformed output, model mismatch, unsupported
+context, expired calibration, and out-of-range scores also abstain or become
+invalid. None is converted into a benign score.
+
+=JointRiskModel= loads a checksum-verified artifact and combines the declared
+reader scores jointly. Its result names the artifact, posterior method,
+calibration, posterior interval, context, and accumulated cost. The interval
+must choose one policy action at both endpoints before =certain?= is true.
+
+The compact artifact is inference data, not a training dependency. Training
+lives in =script/train_joint_risk.rb= and emits the artifact, split manifest,
+report, and model card atomically. Grouped train, calibration, threshold, and
+test roles are disjoint. =script/verify_evaluation.rb= recomputes reported
+metrics from per-case outputs and rejects role leakage, missing denominators,
+and mismatched hashes.
+
+** Heavy readers stay optional
+
+The =vangrail= gem has no runtime dependencies outside Ruby's standard
+library. Encoder, embedding, and model-judge runtimes stay behind the score
+provider protocol rather than entering the gem dependency graph. The
+=vangrail-native= gem is a separate optional acceleration package for the
+hashed linear kernel.
+
+An application chooses the process, endpoint, artifact, data flow, and license
+for a heavyweight reader. Its identity becomes part of the score and joint
+artifact contract. Removing it is visible as abstention; it does not weaken
+the reference monitor or silently change to another model.
+
+** What evidence can establish
+
+Static corpora measure coverage, utility, calibration, and cost on their named
+distribution. They do not establish resistance to an attacker that adapts to
+the deployed detector. The checked-in adaptive matrix records attack family,
+access, budget, seed, language, origin, parent case, and utility constraint;
+an external runner must execute the actual target and adversary.
+
+The local synonym adapter remains a regression tool. It is not an adaptive
+security result.
+
+** Reproduce the boundary
+
+- =evaluation/benchmark_sources.json= pins external repositories, payloads,
+  adapters, and the adaptive matrix by version and checksum.
+- =script/fetch_external.rb= verifies each licensed external payload before
+  atomically replacing its cache entry.
+- =script/benchmark_risk.rb= emits raw latency and allocation samples,
+  adversarial scaling curves, source hashes, artifact hashes, and explicit
+  native availability.
+- =script/statistical_verifier_cli.rb= verifies raw evaluation records and
+  emits a deterministic report and Markdown table.
+
+Keep raw result files with the exact tagged source and optional artifacts that
+produced them. A generated table without its per-case input is not evidence.
+
+** See also
+
+- [[file:../howto/enforcing-tool-calls.org][Enforce tool calls with a plan]]
+- [[file:evidence.org][Why blocked is not a probability]]
+- [[file:external-evaluation.org][Scored against somebody else's corpus]]
+- [[file:coverage.org][What this covers, and what it does not]]

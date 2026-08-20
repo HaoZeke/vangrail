@@ -1,0 +1,113 @@
+#+TITLE: Enforce Tool Calls With a Plan
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Enforce Tool Calls With a Plan
+
+A detector can make a call less likely. A plan decides whether the call has
+authority at all. Use =Plan= and =Conversation#invoke= for tools that read
+private data, mutate state, contact another system, or spend a limited grant.
+
+The plan must exist before retrieved or tool-supplied text is visible. Passing
+it to a conversation locks it; neither a model response nor a retrieved page
+can add another grant.
+
+** Grant one read
+
+This example permits one citation whose document came from data and whose
+value may flow to the =reader= sink.
+
+#+begin_src ruby
+require 'vangrail'
+
+delivered = []
+tools = Vangrail::Tools.new
+tools.register(:cite, readonly: true) do |arguments, _conversation|
+  delivered << arguments
+  'citation rendered'
+end
+
+plan = Vangrail::Plan.new(id: 'citation-conversation')
+plan.read(:cite, arguments: { document: :data }, sinks: :reader, uses: 1)
+
+conversation = Vangrail::Conversation.new(Vangrail::Engine.new, plan: plan, tools: tools)
+conversation.ask('Cite the partition table.')
+call = Vangrail::Call.new(
+  tool: :cite,
+  request: Vangrail::Cell.user('Cite the partition table.', capabilities: :cite),
+  arguments: {
+    document: Vangrail::Cell.data('GPU partitions', confidentiality: :reader),
+  },
+  conversation_id: plan.id,
+  sink: :reader,
+)
+
+result = conversation.invoke(call)
+raise 'citation was not authorized' unless result.allowed? && delivered.one?
+#+end_src
+
+The handler receives ordinary Ruby values. Labels stay on the resulting
+=Cell= in =conversation.invocations=, so provenance is not discarded at the
+handler boundary.
+
+The second matching call is denied because the grant has one use. A different
+argument name, a value from an undeclared origin, another sink, another
+conversation ID, or a request without the =cite= capability is denied before
+the handler runs.
+
+** Constrain arguments, not only tool names
+
+=arguments:= is an exact schema. Each value may be:
+
+| Constraint | Meaning |
+|------------+---------|
+| =:data= or =[:data, :tool]= | every untrusted origin must be in the set |
+| =String= or =type: :string= | the raw value must have that type |
+| =in: [...]= | the raw value must be in the allowlist |
+| =pattern: /.../= | the string form must match |
+| =integrity: :validator= | an endorsement by that principal is required |
+| a privileged =Cell= | both value and privileged label must match |
+
+Nested argument values are recursively wrapped as cells. Mixing data into a
+privileged value accumulates provenance, removes capabilities, and cannot
+raise integrity.
+
+** Writes need an idempotency key
+
+=Plan#write= and =Plan#external= grants require every call to carry a nonempty
+=idempotency_key=. Add =confirm: true= when a privileged actor must approve the
+exact call. The confirmation is an opaque token issued by the same reference
+monitor and is bound to the call fingerprint; a Boolean or a token for changed
+arguments is rejected.
+
+For handlers with prepare/commit/rollback support, register them with
+=Tools#register_transactional= and set =transaction: true= on both the grant
+and call. Preparation occurs before authorization. A refusal or handler error
+rolls the prepared operation back, and the audit log records the outcome.
+
+** Risk only removes authority
+
+Pass a risk-plane restriction with =risk:=. A blocked or uncertain result
+denies the call. A passed result does not create a grant, widen an argument
+constraint, restore an exhausted use, or override a profile denial.
+
+#+begin_src ruby
+restriction = estimate.restriction(policy)
+result = conversation.invoke(call, risk: restriction)
+#+end_src
+
+The plan, profile, hook, reference monitor, and risk restriction must all
+permit dispatch. Deny wins at every layer.
+
+** Read the audit trail
+
+=plan.audit.events= includes the call attempt, authorization, confirmation,
+transaction phase, and handler outcome. Values are represented through the
+audit serializer rather than by asking a provider or model to summarize them.
+An allowed handler invocation always has a matching allowed authorization.
+
+** See also
+
+- [[file:guarding-a-conversation.org][Guard a conversation rather than a message]]
+- [[file:../explanation/two-planes.org][Why detection and enforcement are separate]]
+- [[file:../explanation/coverage.org][What this covers, and what it does not]]
