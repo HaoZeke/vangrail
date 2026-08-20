@@ -115,7 +115,7 @@ class TestBayesTraining < Minitest::Test
     Dir.mktmpdir do |directory|
       output = File.join(directory, 'bayes_data.rb')
       report = Vangrail::BayesTraining.generate(output: output, seed: 'paper-v1',
-                                                 output_stream: StringIO.new, error_stream: StringIO.new)
+                                                output_stream: StringIO.new, error_stream: StringIO.new)
       groups = report.fetch(:partitions).transform_values do |rows|
         rows.map { |row| row.fetch(:group) }.uniq
       end
