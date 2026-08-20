@@ -9,10 +9,10 @@ module Vangrail
   class AuditEvent
     attr_reader :id, :type, :at, :data
 
-    def initialize(id:, type:, at:, data:)
+    def initialize(id:, type:, timestamp:, data:)
       @id = id.to_s.freeze
       @type = type.to_sym
-      @at = at.to_s.freeze
+      @at = timestamp.to_s.freeze
       @data = data.freeze
       freeze
     end
@@ -35,7 +35,7 @@ module Vangrail
         event = AuditEvent.new(
           id: format('event-%06d', @events.length + 1),
           type: type,
-          at: timestamp,
+          timestamp: timestamp,
           data: sanitize(data),
         )
         @events << event

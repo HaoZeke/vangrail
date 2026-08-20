@@ -24,6 +24,7 @@ class TestAudit < Minitest::Test
     assert audit.events.all?(&:frozen?)
     document = audit.events.detect { |event| event.type == :call_attempt }.data
                     .dig('arguments', 'document')
+
     assert_equal Vangrail::Cell.data('private partition notes').label.to_h, document['label']
     assert_match(/\A[0-9a-f]{64}\z/, document['sha256'])
     refute_includes audit.to_json, 'private partition notes'
@@ -45,7 +46,8 @@ class TestAudit < Minitest::Test
 
     assert_equal :request_integrity, decision.reason_code
     event = audit.events.reverse.detect { |entry| entry.type == :authorization }
-    assert_equal false, event.data['allowed']
+
+    refute event.data['allowed']
     assert_equal 'request_integrity', event.data['reason_code']
   end
 end
