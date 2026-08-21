@@ -154,6 +154,29 @@ class TestClient < Minitest::Test
     end
   end
 
+  # The two options that make the fallback a check rather than an answer, both
+  # load-bearing against a real server and neither asserted until now.
+  #
+  # Measured on nemoguardrails 0.23.0: with dialog false a benign input comes
+  # back with no content at all and the input rail's decisions in the log, so
+  # nothing was generated; without it the same request generates. And
+  # triggered_input_rail is absent from the response unless output_vars asks for
+  # it, even when an input rail blocked, so dropping that list would turn every
+  # blocked answer into a passed one.
+  def test_the_fallback_asks_for_a_check_and_for_the_rail_variables
+    FakeServer.with(legacy_handler) do |fake|
+      Vangrail::Client.new(base_url: fake.base_url, config_id: 'handbook').check_input('anything')
+      sent = JSON.parse(fake.requests.find { |r| r.path == '/v1/chat/completions' }.body)
+      options = sent.dig('guardrails', 'options') || sent['options']
+
+      assert_equal false, options.dig('rails', 'dialog'), 'the fallback would generate an answer'
+      assert_equal true, options.dig('rails', 'input'), 'the input side was not asked for'
+      assert_includes options['output_vars'], 'triggered_input_rail',
+                      'without this the server reports no rail and a block reads as a pass'
+      assert_includes options['output_vars'], 'triggered_output_rail'
+    end
+  end
+
   def test_the_fallback_reads_a_triggered_rail_as_blocked
     FakeServer.with(legacy_handler(triggered: 'self check input')) do |fake|
       result = Vangrail::Client.new(base_url: fake.base_url).check_input('anything')
