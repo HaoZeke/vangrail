@@ -19,7 +19,7 @@ unchecked.
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
 =secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=,
-=semantic=, =perplexity=, =bayes=, =watermark=. The default set is
+=semantic=, =perplexity=, =bayes=, =linear=, =watermark=. The default set is
 =input,context,output,watermark=.
 
 =watermark= is in the default set because Article 50(2) of the AI Act is an
@@ -80,6 +80,19 @@ No embedding model named means no =semantic= rail can be built. Asked for and
 unbuildable leaves =Rails::Missing= in the list, so the pass stays uncertain
 instead of resting on the offline rails.
 
+** A classifier fitted on your own traffic
+
+| Variable                    | Effect                                        |
+|-----------------------------+-----------------------------------------------|
+| =GUARDRAILS_LINEAR_MODEL=   | path to a model file fitted by the trainer    |
+
+=linear= adds =Rails::Linear=, a linear classifier over hashed n-grams, and the
+gem ships no weights: fit them with =ruby script/train_linear.rb --emit
+model.json= against your own corpus. Naming the file is not enough on its own,
+because the rail is off unless =GUARDRAILS_RAILS= asks for =linear=; asked for
+with no model, it reports itself unchecked rather than passing. A path that
+cannot be read is reported the same way, with the reason attached.
+
 ** What an answer may link to
 
 | Variable                  | Effect                                             |
@@ -119,13 +132,34 @@ without writing code:
 | =GUARDRAILS_GATEWAY_API_KEY=      | credential, first source tried        |
 | =GUARDRAILS_GATEWAY_KEY_FILE=     | a file holding the credential         |
 | =GUARDRAILS_GATEWAY_PASS_ENTRY=   | a =pass= entry holding it             |
+| =GUARDRAILS_GATEWAY_MODEL=        | its model, used as the judge unless   |
+|                                   | the next line names one               |
 | =GUARDRAILS_GATEWAY_JUDGE_MODEL=  | instruct model                        |
 | =GUARDRAILS_GATEWAY_GUARD_MODEL=  | classifier, if it hosts one           |
 | =GUARDRAILS_GATEWAY_GUARD_PRESET= | =apriel_guard= or =llama_guard=       |
 
 Credentials resolve most explicit first: the variable, then the file, then
 =pass=. An override replaces the configured source rather than being tried
-before it, so pointing a key file at nothing means there is no key.
+before it, so pointing a key file at nothing means there is no key. Whichever
+variable holds the credential, the same name with =_FILE= appended names a file
+holding it instead, so a deployment that already documents its own variable does
+not have to rename it.
+
+** Overriding a provider by its own name
+
+Every registered provider also reads two variables named after itself, its name
+upcased with anything but a letter or digit turned into an underscore:
+
+| Variable            | Effect                                     |
+|---------------------+--------------------------------------------|
+| =<NAME>_API_BASE=   | send this provider's calls somewhere else  |
+| =<NAME>_API_KEY=    | the credential to use for them             |
+
+So the provider registered as =llmlite= reads =LLMLITE_API_BASE= and
+=LLMLITE_API_KEY=, and one registered as =my-hub= reads =MY_HUB_API_BASE=. These
+cannot be listed exhaustively here, because the names come from whatever a
+deployment registered. They apply to one provider; =GUARDRAILS_API_BASE= above
+describes an endpoint nobody registered at all.
 
 ** The local proxy
 
@@ -134,6 +168,7 @@ before it, so pointing a key file at nothing means there is no key.
 | =LLMLITE_HOST=      | default =127.0.0.1=                       |
 | =LLMLITE_PORT=      | default =8760=; =GROK_SHIM_PORT= also read |
 | =LLMLITE_MODEL=     | instruct model; none compiled in          |
+| =GROK_LLMLITE_MODEL= | the same, read where =LLMLITE_MODEL= is unset |
 | =LLMLITE_API_KEY=   | credential; none compiled in              |
 
 Availability is decided by a TCP connect, not a request: a proxy that is not

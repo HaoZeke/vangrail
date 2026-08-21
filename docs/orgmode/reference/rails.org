@@ -226,6 +226,52 @@ examples. It ships off by default because the value is the path rather than the
 weights: run =script/train_bayes.rb= against a corpus of your own traffic and
 retain disjoint calibration, threshold, and final-test roles.
 
+** Rails::Linear
+
+A linear classifier over hashed n-grams, reading a model somebody fitted on
+their own traffic. Input and context sides, deterministic, offline, off unless
+asked for with =GUARDRAILS_RAILS=...,linear=. The model file is named by
+=GUARDRAILS_LINEAR_MODEL=.
+
+It ships without weights. On the corpus this repository can measure it is the
+best detector here by a wide margin, at one false alarm in a hundred:
+
+| Detector                              | Caught |
+|---------------------------------------+--------|
+| hand-written rails                    |  39.5% |
+| =Rails::Bayes= over n-grams           |  67.0% |
+| this rail                              |  73.7% |
+| deberta-v3-base-prompt-injection-v2   |  75.3% |
+
+Those figures belong to a model fitted on the corpus it was scored against, so
+they say what the architecture can do rather than what a downloaded file would
+do here. Below one false alarm in a hundred it passes the transformer, 27.0%
+against 21.1%, which is the operating point a desk wants and the one a rule
+stack cannot be asked about at all.
+
+Two reasons the weights are not in the gem. A model fitted on somebody else's
+traffic is the cost this repository spent a long time measuring: =Rails::Bayes=,
+fitted on 48 hand-written clauses, catches 15 of 48 held out, and the same
+architecture on 15,140 real prompts catches three quarters. And the weights do
+not compress into anything readable: pruning to the 20,000 largest costs 26
+points of detection, because the signal sits across two hundred thousand of
+them. So the shipped artefact is the trainer and the reader.
+
+#+begin_src bash
+ruby script/train_linear.rb --emit model.json
+GUARDRAILS_LINEAR_MODEL=model.json GUARDRAILS_RAILS=input,linear
+#+end_src
+
+Features live in =LinearModel= rather than in the trainer, so fitting and
+scoring cannot drift apart: a classifier whose training features differ from its
+serving features by one stemmer revision scores well in every test and badly in
+production, and nothing about that failure looks like a bug. The scoring loop
+has a native kernel, and falls back to Ruby where the extension is not built.
+
+With no model configured the rail reports itself unchecked rather than passing,
+because a detector that is not there must not look like a detector that found
+nothing.
+
 ** Rails::Language
 
 Reports that a page or a question is in a language nothing here reads.
