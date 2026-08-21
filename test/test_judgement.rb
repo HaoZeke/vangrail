@@ -214,6 +214,28 @@ class TestJudgement < Minitest::Test
     assert_in_delta 2**judgement.bits, judgement.factor, 1e-6
   end
 
+  # The serialised form is the HTTP body and the log line, so completeness has to
+  # survive it. Reporting only the rails that fired shows a clean page's posterior
+  # below its prior with nothing on the page to account for the difference.
+  def test_the_serialised_numbers_add_up_to_the_decision
+    [POISONED, CLEAN].each do |text|
+      hash = assess(text).to_h
+      accounted = hash['fired'].sum { |row| row['bits'] } + (hash.dig('silent', 'bits') || 0.0)
+
+      assert_in_delta hash['bits'], accounted, 0.05,
+                      "the payload's own numbers do not add up for #{text[0, 24]}: #{hash.inspect}"
+    end
+  end
+
+  def test_a_clean_page_reports_the_silence_that_cleared_it
+    hash = assess(CLEAN).to_h
+
+    assert_empty hash['fired']
+    assert_operator hash['silent']['rails'], :>, 0
+    assert_operator hash['silent']['bits'], :<, 0.0
+    assert_operator hash['posterior'], :<, hash['prior']
+  end
+
   def test_a_stricter_policy_changes_the_action_and_not_the_number
     cautious = Vangrail::Policy.new(block_at: 0.999_999, review_at: 1e-6)
     judgement = engine.assess(REWORDED, side: :context, prior: 1e-2, policy: cautious)

@@ -50,6 +50,20 @@ module Vangrail
       origin&.channel
     end
 
+    # The rails that said nothing, as one entry rather than a list of them.
+    #
+    # Their bits are what pushes a clean page below its prior, so a payload
+    # carrying only the rails that fired shows a posterior under the prior with
+    # nothing to account for it: the numbers on the page do not add up to the
+    # decision the page is reporting. One entry keeps them adding up without
+    # listing thirty rails that had nothing to say.
+    def silence
+      quiet = contributions.reject { |c| c[:fired] }
+      return nil if quiet.empty?
+
+      { 'rails' => quiet.size, 'bits' => quiet.sum { |c| c[:bits] }.round(2) }
+    end
+
     def to_h
       {
         'side' => side.to_s,
@@ -61,6 +75,7 @@ module Vangrail
         'action' => action.to_s,
         'certain' => certain?,
         'fired' => fired.map { |c| { 'rail' => c[:rail], 'bits' => c[:bits].round(2) } },
+        'silent' => silence,
         'skipped' => (skipped unless skipped.empty?),
       }.compact
     end
