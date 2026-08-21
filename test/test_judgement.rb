@@ -33,6 +33,54 @@ class TestJudgement < Minitest::Test
     }
   end
 
+  # The property the reported bits rest on, and the one nothing asserted.
+  #
+  # A judgement is shown to a person as a posterior plus a list of rails with
+  # bits beside them, and the implicit promise of that display is that the list
+  # accounts for the number: the prior moved by exactly the bits shown, and by
+  # nothing else. Because the combination is a sum in log-odds, that holds
+  # exactly rather than approximately, which is the difference between this and a
+  # post-hoc attribution that apportions a decision it did not make. The additive
+  # explanation the interpretability literature asks for is what this already is,
+  # and completeness is the axiom it can be held to: the parts sum to the whole
+  # (Lundberg and Lee, doi:10.48550/arXiv.1705.07874, name it efficiency).
+  #
+  # What it defends against is a plausible change: clamp the posterior to a
+  # floor, add a prior adjustment, or drop an uncertain rail's bits from the
+  # display, and the numbers on screen stop adding up to the decision while every
+  # other test still passes.
+  def test_the_bits_shown_account_for_the_decision
+    # 1e-8 is in the sweep so a floor on the posterior is a case rather than a
+    # sentence: a clean page at that prior lands below any floor somebody would
+    # write, and the clamp this test exists to catch went unnoticed without it.
+    [1e-8, 1e-4, 1e-2, 0.3].each do |prior|
+      [POISONED, REWORDED, CLEAN].each do |text|
+        judgement = assess(text, prior: prior)
+        rebuilt = Vangrail::Posterior.from_odds(
+          Vangrail::Posterior.to_odds(prior) * (2**judgement.contributions.sum { |c| c[:bits] })
+        )
+
+        assert_in_delta judgement.posterior, rebuilt, 1e-9,
+                        "the contributions do not account for the posterior at prior #{prior}: " \
+                        "#{judgement.contributions.inspect}"
+        assert_in_delta judgement.bits, judgement.contributions.sum { |c| c[:bits] }, 1e-9,
+                        'the reported total is not the sum of the parts'
+      end
+    end
+  end
+
+  # Every rail that ran is in the display, whether it fired or not. A rail whose
+  # silence pushed the page below its prior is evidence, and leaving it out would
+  # show a posterior below the prior with nothing on screen to explain it.
+  def test_a_rail_that_stayed_silent_is_still_in_the_account
+    judgement = assess(CLEAN)
+    silent = judgement.contributions.reject { |c| c[:fired] }
+
+    refute_empty silent, 'no silent rail was reported, so a posterior below the prior is unexplained'
+    assert_operator judgement.posterior, :<, judgement.prior
+    assert_operator silent.sum { |c| c[:bits] }, :<, 0.0
+  end
+
   # The prior is the deployment's and there is no sensible default. Guessing on
   # its behalf would be the exact error this method exists to expose.
   def test_the_prior_is_required_and_the_message_says_why
