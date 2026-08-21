@@ -257,6 +257,25 @@ class TestReference < Minitest::Test
     assert_empty missing, "the documents name scripts that are not here: #{missing.join(', ')}"
   end
 
+  # The Ruby floor is stated in four places and enforced in one. A gemspec raised
+  # without the prose is a promise the package refuses to keep, and a CI matrix
+  # that stops testing the floor is a floor nobody stands on.
+  def test_the_ruby_floor_agrees_everywhere_it_is_stated
+    gemspec = File.read(File.join(ROOT, 'vangrail.gemspec'))[/required_ruby_version\s*=\s*'>= ([\d.]+)'/, 1]
+    ci = File.read(File.join(ROOT, '.github', 'workflows', 'ci.yml'))[/ruby:\s*\[([^\]]+)\]/, 1]
+    prose = [File.join(ROOT, 'README.md'), File.join(ROOT, 'docs', 'orgmode', 'index.org')]
+            .map { |path| File.read(path)[/Ruby ([\d.]+) or newer/, 1] }
+
+    refute_nil gemspec, 'the gemspec no longer declares a required_ruby_version'
+    refute_nil ci, 'the CI matrix no longer lists Ruby versions'
+    prose.each_with_index { |v, i| refute_nil v, "no Ruby floor stated in #{['the README', 'index.org'][i]}" }
+
+    lowest = ci.scan(/[\d.]+/).min_by { |v| Gem::Version.new(v) }
+
+    assert_equal [gemspec], prose.uniq, 'the prose and the gemspec disagree about the Ruby floor'
+    assert_equal gemspec, lowest, 'CI does not test the oldest Ruby the gemspec accepts'
+  end
+
   def test_the_default_rail_set_the_reference_prints_is_the_one_the_builder_uses
     printed = File.read(ENVIRONMENT_DOC)[/The default set is\s+=([a-z,\s]+)=/m, 1]
 
