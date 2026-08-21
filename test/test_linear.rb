@@ -147,19 +147,28 @@ class TestLinear < Minitest::Test
     refute features.key?(Vangrail::LinearModel.bucket(skipped))
   end
 
+  # Normalising twice is the refactor this guards against: it is invisible in
+  # every output and doubles the cost of the hot path.
+  #
+  # Counted by swapping the singleton method and putting it back, rather than
+  # with `stub`. minitest 6 dropped minitest/mock, and this library has no
+  # bundle, so it runs against whichever minitest is installed.
   def test_prepared_text_is_normalized_once
     calls = 0
-    normalize = Vangrail::NLP.method(:normalize)
-
-    prepared = Vangrail::NLP.stub(:normalize, lambda { |text|
+    singleton = Vangrail::NLP.singleton_class
+    original = Vangrail::NLP.method(:normalize)
+    counted = lambda do |text|
       calls += 1
-      normalize.call(text)
-    }) do
-      Vangrail::LinearModel.prepared('Alpha-beta')
+      original.call(text)
     end
+    singleton.send(:define_method, :normalize) { |text| counted.call(text) }
+
+    prepared = Vangrail::LinearModel.prepared('Alpha-beta')
 
     assert_equal ['Alpha-beta', %w[alpha beta], 'alpha beta'], prepared
     assert_equal 1, calls
+  ensure
+    singleton.send(:define_method, :normalize, original)
   end
 
   def test_stride_is_written_into_the_file_and_required_on_load
