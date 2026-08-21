@@ -133,10 +133,24 @@ judgement = engine.assess(page, side: :context, prior: 1e-4)
 judgement.posterior   # => 0.74 for a page three rails object to
 judgement.action      # => :block
 judgement.fired       # => the rails, most telling first, in bits
+judgement.to_h        # => the same as JSON, with the silence counted
 #+end_src
 
 The prior has no default and asking for one raises. Guessing on a deployment's
 behalf would be the exact error this exists to expose.
+
+The numbers add up, and that is a property rather than a coincidence. Combining
+evidence is a sum in log-odds, so the bits beside the rails account for
+the distance from the prior to the posterior, with nothing apportioned after the
+fact the way a post-hoc attribution apportions a decision it did not make. The
+literature calls this completeness, or efficiency in the Shapley sense
+([[https://doi.org/10.48550/arXiv.1705.07874][Lundberg and Lee]]), and a test holds
+the library to it.
+
+Which is why =to_h= reports the silent rails as one entry, a count and their
+summed bits. A clean page's posterior sits below its prior because rails stayed
+silent, and a payload that lists what fired and nothing else shows a drop with
+no way to account for the difference.
 
 ** Three lines, not two
 
