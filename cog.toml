@@ -28,8 +28,12 @@ pre_bump_hooks = [
 
 post_bump_hooks = [
     "git --no-pager show --stat HEAD",
-    "echo \"Prepared v{{version}}. Push the version commit and tag 'v{{version}}' to run release.yml.\"",
-    "echo \"release.yml builds the gem; publishing to RubyGems needs a manual workflow_dispatch with publish=true.\"",
+    "echo \"Prepared v{{version}}. Push the version commit, then the tag 'v{{version}}'.\"",
+    # release.yml runs on any v* tag and publishes at the end of the same job:
+    # there is no publish input to withhold, and no second step to forget. The
+    # tag push is the irreversible one, because a version cannot be pushed to
+    # RubyGems twice.
+    "echo \"Pushing that tag publishes to RubyGems through trusted publishing. There is no second confirmation.\"",
 ]
 
 [commit_types]
