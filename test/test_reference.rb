@@ -206,6 +206,57 @@ class TestReference < Minitest::Test
     assert_empty missing, "these rails are in lib/vangrail/rails and not in the reference:\n  #{missing.join("\n  ")}"
   end
 
+  # Every org link between the documents, resolved against the filesystem. The
+  # published site is exported from these files, so a link that does not resolve
+  # here is a dead link there, and prose does not run.
+  ORG_LINK = /\[\[file:([^\]\[]+)\]/.freeze
+
+  def documents_and_links
+    Dir[File.join(ROOT, 'docs', 'orgmode', '**', '*.org')].flat_map do |path|
+      File.read(path).scan(ORG_LINK).flatten.map { |target| [path, target.split('::').first] }
+    end
+  end
+
+  def test_every_link_between_the_documents_resolves
+    links = documents_and_links
+
+    refute_empty links, 'no links were found in docs/orgmode, so this checks nothing'
+    broken = links.reject { |(path, target)| File.exist?(File.expand_path(target, File.dirname(path))) }
+                  .map { |(path, target)| "#{path.sub("#{ROOT}/", '')} -> #{target}" }
+
+    assert_empty broken, "these links do not resolve:\n  #{broken.join("\n  ")}"
+  end
+
+  # A page nothing links to is a page nobody reaches, whatever the exporter
+  # does with it. The index is the entry point and is linked from the README
+  # rather than from another page.
+  def test_every_page_is_reachable_from_another_page
+    pages = Dir[File.join(ROOT, 'docs', 'orgmode', '**', '*.org')].map { |p| File.realpath(p) }
+    linked = documents_and_links.filter_map do |(path, target)|
+      resolved = File.expand_path(target, File.dirname(path))
+      File.exist?(resolved) ? File.realpath(resolved) : nil
+    end
+
+    refute_empty pages, 'no pages were found, so this checks nothing'
+    orphans = (pages - linked).map { |p| p.sub("#{ROOT}/", '') }
+
+    assert_equal ['docs/orgmode/index.org'], orphans,
+                 'a page is linked from nowhere, or the index stopped being the entry point'
+  end
+
+  # A script named in the prose and absent from the repository is a command a
+  # reader types and cannot run, which is the failure the executable examples
+  # cannot catch: it is prose, not code.
+  def test_every_script_the_documents_name_exists
+    named = Dir[File.join(ROOT, 'docs', '**', '*.org')].push(File.join(ROOT, 'README.md'))
+               .flat_map { |path| File.read(path).scan(%r{script/[a-z_]+\.(?:rb|sh)}) }.uniq
+
+    refute_empty named, 'the documents name no scripts, so this checks nothing'
+    missing = named.reject { |rel| File.file?(File.join(ROOT, rel)) }
+
+    assert_empty missing, "the documents name scripts that are not here: #{missing.join(', ')}"
+  end
+
   def test_the_default_rail_set_the_reference_prints_is_the_one_the_builder_uses
     printed = File.read(ENVIRONMENT_DOC)[/The default set is\s+=([a-z,\s]+)=/m, 1]
 
