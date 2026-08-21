@@ -276,6 +276,55 @@ class TestReference < Minitest::Test
     assert_equal gemspec, lowest, 'CI does not test the oldest Ruby the gemspec accepts'
   end
 
+  # Every symbol the unreleased notes name, resolved against the library.
+  #
+  # Release notes are read by people deciding whether to upgrade, and a note
+  # naming a class that got renamed before the release is worse than no note: it
+  # sends somebody to look for something that never shipped. The section is
+  # written by hand, unlike the released ones below it, which is exactly why it
+  # can drift.
+  #
+  # Shapes, because a bare substring match would pass on a word that happens to
+  # appear in a comment:
+  #
+  #   Foo::Bar        a class or module Bar
+  #   Foo#bar         a method bar
+  #   Foo.bar         a method bar, on the module or the singleton
+  #   CONSTANT        an assignment
+  UNRELEASED = /^## \[Unreleased\](.*?)(?=^## |\z)/m.freeze
+  SYMBOL = /`([A-Z][A-Za-z]*(?:::[A-Za-z]+)*(?:[#.]\w+)?)`/.freeze
+
+  def library_source
+    @library_source ||= Dir[File.join(ROOT, 'lib', '**', '*.rb')].map { |f| File.read(f) }.join("\n")
+  end
+
+  def defined_symbol?(name)
+    case name
+    when /\A(?:[A-Za-z:]+)[#.](\w+)\z/
+      # A reader counts: Result#rewritten_by is an attr_reader, and a check that
+      # only knew about `def` reported the library's own release notes as wrong.
+      method = ::Regexp.last_match(1)
+      library_source.match?(/^\s*def (?:self\.)?#{Regexp.escape(method)}\b/) ||
+        library_source.match?(/^\s*attr_(?:reader|accessor|writer)[^\n]*:#{Regexp.escape(method)}\b/)
+    when /\A[A-Z][A-Z0-9_]+\z/ then library_source.match?(/^\s*#{Regexp.escape(name)}\s*=/)
+    else
+      short = name.split('::').last
+      library_source.match?(/^\s*(?:class|module) #{Regexp.escape(short)}\b/)
+    end
+  end
+
+  def test_every_symbol_the_unreleased_notes_name_exists
+    section = File.read(File.join(ROOT, 'CHANGELOG.md'))[UNRELEASED, 1]
+
+    refute_nil section, 'the changelog has no [Unreleased] section'
+    names = section.scan(SYMBOL).flatten.uniq
+
+    refute_empty names, 'the unreleased notes name no symbols, so this checks nothing'
+    missing = names.reject { |n| defined_symbol?(n) }
+
+    assert_empty missing, "the unreleased notes name symbols the library does not define: #{missing.join(', ')}"
+  end
+
   def test_the_default_rail_set_the_reference_prints_is_the_one_the_builder_uses
     printed = File.read(ENVIRONMENT_DOC)[/The default set is\s+=([a-z,\s]+)=/m, 1]
 
