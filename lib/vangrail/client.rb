@@ -8,6 +8,12 @@ require_relative 'result'
 module Vangrail
   # Interop with a NeMo Guardrails server that already exists.
   #
+  # A `model` is not optional against a current release. nemoguardrails 0.23.0
+  # declares both `/v1/checks` and `/v1/chat/completions` on the same
+  # chat-completion schema, where `model` is a required field, so a Client built
+  # without one gets 422 "body model Field required" from either endpoint.
+  # Verified against a running 0.23.0 on 2026-08-21.
+  #
   # Nothing in this gem needs one. It is here for the case where a team already
   # runs the Python service, wants its configs to stay the source of truth, and
   # wants Ruby to call rather than reimplement. Reach for Config#engine first:
@@ -87,7 +93,14 @@ module Vangrail
         begin
           return from_checks(http.post_json(CHECKS_PATH, checks_payload(messages, rail, chosen)), rail)
         rescue HTTPError => e
-          raise unless e.status == 404
+          # 404 is the server that has no such endpoint. The rest are the server
+          # that has one and will not answer the body we sent, which is what
+          # nemoguardrails 0.23.0 does: its /v1/checks is a chat-completion
+          # schema, so a payload without `model` comes back 422 and a GET comes
+          # back 405. Either way this deployment cannot serve our checks
+          # contract, and the completion path can, so falling back is the answer
+          # and raising was not.
+          raise unless [404, 405].include?(e.status) || schema_rejection?(e)
 
           @checks_supported = false
         end
@@ -110,9 +123,26 @@ module Vangrail
 
     private
 
+    # What /v1/checks is sent.
+    #
+    # `model` and the nested `guardrails` object, because that is what a real
+    # server wants: nemoguardrails 0.23.0 declares this endpoint as a chat
+    # completion request with a `guardrails` field, so `model` is required and a
+    # flat `config_id` is not read. Verified against 0.23.0 on 2026-08-21, where
+    # the flat shape answers 422 and the nested one answers
+    # {"status":"passed","content":"..."}.
+    #
+    # `rail_types` stays. It is what the documented contract names, it is what
+    # an older server would read, and 0.23.0 ignores it rather than refusing it.
+    # A server that refuses the whole body gets the completion path instead,
+    # which is the fallback in `check`.
     def checks_payload(messages, rail, config_id)
       payload = { 'messages' => normalize(messages), 'rail_types' => [rail.to_s] }
-      payload['config_id'] = config_id if config_id
+      payload['model'] = @model if @model
+      if config_id
+        payload['config_id'] = config_id
+        payload['guardrails'] = { 'config_id' => config_id } unless protocol == :flat
+      end
       payload
     end
 

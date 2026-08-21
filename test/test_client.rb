@@ -97,6 +97,63 @@ class TestClient < Minitest::Test
     end
   end
 
+  # What nemoguardrails 0.23.0 actually does, measured against a real server on
+  # 2026-08-21: /v1/checks is declared on the chat-completion schema with a
+  # `guardrails` field, so our body without `model` comes back 422 with a
+  # validation detail rather than 404. Only 404 fell back, so every check against
+  # a current release raised instead of using the completion path that works.
+  def schema_refusing_handler
+    lambda do |req|
+      return [200, CONFIGS] if req.path == '/v1/rails/configs'
+
+      if req.path == '/v1/checks'
+        return [422, { 'detail' => [{ 'type' => 'missing', 'loc' => %w[body model],
+                                      'msg' => 'Field required' }] }]
+      end
+
+      [200, completion('answered')]
+    end
+  end
+
+  def test_a_server_that_refuses_our_checks_body_falls_back_to_a_completion
+    FakeServer.with(schema_refusing_handler) do |fake|
+      client = Vangrail::Client.new(base_url: fake.base_url, config_id: 'handbook')
+
+      assert_predicate client.check_input('how do I connect?'), :passed?
+      refute client.checks_supported, 'the client kept trying an endpoint that will not answer it'
+      assert(fake.requests.any? { |r| r.path == '/v1/chat/completions' })
+    end
+  end
+
+  def test_a_checks_endpoint_that_refuses_the_method_falls_back_too
+    handler = lambda do |req|
+      return [200, CONFIGS] if req.path == '/v1/rails/configs'
+      return [405, { 'detail' => 'Method Not Allowed' }] if req.path == '/v1/checks'
+
+      [200, completion('answered')]
+    end
+
+    FakeServer.with(handler) do |fake|
+      assert_predicate Vangrail::Client.new(base_url: fake.base_url).check_input('x'), :passed?
+    end
+  end
+
+  # The body a real server reads. It wants `model` and the config under
+  # `guardrails`; the flat `config_id` stays for the documented contract and for
+  # an older server, and 0.23.0 ignores what it does not read.
+  def test_the_checks_body_carries_the_model_and_the_nested_config
+    FakeServer.with(checks_handler) do |fake|
+      Vangrail::Client.new(base_url: fake.base_url, config_id: 'handbook',
+                           model: 'a-model').check_input('how do I connect?')
+      sent = JSON.parse(fake.requests.find { |r| r.path == '/v1/checks' }.body)
+
+      assert_equal 'a-model', sent['model']
+      assert_equal({ 'config_id' => 'handbook' }, sent['guardrails'])
+      assert_equal 'handbook', sent['config_id'], 'the documented flat field was dropped'
+      assert_equal ['input'], sent['rail_types']
+    end
+  end
+
   def test_the_fallback_reads_a_triggered_rail_as_blocked
     FakeServer.with(legacy_handler(triggered: 'self check input')) do |fake|
       result = Vangrail::Client.new(base_url: fake.base_url).check_input('anything')
