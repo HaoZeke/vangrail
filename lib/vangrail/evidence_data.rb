@@ -7,6 +7,19 @@ module Vangrail
   # people.
   #
   # GENERATED FILE. Do not edit by hand; rerun script/measure_evidence_external.rb.
+  #
+  # Rerunning does not check these numbers, it replaces them. The benign context
+  # population is whatever documentation is installed on the machine that runs the
+  # script, globbed out of /usr/share/man and /usr/share/doc, so it is a package set
+  # at a moment and not a corpus anybody can obtain. One machine offered 69227
+  # candidate files against the 18258 below. The published attack corpora are
+  # hash-pinned in evaluation/benchmark_sources.json and fetch reproducibly; the
+  # benign context side is the half that does not.
+  #
+  # So a rail whose behaviour moved cannot be found here: the corpus varies by more
+  # than the rail would. What finds that is the per-rail counts pinned against the
+  # sixty poisoned cases and fifteen benign pages this repository ships, which are
+  # reproducible anywhere.
   # The arithmetic that reads this table lives in evidence.rb, which is
   # hand-written and survives regeneration.
   #
