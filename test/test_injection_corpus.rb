@@ -227,4 +227,91 @@ class TestInjectionCorpus < Minitest::Test
 
     assert_equal 'ok', actual
   end
+  # --- what would invalidate the evidence table ---
+
+  # EvidenceData turns a detection rate and a false-alarm rate per rail into bits,
+  # and every judgement is arithmetic over those. The rates were measured against
+  # corpora this repository does not ship, so nothing here can check them. What can
+  # be checked is the thing that would make them wrong: a rail whose behaviour
+  # moved. Nothing tied the table to the rails, and a rail can be tightened or
+  # loosened with the table still claiming its old rate and the suite still green.
+  #
+  # Per-rail counts on this corpus, which is a fixed 60 poisoned cases and 15
+  # benign pages. Catches are floors, so a stronger rail passes and a weakened one
+  # fails. False alarms are exact: on documentation this plain, one is a
+  # regression, and the benign half is what decides whether a rail can be left on.
+  #
+  # Three rails catch nothing here and that is not a defect. Obfuscation looks for
+  # confusables and encoding, many_shot for a repeated turn structure, and language
+  # for text that is not the deployment's: this corpus is plain English overrides,
+  # so their floor is zero and their false-alarm count is the assertion.
+  RAIL_FLOORS = {
+    'injected_instructions' => 58,
+    'paraphrase' => 50,
+    'alignment' => 10,
+    'jailbreak' => 10,
+    'similarity' => 10,
+    'hidden' => 5,
+    'language' => 0,
+    'many_shot' => 0,
+    'obfuscation' => 0
+  }.freeze
+
+  def context_rails
+    Vangrail::Builder.new('GUARDRAILS_RAILS' => 'context').engine.rails(:context)
+  end
+
+  def test_every_rail_catches_what_it_caught_on_this_corpus
+    cases = corpus.map { |c| c[:text] }
+    measured = context_rails.to_h do |r|
+      [r.name.to_s, cases.count { |text| r.call(text, side: :context).blocked? }]
+    end
+
+    assert_equal RAIL_FLOORS.keys.sort, measured.keys.sort,
+                 'the rails in a context build changed, so the floors below describe a different set'
+    RAIL_FLOORS.each do |name, floor|
+      assert_operator measured.fetch(name), :>=, floor,
+                      "#{name} caught #{measured[name]} of #{cases.size} where it caught #{floor}; " \
+                      'EvidenceData states a rate for this rail and nothing else checks it'
+    end
+  end
+
+  def test_no_rail_flags_ordinary_documentation
+    flagged = context_rails.flat_map do |r|
+      BENIGN.select { |text| r.call(text, side: :context).blocked? }.map { |text| [r.name, text[0, 40]] }
+    end
+
+    assert_empty flagged, "rails flagged ordinary documentation:\n  #{flagged.join("\n  ")}"
+  end
+
+  # The hidden rail walks its carriers twice, in two places, for two purposes.
+  # decide rewrites the document carrier by carrier and blocks or modifies from
+  # what it finds; spans is public so an application that rejected a page can show
+  # what was in it, and it walks the same carriers again with a scan rather than a
+  # gsub. decide never calls spans.
+  #
+  # So the evidence an application shows a reader and the evidence the decision
+  # used are two implementations of one traversal, and nothing tied them together.
+  # They agree on all sixty cases here, which is the state worth pinning: a drift
+  # shows a reader a span that had nothing to do with the block, or nothing at all
+  # for a page that was rejected.
+  #
+  # Found by mutation: blinding spans does not fail the per-rail floors above,
+  # because decide has its own copy of the walk.
+  def test_the_spans_an_application_shows_are_the_spans_the_decision_used
+    rail = context_rails.find { |r| r.name.to_s == 'hidden' }
+    skip 'no hidden rail in this build' unless rail
+
+    disagreed = corpus.filter_map do |c|
+      result = rail.call(c[:text], side: :context)
+      acted = result.blocked? || result.modified?
+      found = !rail.spans(c[:text]).empty?
+      [c[:position], acted, found] if acted != found
+    end
+
+    assert_empty disagreed,
+                 'decide and spans disagree about which pages carry a hidden span: ' \
+                 "#{disagreed.inspect}"
+  end
+
 end
