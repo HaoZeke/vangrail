@@ -17,7 +17,21 @@ module Vangrail
   #   engine reports :modified unless something later blocks.
   # - A rail that raises is not a rail that passed. `on_error: :allow` (the
   #   default) keeps going and marks the pass uncertain; `:block` stops.
+  # - A rail that ran and could not decide is the same fact arriving as a
+  #   verdict rather than an exception: an endpoint that timed out, a budget
+  #   spent before the answer, a model that would not hold the contract.
+  #   `on_uncertain: :allow` (the default) reports the pass with `certain?`
+  #   false; `:block` refuses instead.
   # - An empty rail list returns :passed with certain false. Nothing ran.
+  #
+  # Which of those two a deployment wants is a real choice and the published
+  # systems disagree. Meta's LlamaFirewall fails closed: its alignment scanner
+  # answers "treating as potentially compromised for safety" when evaluation
+  # errors. The default here is the other way, because a documentation desk
+  # that refuses to answer whenever its judge is unreachable is a desk that is
+  # down, and because `certain?` hands the caller the fact either way. A
+  # deployment where the cost of answering unchecked is higher than the cost of
+  # not answering sets `on_uncertain: :block` and gets the other policy.
   #
   # Threading rewrites through later rails is the part worth being explicit
   # about: a redaction rail that runs before a policy rail should have the
@@ -26,14 +40,20 @@ module Vangrail
     Screening = Vangrail::Screening
     Triage = Vangrail::Triage
 
-    attr_reader :input_rails, :context_rails, :output_rails, :on_error, :cache
+    attr_reader :input_rails, :context_rails, :output_rails, :on_error, :on_uncertain, :cache
 
-    def initialize(input: [], context: [], output: [], on_error: :allow, cache: true)
+    def initialize(input: [], context: [], output: [], on_error: :allow,
+                   on_uncertain: :allow, cache: true)
       @input_rails = Array(input)
       @context_rails = Array(context)
       @output_rails = Array(output)
       @on_error = on_error.to_sym
       raise ArgumentError, 'on_error must be :allow or :block' unless %i[allow block].include?(@on_error)
+
+      @on_uncertain = on_uncertain.to_sym
+      unless %i[allow block].include?(@on_uncertain)
+        raise ArgumentError, 'on_uncertain must be :allow or :block'
+      end
 
       @cache = cache.is_a?(ResultCache) ? cache : (ResultCache.new if cache)
     end
@@ -163,7 +183,16 @@ module Vangrail
         end
       end
 
-      finish(side, current, modified_by, uncertain || unbuilt,
+      undecided = uncertain || unbuilt
+      # Blocked on the rail that could not decide, not on the side, so the
+      # record names what failed to check rather than reporting a refusal
+      # nobody can trace.
+      if undecided && on_uncertain == :block
+        return Result.new(status: :blocked, rail: undecided.rail || side, certain: false,
+                          reason: undecided.reason, categories: ['unchecked'])
+      end
+
+      finish(side, current, modified_by, undecided,
              rewrites: rewrites, categories: rewrite_categories.uniq)
     end
 

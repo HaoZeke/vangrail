@@ -311,11 +311,35 @@ to a verdict. =script/measure_over_defense.rb=:
 | the shipped stack | 4 | 1.18% | 0 | 2 | 2 |
 | the stack with =bayes= added | 69 | 20.35% | 20 | 20 | 29 |
 
-98.8% over-defense accuracy for what ships, against under 60% for every guard
-model in that paper. That reads well and it is half the story: the same
-conservatism scores 0 of 125 two sections above. A rail that fires on nothing
-fires on nothing benign either, and the pair of numbers is the trade rather
-than a win.
+That paper's own table, with this stack's row put in it, is the honest way to
+read that. Over-defense accuracy is the share of the 339 benign questions a
+model leaves alone; malicious accuracy is from its own attack sets:
+
+| Model                          | Over-defense | Malicious |
+|--------------------------------+--------------+-----------|
+| PromptGuard (Meta)             |        0.88% |    97.10% |
+| Deepset                        |        5.31% |    91.50% |
+| Fmops                          |        5.60% |    93.50% |
+| ProtectAI v2                   |       56.64% |    48.60% |
+| LakeraGuard                    |       87.61% |    53.19% |
+| InjecGuard                     |       87.32% |    77.39% |
+| LlamaGuard3                    |       99.71% |    28.28% |
+| *the shipped stack here*       |     *98.8%*  |      *--* |
+
+Two things fall out of that table and neither is a compliment.
+
+The first is that these models are not in the same business as each other.
+PromptGuard leaves 0.88% of benign trigger-word questions alone and catches
+97.1% of attacks; LlamaGuard3 leaves 99.71% alone and catches 28.28%. Those are
+not better and worse detectors, they are two ends of one dial, and a paper
+quoting either number alone is quoting half a detector.
+
+The second is where this stack sits. 98.8% puts it beside LlamaGuard3, at the
+quiet end, and the malicious column is the one this page has already filled in
+elsewhere: 39.5% of one corpus's jailbreaks and *0 of 125* published indirect
+injections. That is the LlamaGuard3 corner, arrived at with regular expressions
+instead of a 1.4-billion-parameter model. It is not a win. It is the same trade,
+and =Rails::TaskRelation= is the first thing here that moves off it.
 
 =bayes= is the exception and it is the expected one. It is a bag of words, so it
 is the rail most able to learn a word straight to a verdict, its rate climbs
@@ -323,6 +347,24 @@ with the trigger count where the deterministic rails stay flat, and it flags one
 benign question in five, and three documents in four on the context side. Adding
 it because it catches 101 of 125 costs that, and holding it to a false-alarm rate
 a desk could live with costs the catches: 0.8% at 1%.
+
+That paper also supplies the diagnosis as a procedure rather than as an
+inspection, and =script/token_recheck.rb= is it. Their MOF method puts every
+token in the vocabulary through the trained model one at a time, on the argument
+that a word on its own is not an attack, and reads the list of the ones it
+condemns. On the shipped artifact:
+
+: bayes: 67 of 300 features fire on their own (22.3%), 7 of them carry no intent
+:   ignore all               +7.15
+:   page as                  +6.74
+:   thi page                 +6.48
+:   words that cannot carry an instruction and fire anyway:
+:     page as, answer as, that a, of your, your answer, as an, at the
+
+One in five of its features is a block on its own, and seven of them are phrases
+that appear in every document ever written. That is one command, it needs no
+corpus, and it would have caught the regression above the day it was
+introduced. Run it after every retraining.
 
 ** Choosing a threshold instead of inheriting one
 
