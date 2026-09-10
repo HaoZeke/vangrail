@@ -840,30 +840,35 @@ different problems, so both are reported:
 
 | Caught by      | Text half | Code half |
 |----------------+-----------+-----------|
-| both           |        31 |        26 |
-| relation only  |         5 |        11 |
-| drift only     |         4 |         0 |
-| neither        |         0 |         3 |
-| union          |        40 |        37 |
+| both           |        28 |        22 |
+| relation only  |         9 |        10 |
+| drift only     |         2 |         3 |
+| neither        |         1 |         5 |
+| union          |        39 |        35 |
+| flagged clean  |     0 / 1 |     1 / 2 |
 
-Alone, on the text half, it catches 35 of 40 and flags 0 of 40 clean pages.
+The last row is relation then drift, out of forty clean pages each.
 
-The case for running both is the text half and it is modest. Each rail catches
-four or five there that the other misses, and the marginal counts are one family
-rather than a division of labour: the answer-format injections (/reply in
-Base32/, /use a Caesar cipher/) land in either column depending on the run,
-which is the model being inconsistent about whether an instruction about the
-form of a reply is a request it received.
+Alone, on the text half, this rail catches 35 of 40 and flags 0 of 40.
 
-On the code half this rail adds nothing measurable -- 0 caught that relation
-missed -- and =TaskRelation= carries that half on its own. So the honest reading
-is: run =TaskRelation=; add this one if the extra call is cheap and the text
-half matters, and do not expect it to close anything the first one leaves open.
+The case for running both is real and small. Each rail catches two or three the
+other misses on either half, and the marginal counts are one family rather than
+a division of labour: the answer-format injections (/reply in Base32/, /use a
+Caesar cipher/) land in either column depending on the run, which is the model
+being inconsistent about whether an instruction about the form of a reply is a
+request it received. =TaskRelation= carries both halves; this adds a little and
+costs a call.
 
-It also declines more often. Nine of the forty code-half pairs came back
+It also declines far more often. Ten of the forty code-half pairs came back
 unchecked against relation's none, because a document full of code makes the
 model answer the question rather than list it, and that is reported rather than
 counted as clean.
+
+An earlier version of this table read 31/5/4/0 and 26/11/0/3. Those were
+measured before =TaskRelation='s prompt was changed to ask about contribution
+rather than relation, and were left standing against a rail that no longer
+existed -- which is the same failure this repository documents at length about a
+regenerated classifier. Both halves were re-measured against what ships.
 
 *** What neither of them catches
 
