@@ -169,6 +169,46 @@ win properly.
 Both were scored on the same 15,140 prompts, on the same folds where folds
 apply, at the same operating points.
 
+** The other problem, and its own cost ladder
+
+Everything above is about detecting an injection. Whether an answer says only
+what its passages support is a different problem with a separate literature, and
+this gem answers it with =Rails::Grounding=, a written policy in front of an
+instruct model. That is the judge family again, and it costs a round trip per
+answer.
+
+RAGTruth (Niu et al., ACL 2024,
+[[https://doi.org/10.48550/arXiv.2401.00396][10.48550/arXiv.2401.00396]]) is the
+corpus everything here is measured on, at the response level:
+
+| Method                                   | F1   |
+|------------------------------------------+------|
+| prompting, weaker judge (Niu et al.)     | 12.8 |
+| prompting, stronger judge (Niu et al.)   | 28.3 |
+| fine-tuned Llama-2-13B (Niu et al.)      | 52.7 |
+| Luna, an encoder (Belyi et al.)          | 65.4 |
+| =Rails::Grounding=, measured here        | 77.9 |
+| LettuceDetect large (Kovacs et al., [[https://doi.org/10.48550/arXiv.2502.17125][10.48550/arXiv.2502.17125]]) | 79.2 |
+
+The shape of that ladder is the same as the injection one and the ordering is
+not. A judge is the weak family for detecting injections and a strong one here,
+because the question -- does this passage support this sentence -- is the kind of
+reading a general model does well, where "is this text an attack" is a
+distribution it has no particular handle on.
+
+Where the encoders win is cost. MiniCheck (Tang et al.,
+[[https://doi.org/10.48550/arXiv.2404.10774][10.48550/arXiv.2404.10774]]) reports
+frontier-judge accuracy at 400 times lower cost by training a small
+sentence-level checker on synthetic errors, and LettuceDetect processes 30 to 60
+examples a second on one GPU while also marking *which span* is unsupported,
+which a response-level verdict cannot.
+
+Neither belongs in this gem: both are weights, and the runtime here has no
+dependencies. Both are reachable through =OptionalReader=, which takes a bounded
+JSON command or an endpoint, and that is the extension point to use rather than
+waiting for a rail. A deployment answering thousands of questions an hour should
+put one there and keep the judge for the cases it flags.
+
 ** What to use
 
 For a documentation desk on a laptop, in this order.
@@ -186,6 +226,13 @@ is =script/train_linear.rb=.
 Put a fine-tuned encoder in front if you can afford the endpoint, and calibrate
 it against your own benign corpus before believing its threshold, because
 over-defense is what its own literature says it will do to you.
+
+For the context side, add =Rails::TaskRelation= if you can spare a call per
+document. It is the only thing here that touches the published indirect
+injections at all, and the 0% above is what the rest of this list scores on them.
+
+For grounding, the judge this gem ships is already near the top of that ladder,
+and the reason to reach for an encoder is throughput rather than accuracy.
 
 And spend the effort you have left on the training-time family instead, because
 none of the above stops a model from obeying an instruction it reads. Detection

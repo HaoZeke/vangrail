@@ -210,6 +210,68 @@ false. An engine whose endpoint is down keeps its deterministic rails and says
 so in every result. That is the one guarantee here worth calling a guarantee:
 nothing reports a clean check it did not perform.
 
+** What a deployment can rely on today, and what it cannot
+
+Read as a readiness statement rather than a feature list, because a rail list
+reads as a claim of completeness and this is the page that refuses to make one.
+
+*** Ready
+
+The enforcement plane. =Cell=, =Plan= and =ReferenceMonitor= are policy
+invariants, not empirical claims: they hold when every detector is absent, and
+they are the part of this gem that does not depend on a measurement being right.
+Their design is the one CaMeL argues for and they were arrived at
+independently. If you deploy one thing here, deploy this.
+
+The three statuses and =certain?=. Nothing reports a clean check it did not
+perform, and since the known-answer budget was fixed, nothing reports a catch it
+did not perform either. Both directions are tested.
+
+=Rails::Grounding=, at F1 77.9 on RAGTruth's response level, which is within a
+couple of points of a purpose-trained encoder. Its precision is 67.9, so it
+belongs on a warning rather than on a block.
+
+=Rails::TaskRelation=, at 54 of 60 on a held-out slice of the published
+injections with one false alarm, on the family every deterministic rail here
+misses completely.
+
+*** Ready, with the number stated
+
+The deterministic rails as a floor. 39.5% of one corpus's jailbreaks, 0% of the
+published indirect injections, 2.34% of real documentation dropped, and 1.2% of
+benign trigger-word questions. They cost nothing and work when the endpoint is
+down. They are not a defence and this page has never said otherwise.
+
+=Rails::TaskDrift=, which adds four catches in forty over =TaskRelation= on the
+text half and nothing measurable on the code half.
+
+*** Not ready
+
+=Rails::Bayes=. It fires on three documents in four at the threshold it ships
+with, its top features are stopwords, and it was fitted on sixty clauses. Its
+published false-alarm rate was wrong by a factor of eight for four days short of
+a month. Do not enable it without =script/calibrate_threshold.rb=, and expect
+that to tell you the operating points are worthless.
+
+=Rails::Semantic= and =Rails::Perplexity=. Neither threshold ships measured, and
+the calibration path exists now where before there was only a probe that
+declined to recommend a number.
+
+=Rails::KnownAnswer=. Kept and documented as detecting nothing on the models a
+shared gateway serves.
+
+*** Not covered at all
+
+A payload offered as help with the reader's own task -- BIPIA's code half, three
+of forty missed by both context rails. Nothing semantic closes it; it wants the
+code read.
+
+A page in a third language. =Rails::Language= reports it and nothing reads it.
+
+Anything an attacker who has read this source optimises against. Every pattern
+here is public, and the published work on adaptive attacks is unambiguous about
+what that is worth.
+
 ** See also
 
 - [[file:../tutorials/first-rails.org][The ten-minute tutorial]]
