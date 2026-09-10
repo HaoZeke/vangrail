@@ -74,6 +74,32 @@ not belong in a gem.
 | =paraphrase= | 236 | 1.29% | 1.44% |
 | =bayes= | 1617 | 8.86% | 9.21% |
 
+*The bayes row above is wrong, and this page is where it was found.* Re-measured
+with =script/measure_false_alarms.rb= on the shipped artifact, that rail fires on
+*74.9%* of real documentation (1,492 of 2,000, and 75.0% on a random sample of
+396). The row was measured on 2026-08-16; the artifact was regenerated four days
+later, on 2026-08-20, and nothing re-ran this. Every figure below that rests on
+it is corrected in place with the same note. The other eight rows re-measure
+within a factor of two of what they say, which is sample composition rather than
+drift.
+
+Why it fires on three documents in four is legible in the artifact, and it is
+the textbook failure a bag of words has: its highest-weighted features tie at
+2.492 and they are =answer=, =page=, =as=, =all=, =of=, =that=, =thi page=,
+=page as=. Twenty-one of the 300 features are made of nothing but stopwords, and
+=page= is the single commonest word in a corpus of manual pages. The artifact
+carries its own warning if anyone reads it: 60 training clauses, six attacks and
+six benign documents in the threshold role, and a final test of 3 of 6 attacks
+caught with 2 of 6 benign flagged. That is a coin toss on twelve documents, and
+the threshold this ships with was chosen on six of each.
+
+Two lessons, and the second is the one that generalises. A trained artifact and
+a measurement of it are one unit: regenerating the first invalidates the second,
+and nothing here enforced that. And a rate quoted for a rail is a rate for the
+artifact that was in the tree the day somebody ran it, which is why
+=script/calibrate_threshold.rb= now exists and reports the shipped threshold's
+rate beside the ones it solves for.
+
 The stack as a whole drops *2.34%* of real documentation (139 of 5,953, 95%
 bound 2.67%, measured in a separate pass). One page in forty-three, on a corpus
 with nothing wrong with it. An application screening a wiki with these
@@ -205,9 +231,13 @@ anything to work.* It only has to be an instruction the model would rather
 follow. Nothing here addresses that family, and nothing here can without
 flagging ordinary imperative prose.
 
-The learned classifier catches 71 of 125, at a false-alarm rate of 8.9% on real
-documentation, which is not a defence either. It is picking up that the injected
-sentence is stylistically unlike a man page.
+The learned classifier catches 101 of 125 on the shipped artifact, at a
+false-alarm rate of 75% on real documentation, which is not a defence at all: a
+rail that fires on three documents in four catches most attacks the way a rail
+that always fires catches all of them. Its AUC on this splice is 0.557 against
+0.5 for a coin, and held to a 1% false-alarm rate it catches 0.8% of the same
+attacks. The figures this section carried before -- 71 of 125 at 8.9% -- were
+measured on the artifact that preceded the 2026-08-20 regeneration.
 
 ** What closed it: the question, put back
 
@@ -285,8 +315,42 @@ than a win.
 =bayes= is the exception and it is the expected one. It is a bag of words, so it
 is the rail most able to learn a word straight to a verdict, its rate climbs
 with the trigger count where the deterministic rails stay flat, and it flags one
-benign question in five. It already flags 8.9% of ordinary documentation. Adding
-it because it catches 71 of 125 costs a fifth of the questions a reader asks.
+benign question in five, and three documents in four on the context side. Adding
+it because it catches 101 of 125 costs that, and holding it to a false-alarm rate
+a desk could live with costs the catches: 0.8% at 1%.
+
+** Choosing a threshold instead of inheriting one
+
+=script/embedding_probe.rb= reports the gap between the benign corpus's worst
+score and the attack corpus's best, and refuses to recommend a threshold when
+they overlap. That rule is honest and it stops helping exactly when help is
+needed, because real corpora overlap. The deployment still needs a number, and
+refusing to pick one means it gets picked by whatever shipped as a default --
+which is how the row above came to fire on three documents in four.
+
+=script/calibrate_threshold.rb= asks the deployable question instead, the one
+Jacob et al. put in PromptShield (arXiv:2501.15145): fix the false-alarm rate
+you will pay, solve for the threshold that produces it, and report what the rail
+catches there. Their case study is the reason to bother -- a published detector
+reads 22.8% of attacks at its default threshold and pays 2.9% false alarms, and
+holding it to 1% drops it to 12.8%. Same model, and only the second number
+describes a deployment.
+
+On =bayes=, over 125 spliced attacks and 1,985 held-out documents:
+
+| Threshold          | False alarms | Catches |
+|--------------------+--------------+---------|
+| 3, as shipped      | 73.1%        | 79.2%   |
+| 10.9, at 1%        | 0.76%        | 0.80%   |
+| 12.1, at 0.5%      | 0.45%        | 0.80%   |
+| 15.2, at 0.1%      | 0.00%        | 0.00%   |
+
+AUC 0.557. Two rules the script follows and this page recommends to anyone
+quoting a rate. AUC is reported and is not the answer: in that paper it ranked
+one detector above another that beat it everywhere below 1% false alarms, which
+is the only region a deployment sits in. And the threshold is solved on one half
+of the benign corpus and the rates read on the other, which is that paper's own
+stated regret about its first version.
 
 ** The input side, where the rails do something
 

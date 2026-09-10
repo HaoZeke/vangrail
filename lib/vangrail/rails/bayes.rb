@@ -33,6 +33,27 @@ module Vangrail
     # deployment with its own traffic runs script/train_bayes.rb against its own
     # corpus and gets a rail fitted to the attacks it actually receives, with
     # separate calibration, threshold, and final-test evidence.
+    #
+    # WHAT THE SHIPPED WEIGHTS DO ON REAL TEXT, WHICH IS WORSE THAN "A
+    # DEMONSTRATION" SUGGESTS. Measured on installed documentation, this rail
+    # fires on 74.9% of it -- three documents in four -- at the threshold that
+    # ships. It catches 101 of BIPIA's 125 injections spliced into the same
+    # pages, and those two numbers are one number: a rail that fires on
+    # everything catches everything. Its AUC on that splice is 0.557 against 0.5
+    # for a coin, and script/calibrate_threshold.rb held to a 1% false-alarm
+    # rate finds a threshold that catches 0.8%.
+    #
+    # The cause is in the weights and anyone can read it. The top features tie
+    # at 2.492 and they are "answer", "page", "as", "all", "of", "that",
+    # "thi page", "page as"; 21 of the 300 are nothing but stopwords; and "page"
+    # is the commonest word in a corpus of manual pages. This is the shortcut
+    # learning Li et al. name in InjecGuard (arXiv:2410.22770), where a guard
+    # model learns a trigger word straight through to a verdict, arrived at from
+    # 60 training clauses.
+    #
+    # The external evaluation carried 8.86% for years because that rate was
+    # measured before the artifact was regenerated and nothing re-ran it. A
+    # trained artifact and a measurement of it are one unit.
     class Bayes < Rail
       def initialize(weights: BayesData::WEIGHTS, threshold: BayesData::THRESHOLD,
                      calibration: BayesData::CALIBRATION, name: 'bayes', sides: %i[input context])

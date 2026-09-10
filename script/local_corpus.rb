@@ -47,10 +47,27 @@ module LocalCorpus
 
   # One document at a time, which is how anything measuring the whole corpus
   # should read it.
-  def each_document(limit: 20_000, man: true, docs: true, quiet: false, truncate: 20_000)
+  #
+  # `sample:` draws the limit from across the corpus instead of taking the front
+  # of it, and anything measuring a subset wants it. The paths are sorted, so
+  # the first few hundred are section 0p in alphabetical order: aio.h, then
+  # arpa_inet.h, then complex.h. Those are one genre with one register, they
+  # score alike, and a rate measured on them is a rate for POSIX header pages
+  # rather than for documentation. A run over the whole corpus is unaffected,
+  # which is why this was invisible until something took a slice.
+  def each_document(limit: 20_000, man: true, docs: true, quiet: false, truncate: 20_000,
+                    sample: false, seed: 1)
     paths = []
-    paths.concat(man_paths.first((limit * 0.85).to_i)) if man
-    paths.concat(doc_paths.first(limit - paths.size)) if docs
+    if sample
+      random = Random.new(seed)
+      pool = []
+      pool.concat(man_paths) if man
+      pool.concat(doc_paths) if docs
+      paths = pool.shuffle(random: random).first(limit)
+    else
+      paths.concat(man_paths.first((limit * 0.85).to_i)) if man
+      paths.concat(doc_paths.first(limit - paths.size)) if docs
+    end
     warn "reading #{paths.size} documents" unless quiet
 
     stream(paths, truncate) { |path, text| yield(text, path) }
