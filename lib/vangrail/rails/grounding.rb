@@ -20,8 +20,15 @@ module Vangrail
     class Grounding < Rail
       attr_reader :model, :chat, :policy
 
+      # 1200 rather than 256. A reasoning model writes its working before its
+      # verdict, and 256 bought the working: scored against RAGTruth, 125 of 300
+      # checks returned no verdict at all, every one of them a judge that was
+      # still thinking when the budget ran out. 54 of those were responses that
+      # really were hallucinated, and an unchecked result is not a catch.
+      DEFAULT_MAX_TOKENS = 1200
+
       def initialize(provider: nil, model: nil, chat: nil, policy: nil,
-                     name: 'grounding', max_tokens: 256, **chat_options)
+                     name: 'grounding', max_tokens: DEFAULT_MAX_TOKENS, **chat_options)
         super(name: name, sides: [:output])
         @model = model || provider&.model(:judge)
         @policy = policy || Policies.grounding_policy

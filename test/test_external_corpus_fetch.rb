@@ -11,6 +11,7 @@ class TestExternalCorpusFetch < Minitest::Test
     'bipia' => 'a004b69ec0dd446e0afd461d98cb5e96e120a5d0',
     'jailbreak_llms' => '4f4031bf8be187f4478c7f94f42b08714722c12e',
     'notinject' => '0bffa314cde90a5c078c24b3302d7fbb4bd731fa',
+    'ragtruth' => '1d52a81c9e28e79e252a1945d858eb8dfd975c23',
   }.freeze
   FILES = {
     'bipia_text_attack_test.json' =>
@@ -27,6 +28,10 @@ class TestExternalCorpusFetch < Minitest::Test
       ['notinject', 29_902, '6043d94e75b48d8e7682d25dc79eaf45359e1e561ce520e3b8fd5625a91060c6'],
     'notinject_three.json' =>
       ['notinject', 35_765, 'ef01eff0d761d2e34571b3fdbcec08c30cd93efe8d0e1a2eb5c2baeb1873b070'],
+    'ragtruth_response.jsonl' =>
+      ['ragtruth', 21_458_735, 'e4c2e4ac24fff676d8984cc61c35d791612fadc58015335d97dd632375e18073'],
+    'ragtruth_source_info.jsonl' =>
+      ['ragtruth', 15_117_971, '0dffc26ea9f3c1c3d7c7e8336b56ef1646e3cec876edffcca3c9c624d12d578b'],
   }.freeze
 
   def test_manifest_pins_every_external_payload_to_a_revision_and_digest

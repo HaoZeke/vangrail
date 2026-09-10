@@ -25,7 +25,7 @@ saying so is more useful than stretching a rail to cover them.
 | Excessive agency                | none                                         | not applicable: no tools, no actions |
 | System prompt leakage           | =Canary= for the exact token, =Pattern= and =Paraphrase= for the ask, =PromptLeak= for the answer that reproduces it | covered for verbatim and for reproduction; a summary carrying none of the prompt's words is still a gap |
 | Vector and embedding weaknesses | =Engine#screen= at the boundary              | partial: retrieval quality is the application's |
-| Misinformation                  | =Grounding=                                  | covered, at the cost of a round trip |
+| Misinformation                  | =Grounding=                                  | measured: F1 77.9 on RAGTruth at the response level, at the cost of a round trip and two false alarms for every three catches |
 | Unbounded consumption           | =Budget=                                     | covered for size; rate limiting belongs to the server |
 
 ** The limits worth repeating
