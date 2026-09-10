@@ -10,6 +10,7 @@ class TestExternalCorpusFetch < Minitest::Test
   COMMITS = {
     'bipia' => 'a004b69ec0dd446e0afd461d98cb5e96e120a5d0',
     'jailbreak_llms' => '4f4031bf8be187f4478c7f94f42b08714722c12e',
+    'notinject' => '0bffa314cde90a5c078c24b3302d7fbb4bd731fa',
   }.freeze
   FILES = {
     'bipia_text_attack_test.json' =>
@@ -20,6 +21,12 @@ class TestExternalCorpusFetch < Minitest::Test
       ['jailbreak_llms', 3_778_717, 'accf97463de96c33c48453dfee9600191ff6fd5a0c43f3f11d5ebf98d1a5de55'],
     'regular_prompts_2023_12_25.csv' =>
       ['jailbreak_llms', 24_307_583, 'fb82e3f88fbd5d9c6edf8927b138510f339b85012cab24d41d13e1665a9c5819'],
+    'notinject_one.json' =>
+      ['notinject', 26_117, '69b535596d95102424e9c5946944feb4f2d596687eb8213f2ecad75478e5ffdd'],
+    'notinject_two.json' =>
+      ['notinject', 29_902, '6043d94e75b48d8e7682d25dc79eaf45359e1e561ce520e3b8fd5625a91060c6'],
+    'notinject_three.json' =>
+      ['notinject', 35_765, 'ef01eff0d761d2e34571b3fdbcec08c30cd93efe8d0e1a2eb5c2baeb1873b070'],
   }.freeze
 
   def test_manifest_pins_every_external_payload_to_a_revision_and_digest

@@ -1,59 +1,84 @@
 {
-  "schema": "vangrail-benchmark-sources-v1",
-  "agentdojo": {
-    "repository": "https://github.com/ethz-spylab/agentdojo",
-    "source_commit": "a75aba7631d3ca5fb7ab938965c97ead2f9ff84b",
-    "package_version": "0.1.35",
-    "package_url": "https://files.pythonhosted.org/packages/source/a/agentdojo/agentdojo-0.1.35.tar.gz",
-    "package_sha256": "9eacbc89d996f8656b235ad7b626bcf840b1ace7101174ca62d790c7c6d62956",
-    "benchmark_version": "v1.2.2",
-    "trace_adapter": "agentdojo-traces-v0.1.35"
-  },
-  "external_corpora": {
-    "repositories": {
-      "bipia": {
-        "repository": "https://github.com/microsoft/BIPIA",
-        "source_commit": "a004b69ec0dd446e0afd461d98cb5e96e120a5d0"
-      },
-      "jailbreak_llms": {
-        "repository": "https://github.com/verazuo/jailbreak_llms",
-        "source_commit": "4f4031bf8be187f4478c7f94f42b08714722c12e"
-      }
+    "schema": "vangrail-benchmark-sources-v1",
+    "agentdojo": {
+        "repository": "https://github.com/ethz-spylab/agentdojo",
+        "source_commit": "a75aba7631d3ca5fb7ab938965c97ead2f9ff84b",
+        "package_version": "0.1.35",
+        "package_url": "https://files.pythonhosted.org/packages/source/a/agentdojo/agentdojo-0.1.35.tar.gz",
+        "package_sha256": "9eacbc89d996f8656b235ad7b626bcf840b1ace7101174ca62d790c7c6d62956",
+        "benchmark_version": "v1.2.2",
+        "trace_adapter": "agentdojo-traces-v0.1.35"
     },
-    "files": {
-      "bipia_text_attack_test.json": {
-        "corpus": "bipia",
-        "path": "benchmark/text_attack_test.json",
-        "url": "https://raw.githubusercontent.com/microsoft/BIPIA/a004b69ec0dd446e0afd461d98cb5e96e120a5d0/benchmark/text_attack_test.json",
-        "bytes": 6322,
-        "sha256": "75750e7b4e8b34e8f9d88d89b357aeaaf02bd07f9e493ccd37eda74a0cd7c7f8"
-      },
-      "bipia_code_attack_test.json": {
-        "corpus": "bipia",
-        "path": "benchmark/code_attack_test.json",
-        "url": "https://raw.githubusercontent.com/microsoft/BIPIA/a004b69ec0dd446e0afd461d98cb5e96e120a5d0/benchmark/code_attack_test.json",
-        "bytes": 16356,
-        "sha256": "892545c5aaec0645b1ded65dc7816b3d70e9ef4eadcba2301a7a3db93676b6e0"
-      },
-      "jailbreak_prompts_2023_12_25.csv": {
-        "corpus": "jailbreak_llms",
-        "path": "data/prompts/jailbreak_prompts_2023_12_25.csv",
-        "url": "https://raw.githubusercontent.com/verazuo/jailbreak_llms/4f4031bf8be187f4478c7f94f42b08714722c12e/data/prompts/jailbreak_prompts_2023_12_25.csv",
-        "bytes": 3778717,
-        "sha256": "accf97463de96c33c48453dfee9600191ff6fd5a0c43f3f11d5ebf98d1a5de55"
-      },
-      "regular_prompts_2023_12_25.csv": {
-        "corpus": "jailbreak_llms",
-        "path": "data/prompts/regular_prompts_2023_12_25.csv",
-        "url": "https://raw.githubusercontent.com/verazuo/jailbreak_llms/4f4031bf8be187f4478c7f94f42b08714722c12e/data/prompts/regular_prompts_2023_12_25.csv",
-        "bytes": 24307583,
-        "sha256": "fb82e3f88fbd5d9c6edf8927b138510f339b85012cab24d41d13e1665a9c5819"
-      }
+    "external_corpora": {
+        "repositories": {
+            "bipia": {
+                "repository": "https://github.com/microsoft/BIPIA",
+                "source_commit": "a004b69ec0dd446e0afd461d98cb5e96e120a5d0"
+            },
+            "jailbreak_llms": {
+                "repository": "https://github.com/verazuo/jailbreak_llms",
+                "source_commit": "4f4031bf8be187f4478c7f94f42b08714722c12e"
+            },
+            "notinject": {
+                "repository": "https://github.com/leolee99/InjecGuard",
+                "source_commit": "0bffa314cde90a5c078c24b3302d7fbb4bd731fa"
+            }
+        },
+        "files": {
+            "bipia_text_attack_test.json": {
+                "corpus": "bipia",
+                "path": "benchmark/text_attack_test.json",
+                "url": "https://raw.githubusercontent.com/microsoft/BIPIA/a004b69ec0dd446e0afd461d98cb5e96e120a5d0/benchmark/text_attack_test.json",
+                "bytes": 6322,
+                "sha256": "75750e7b4e8b34e8f9d88d89b357aeaaf02bd07f9e493ccd37eda74a0cd7c7f8"
+            },
+            "bipia_code_attack_test.json": {
+                "corpus": "bipia",
+                "path": "benchmark/code_attack_test.json",
+                "url": "https://raw.githubusercontent.com/microsoft/BIPIA/a004b69ec0dd446e0afd461d98cb5e96e120a5d0/benchmark/code_attack_test.json",
+                "bytes": 16356,
+                "sha256": "892545c5aaec0645b1ded65dc7816b3d70e9ef4eadcba2301a7a3db93676b6e0"
+            },
+            "jailbreak_prompts_2023_12_25.csv": {
+                "corpus": "jailbreak_llms",
+                "path": "data/prompts/jailbreak_prompts_2023_12_25.csv",
+                "url": "https://raw.githubusercontent.com/verazuo/jailbreak_llms/4f4031bf8be187f4478c7f94f42b08714722c12e/data/prompts/jailbreak_prompts_2023_12_25.csv",
+                "bytes": 3778717,
+                "sha256": "accf97463de96c33c48453dfee9600191ff6fd5a0c43f3f11d5ebf98d1a5de55"
+            },
+            "regular_prompts_2023_12_25.csv": {
+                "corpus": "jailbreak_llms",
+                "path": "data/prompts/regular_prompts_2023_12_25.csv",
+                "url": "https://raw.githubusercontent.com/verazuo/jailbreak_llms/4f4031bf8be187f4478c7f94f42b08714722c12e/data/prompts/regular_prompts_2023_12_25.csv",
+                "bytes": 24307583,
+                "sha256": "fb82e3f88fbd5d9c6edf8927b138510f339b85012cab24d41d13e1665a9c5819"
+            },
+            "notinject_one.json": {
+                "corpus": "notinject",
+                "path": "datasets/NotInject_one.json",
+                "url": "https://raw.githubusercontent.com/leolee99/InjecGuard/0bffa314cde90a5c078c24b3302d7fbb4bd731fa/datasets/NotInject_one.json",
+                "bytes": 26117,
+                "sha256": "69b535596d95102424e9c5946944feb4f2d596687eb8213f2ecad75478e5ffdd"
+            },
+            "notinject_two.json": {
+                "corpus": "notinject",
+                "path": "datasets/NotInject_two.json",
+                "url": "https://raw.githubusercontent.com/leolee99/InjecGuard/0bffa314cde90a5c078c24b3302d7fbb4bd731fa/datasets/NotInject_two.json",
+                "bytes": 29902,
+                "sha256": "6043d94e75b48d8e7682d25dc79eaf45359e1e561ce520e3b8fd5625a91060c6"
+            },
+            "notinject_three.json": {
+                "corpus": "notinject",
+                "path": "datasets/NotInject_three.json",
+                "url": "https://raw.githubusercontent.com/leolee99/InjecGuard/0bffa314cde90a5c078c24b3302d7fbb4bd731fa/datasets/NotInject_three.json",
+                "bytes": 35765,
+                "sha256": "ef01eff0d761d2e34571b3fdbcec08c30cd93efe8d0e1a2eb5c2baeb1873b070"
+            }
+        }
+    },
+    "adaptive_matrix": {
+        "path": "adaptive_attack_matrix.json",
+        "schema": "vangrail-adaptive-attack-matrix-v1",
+        "sha256": "97332bf8efd7e887640b3f2cd482a2dbfa90e778fe1d56e373d73ac3684d97e8"
     }
-  },
-  "adaptive_matrix": {
-    "path": "adaptive_attack_matrix.json",
-    "schema": "vangrail-adaptive-attack-matrix-v1",
-    "sha256": "97332bf8efd7e887640b3f2cd482a2dbfa90e778fe1d56e373d73ac3684d97e8"
-  }
 }

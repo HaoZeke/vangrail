@@ -16,6 +16,11 @@
 #                   places they circulate, with a matched set of ordinary
 #                   prompts from the same collection. The second half is the
 #                   part that matters: a benign corpus somebody else built.
+#   notinject       Li et al., the over-defense set from InjecGuard: benign
+#                   questions built around the trigger words injection detectors
+#                   learn as shortcuts, three subsets by how many triggers a
+#                   question carries. It is the hard half of a benign corpus,
+#                   which is the half a false-alarm rate is decided by.
 require 'fileutils'
 require 'digest'
 require 'json'

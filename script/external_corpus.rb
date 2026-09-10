@@ -13,6 +13,22 @@ require 'json'
 module ExternalCorpus
   module_function
 
+  # The over-defense set: benign questions carrying the words a detector learns
+  # to fire on. Each row keeps its trigger words and its category, because the
+  # useful reading is which kind of ordinary question a rail cannot tell from an
+  # attack, not how many.
+  def notinject_prompts(dir)
+    %w[notinject_one.json notinject_two.json notinject_three.json].flat_map do |name|
+      path = File.join(dir, name)
+      next [] unless File.file?(path)
+
+      JSON.parse(File.read(path)).map do |row|
+        { text: row['prompt'].to_s, triggers: Array(row['word_list']),
+          category: row['category'].to_s, subset: name.sub(/\Anotinject_/, '').sub(/\.json\z/, '') }
+      end
+    end.reject { |row| row[:text].strip.empty? }
+  end
+
   def bipia_injections(dir)
     %w[bipia_text_attack_test.json bipia_code_attack_test.json].flat_map do |name|
       JSON.parse(File.read(File.join(dir, name))).flat_map { |_category, attacks| attacks }
