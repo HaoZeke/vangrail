@@ -15,12 +15,28 @@ unchecked.
 | =GUARDRAILS=           | =off=, =0=, =no=, or =false= turns every rail off          |
 | =GUARDRAILS_RAILS=     | comma list, or =all=, or =none=                            |
 | =GUARDRAILS_ON_ERROR=  | =allow= (default) or =block= when a rail raises            |
+| =GUARDRAILS_ON_UNCERTAIN= | =allow= (default) or =block= when a rail ran and could not decide |
 | =GUARDRAILS_CACHE=     | =0= turns off the in-process result memo                   |
 
 Rail names for =GUARDRAILS_RAILS=: =input=, =context=, =output=, =grounding=,
 =secrets=, =patterns=, =links=, =multiturn=, =privacy=, =markup=, =budget=,
-=semantic=, =perplexity=, =bayes=, =linear=, =watermark=. The default set is
-=input,context,output,watermark=.
+=semantic=, =perplexity=, =bayes=, =linear=, =task_relation=, =task_drift=,
+=watermark=. The default set is =input,context,output,watermark=.
+
+=task_relation= and =task_drift= read a retrieved page against the question it
+was retrieved for, which is the one family the deterministic context rails catch
+none of. Both are opt-in and both cost a call per screened document; both need
+=user_input= in the context, and say so rather than guessing when it is absent.
+See [[file:rails.org][the rail reference]] for what each is measured at.
+
+=GUARDRAILS_ON_UNCERTAIN= is the other half of =GUARDRAILS_ON_ERROR=. A rail
+that raises and a rail that returns a verdict it could not reach are different
+facts, and the second is the common one for the model-backed rails: an endpoint
+that timed out, a budget spent before the answer, a model that would not hold
+the contract. The default reports the pass with =certain?= false; =block=
+refuses instead, which is the policy Meta's LlamaFirewall takes by default.
+A desk that refuses to answer whenever its judge is unreachable is a desk that
+is down, which is why that is not the default here.
 
 =watermark= is in the default set because Article 50(2) of the AI Act is an
 obligation rather than a preference, and a mark nobody switched on is a mark that

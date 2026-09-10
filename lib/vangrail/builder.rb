@@ -10,7 +10,8 @@ module Vangrail
     # a caller guarding text that no model generated.
     DEFAULT_RAILS = %i[input context output watermark].freeze
     ALL_RAILS = %i[input context output grounding secrets patterns links multiturn privacy
-                   markup budget semantic perplexity bayes linear watermark].freeze
+                   markup budget semantic perplexity bayes linear watermark
+                   task_relation task_drift].freeze
 
     # Deterministic input patterns, kept small on purpose. Each is a phrase
     # whose presence is itself the violation; anything needing judgement belongs
@@ -34,11 +35,11 @@ module Vangrail
     end
 
     def engine
-      return Engine.new(on_error: on_error, cache: cache?) if off?
+      return Engine.new(on_error: on_error, on_uncertain: on_uncertain, cache: cache?) if off?
       return config_engine if config_dir
 
       Engine.new(input: input_rails, context: context_rails, output: output_rails,
-                 on_error: on_error, cache: cache?)
+                 on_error: on_error, on_uncertain: on_uncertain, cache: cache?)
     end
 
     def session(prior:, **kwargs)
@@ -94,6 +95,13 @@ module Vangrail
 
     def on_error
       env['GUARDRAILS_ON_ERROR'].to_s.strip.casecmp('block').zero? ? :block : :allow
+    end
+
+    # A rail that ran and could not decide is a different fact from a rail that
+    # raised, and this is the switch for it. See Engine for why the default is
+    # the way it is.
+    def on_uncertain
+      env['GUARDRAILS_ON_UNCERTAIN'].to_s.strip.casecmp('block').zero? ? :block : :allow
     end
 
     def cache?
@@ -176,6 +184,12 @@ module Vangrail
       rails << semantic(:context) if on?(:semantic)
       rails << perplexity(:context) if on?(:perplexity)
       rails << Rails::Budget.new(sides: [:context]) if on?(:budget)
+      # The only rails here that read the page against the question it was
+      # retrieved for, which is the one family the deterministic set above
+      # catches none of. Off by default: a call per document is a latency and
+      # data-flow decision rather than something to inherit.
+      rails << task_relation if on?(:task_relation)
+      rails << task_drift if on?(:task_drift)
       rails
     end
 
@@ -365,6 +379,18 @@ module Vangrail
       return missing('grounding', :output) unless provider&.available? && provider.model(:judge)
 
       Rails::Grounding.new(provider: provider)
+    end
+
+    def task_relation
+      return missing('task_relation', :context) unless provider&.available? && provider.model(:judge)
+
+      Rails::TaskRelation.new(provider: provider)
+    end
+
+    def task_drift
+      return missing('task_drift', :context) unless provider&.available? && provider.model(:judge)
+
+      Rails::TaskDrift.new(provider: provider)
     end
 
     def off_value?(value)

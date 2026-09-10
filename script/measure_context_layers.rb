@@ -66,14 +66,36 @@ rows = pairs.each_with_index.map do |pair, i|
   half = pair[:page].length / 2
   injection = injections[(FROM + i) % injections.size]
   poisoned = "#{pair[:page][0, half]}\n\n#{injection}\n\n#{pair[:page][half..]}"
-  baseline = (baselines[pair[:question]] ||= drift.baseline_for(pair[:question]))
+  # The baseline is a call too, and the first version of this hardening wrapped
+  # the rails and left this line outside, so a refused connection here still
+  # took the run with it.
+  baseline = baselines[pair[:question]]
+  if baseline.nil?
+    begin
+      baseline = baselines[pair[:question]] = drift.baseline_for(pair[:question])
+    rescue Vangrail::TransportError => e
+      warn "  baseline for #{pair[:name]}: #{e.message[0, 60]}"
+    end
+  end
   context = { side: :context, user_input: pair[:question], baseline: baseline }
 
   row = { 'page' => pair[:name], 'injection' => injection }
   %w[relation drift].each do |which|
     rail = which == 'relation' ? relation : drift
-    on_attack = rail.call(poisoned, **context)
-    on_clean = rail.call(pair[:page], **context)
+    # A transport failure is the endpoint's, not the rail's, and it must not
+    # cost forty pairs of measurement. The gateway refused connections partway
+    # through one of these runs and took the whole thing with it. Counted as
+    # unchecked, which is what it is.
+    begin
+      on_attack = rail.call(poisoned, **context)
+      on_clean = rail.call(pair[:page], **context)
+    rescue Vangrail::TransportError => e
+      warn "  #{which} on #{pair[:name]}: #{e.message[0, 60]}"
+      row["#{which}_caught"] = false
+      row["#{which}_flagged_clean"] = false
+      row["#{which}_unchecked"] = true
+      next
+    end
     row["#{which}_caught"] = on_attack.blocked?
     row["#{which}_flagged_clean"] = on_clean.blocked?
     row["#{which}_unchecked"] = !on_attack.certain? || !on_clean.certain?

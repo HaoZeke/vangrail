@@ -131,6 +131,10 @@ module Vangrail
   #   GUARDRAILS_LINK_HOSTS=a.example,b.example  hosts an answer may link to
   #   GUARDRAILS_IMAGE_HOSTS=a.example           hosts it may auto-load from
   #   GUARDRAILS_ON_ERROR=allow|block
+  #   GUARDRAILS_ON_UNCERTAIN=allow|block  refuse when a rail could not decide
+  #   GUARDRAILS_RAILS=...,task_relation  read a page against the question it
+  #                               was retrieved for. One call per document
+  #   GUARDRAILS_RAILS=...,task_drift  ask what the model now thinks it was asked
   #   GUARDRAILS_REASONING=1      ask a classifier for a written rationale
   #   GUARDRAILS_CACHE=0          turn off the in-process memo
   #
