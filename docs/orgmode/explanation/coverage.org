@@ -17,7 +17,7 @@ saying so is more useful than stretching a rail to cover them.
 
 | Category                        | Rails                                        | State |
 |---------------------------------+----------------------------------------------+-------|
-| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Semantic= and =Perplexity= where an endpoint allows them, and =Spotlight= marking with its hierarchy | covered, with the limits below |
+| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Semantic=, =Perplexity= and =TaskRelation= where an endpoint allows them, and =Spotlight= marking with its hierarchy | covered, with the limits below |
 | Sensitive information disclosure | =Secrets= on the answer, =PersonalData= on the question, including a labelled Dutch BSN with its checksum | covered for shapes, not for judgement |
 | Supply chain                    | none                                         | out of scope; the gem's own answer is a runtime with no dependencies |
 | Data and model poisoning        | =Engine#screen= drops a poisoned document rather than failing the turn | partial: a poisoned page that reads as ordinary prose passes |
@@ -83,11 +83,26 @@ cannot see that relation, so no surface rule closes this gap -- not a longer
 lexicon, not another pattern.
 
 What could: comparing the retrieved text against the question it was retrieved
-for, which is what =Rails::Alignment= exists to do and does not yet do well
-enough; the prompt shape, which tells the model where a passage came from rather
-than detecting anything; and the model rails, which are a model reading an
-argument written to persuade it. All three are layers rather than answers, and
-the honest statement is that this family is open.
+for. =Rails::TaskRelation= is that comparison, and it is the answer to this
+section. Both sides are reduced to tasks of two to five words and each task in
+the document is labelled related or unrelated to the reader's, by the method
+PromptSleuth published (arXiv:2508.20890). On the same kind of splice this
+section reports 0 of 125 for, it catches 52 of 60 on a held-out slice and
+flags 0 of the 60 clean pages beside them.
+
+Three things keep that from closing the family.
+
+It costs a chat call per document and needs an endpoint that can hold a small
+JSON contract, so it is not a floor the way the deterministic rails are. It
+needs the question, which an application screening a corpus in the background
+does not have. And it is blind by construction to the other half of BIPIA: a
+code snippet offered as help with the reader's own task is *related* to it, so
+every one of the held-out misses is the code family. A relation test cannot see
+a payload; that wants a scanner for the code, which this gem does not have, or
+the data flow constrained the way Debenedetti et al. argue in CaMeL.
+
+So the off-task family is closed, at a cost, and the on-task one is open and
+named.
 
 *** A third language is reported rather than read
 
