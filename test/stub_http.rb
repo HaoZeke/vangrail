@@ -51,14 +51,20 @@ class StubHTTP
 end
 
 # Builds a chat-completion body around one assistant message.
-def chat_body(content, extra = {})
+def chat_body(content, extra = {}, finish_reason: 'stop')
   {
     'id' => 'chatcmpl-test',
     'object' => 'chat.completion',
     'model' => 'test-model',
     'choices' => [
       { 'index' => 0, 'message' => { 'role' => 'assistant', 'content' => content },
-        'finish_reason' => 'stop' },
+        'finish_reason' => finish_reason },
     ],
   }.merge(extra)
+end
+
+# A reply the endpoint cut off at the token budget, which several rails have to
+# tell apart from a reply that said something.
+def truncated_chat_body(content, extra = {})
+  chat_body(content, extra, finish_reason: 'length')
 end

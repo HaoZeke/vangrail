@@ -22,6 +22,33 @@ class TestKnownAnswer < Minitest::Test
     Vangrail::Rails::KnownAnswer.new(chat: Vangrail::Chat.new(model: 'm', http: http), model: 'm')
   end
 
+  # The failure this rail reads is an absence: the token did not come back. An
+  # absence has to be told apart from a sentence that was still being written,
+  # or the rail reports a hijack nobody observed. Served by a reasoning model on
+  # the budget this shipped with, it blocked every clean page it was given and
+  # told the reader the document had taken the model off its task.
+  def test_a_reply_cut_off_at_the_budget_is_unchecked_rather_than_a_catch
+    http = StubHTTP.new(responses: {
+                          '/chat/completions' => lambda { |_payload, _n|
+                            truncated_chat_body('We need to repeat the token exactly, so first')
+                          },
+                        })
+    result = rail(http).call('an ordinary manual page', side: :context)
+
+    refute_predicate result, :blocked?
+    refute_predicate result, :certain?
+    assert_includes result.reason, 'budget'
+  end
+
+  # And a reply that finished without the token is still the catch it always was.
+  def test_a_finished_reply_without_the_token_is_still_a_catch
+    http = stub(->(_payload) { 'BANANA' })
+    result = rail(http).call('a page with an injection in it', side: :context)
+
+    assert_predicate result, :blocked?
+    assert_equal ['hijacked'], result.categories
+  end
+
   def test_a_document_that_leaves_the_model_on_task_passes
     result = rail(echoing).call('The gpu_h100 partition allows five days.', side: :context)
 

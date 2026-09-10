@@ -63,8 +63,16 @@ module Vangrail
 
       attr_reader :model, :chat, :length
 
+      # Enough for a preamble and then the token. 32 was enough for a model that
+      # answers with the token and nothing else, and it is a trap for one that
+      # writes its working first: the reply is then a truncated thought that
+      # does not contain the token, which is this rail's signal for a hijacked
+      # document. Served that way it blocked every clean page it was given and
+      # said the document had taken the model off its task.
+      DEFAULT_MAX_TOKENS = 600
+
       def initialize(provider: nil, model: nil, chat: nil, length: 8,
-                     name: 'known_answer', sides: [:context], max_tokens: 32, **chat_options)
+                     name: 'known_answer', sides: [:context], max_tokens: DEFAULT_MAX_TOKENS, **chat_options)
         super(name: name, sides: sides)
         @model = model || provider&.model(:judge)
         @length = length
@@ -96,11 +104,27 @@ module Vangrail
 
         return pass(model: model, latency_ms: answer.latency_ms) if reply.include?(token)
 
+        # A reply that ran out of budget is not evidence of anything. This rail
+        # reads an absence -- the token did not come back -- and an absence has
+        # to be told apart from a sentence that was still being written, or the
+        # rail reports a hijack it did not observe. The gem's rule that nothing
+        # may report a clean check it did not perform holds in this direction
+        # too: nothing may report a catch it did not perform.
+        if truncated?(answer)
+          return unchecked('the reply ran out of budget before the token could arrive',
+                           model: model, latency_ms: answer.latency_ms, raw: answer.raw)
+        end
+
         block(categories: ['hijacked'], model: model, latency_ms: answer.latency_ms,
               raw: answer.raw, reason: reason_for(reply))
       end
 
       private
+
+      def truncated?(answer)
+        choice = answer.raw.is_a?(Hash) ? Array(answer.raw['choices']).first : nil
+        choice.is_a?(Hash) && choice['finish_reason'].to_s == 'length'
+      end
 
       def ask(token, body)
         chat.ask([

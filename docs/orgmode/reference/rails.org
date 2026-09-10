@@ -833,6 +833,20 @@ model behaves differently, and the probe turns "does this help me" into one
 command instead of an assumption. Run it before switching this on, and expect
 the answer to be no.
 
+*** The budget, which was a worse bug than the finding
+
+This rail reads an absence: the token did not come back. Served by a model that
+writes its working before its answer, a 32-token budget bought the working, the
+token never arrived, and the rail blocked *every clean page it was given* --
+telling the reader each time that the document had taken the model off its task.
+A rail that fires on everything and explains itself confidently is worse than
+one that does nothing.
+
+The budget is 600 now, and a reply the endpoint cut off is reported =passed=
+with =certain?= false rather than as a catch. This gem's rule that nothing may
+report a clean check it did not perform holds in the other direction too:
+nothing may report a catch it did not perform.
+
 ** Rails::TaskRelation
 
 Asks whether the tasks a document contains are the task the reader asked for.
@@ -904,6 +918,59 @@ benchmark. The first run here made the same point in a different way -- 34 of
 Every answer that cannot be read is reported =passed= with =certain?= false.
 That is the guarantee this gem makes everywhere and it matters most here: a
 model that cannot hold the JSON contract must not look like a clean page.
+
+** Rails::Grounding
+
+*** What it is measured at
+
+RAGTruth (Niu et al., ACL 2024) is the published corpus for this: responses over
+given passages with every hallucinated span annotated by hand, 35% of the test
+split carrying one. =script/measure_grounding.rb= scores this rail at the
+response level, which is the decision it makes, over 300 responses balanced
+across the three task types.
+
+| Method                                  | Prec. | Rec.  | F1   |
+|-----------------------------------------+-------+-------+------|
+| prompting, weaker judge (Niu et al., Table 5)  |  7.8  | 35.3  | 12.8 |
+| prompting, stronger judge (Niu et al., Table 5) | 18.4  | 60.9  | 28.3 |
+| fine-tuned Llama-2-13B (Niu et al.)      | 55.6  | 50.2  | 52.7 |
+| Luna, an encoder (Belyi et al.)          |   --  |   --  | 65.4 |
+| *this rail*                              | *67.9* | *91.3* | *77.9* |
+| LettuceDetect large (Kovacs et al.)      |   --  |   --  | 79.2 |
+
+Read with two caveats. The sample is 300 balanced across tasks where the
+published numbers are the full test split at its own mix, so this is not a
+like-for-like row; and the judge is a 120B instruct model where the prompt
+baselines above used the judges available in 2024. What the row does establish is
+that a written policy in front of a current model is no longer the 12-to-28 band
+those baselines measured, and is within a couple of points of a purpose-trained
+encoder.
+
+Per task, and the spread is the useful part:
+
+| Task     | Prec. | Rec.  | F1   |
+|----------+-------+-------+------|
+| Data2txt | 86.1  | 95.4  | 90.5 |
+| Summary  | 56.7  | 81.0  | 66.7 |
+| QA       | 42.1  | 88.9  | 57.1 |
+
+Recall is high everywhere and precision is where it hurts. On question
+answering it flags two answers for every one that is really unsupported, which
+for a desk means a third of good answers held back unless the verdict is used to
+warn rather than to block.
+
+*** The budget again
+
+The first run of this scored F1 52.6, and 125 of the 300 checks returned no
+verdict at all: the default was 256 tokens, the judge spent them on its working,
+and every unparsed answer counted as a miss. 54 of those were responses that
+really were hallucinated. The default is 1200 and the same measurement reads
+77.9 with nothing unchecked.
+
+That is the third rail in this gem to have had a budget written for a model that
+answers immediately. It is worth stating as a class: a token budget is not a
+performance setting on a rail that reads a verdict, it is the difference between
+a check and a no-op, and the no-op does not announce itself.
 
 ** Rails::ColangFlow
 
