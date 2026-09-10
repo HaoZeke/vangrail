@@ -113,9 +113,16 @@ def auc(attack_scores, benign_scores)
 end
 
 sorted_calibration = calibration_scores.sort
+top = sorted_calibration.last.to_f
 rows = TARGETS.map do |target|
   threshold = threshold_at(sorted_calibration, target)
+  # Named, because "catches 0.00%" is two different findings. A threshold that
+  # reaches the target and catches nothing is a useless operating point; a
+  # target no threshold reaches short of refusing everything is not an
+  # operating point at all. Jacob et al. mark the second case in their own
+  # tables rather than printing a zero.
   { 'target_fpr' => target, 'threshold' => threshold.round(4),
+    'unreachable' => threshold >= top,
     'fpr_on_holdout' => rate_above(holdout_scores, threshold).round(5),
     'tpr' => rate_above(attack_scores, threshold).round(4) }
 end
@@ -139,8 +146,10 @@ puts format('  %-22s threshold %8.3f  false alarms %6.3f%%  catches %6.2f%%',
             'as shipped', shipped, report['shipped']['fpr_on_holdout'] * 100,
             report['shipped']['tpr'] * 100)
 rows.each do |row|
-  puts format('  at %5.2f%% false alarms  threshold %8.3f  measured %6.3f%%  catches %6.2f%%',
-              row['target_fpr'] * 100, row['threshold'], row['fpr_on_holdout'] * 100, row['tpr'] * 100)
+  note = row['unreachable'] ? '  (no threshold reaches this target short of blocking nothing)' : ''
+  puts format('  at %5.2f%% false alarms  threshold %8.3f  measured %6.3f%%  catches %6.2f%%%s',
+              row['target_fpr'] * 100, row['threshold'], row['fpr_on_holdout'] * 100,
+              row['tpr'] * 100, note)
 end
 puts '  the threshold was chosen on one half of the benign corpus and the rates read on the other'
 puts "written to #{OUTPUT}"

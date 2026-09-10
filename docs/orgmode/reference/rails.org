@@ -1066,10 +1066,21 @@ across the three task types.
 | *this rail*                              | *67.9* | *91.3* | *77.9* |
 | LettuceDetect large (Kovacs et al.)      |   --  |   --  | 79.2 |
 
-Read with two caveats. The sample is 300 balanced across tasks where the
+Read with three caveats. The sample is 300 balanced across tasks where the
 published numbers are the full test split at its own mix, so this is not a
-like-for-like row; and the judge is a 120B instruct model where the prompt
-baselines above used the judges available in 2024. What the row does establish is
+like-for-like row; the judge is a 120B instruct model where the prompt baselines
+above used the judges available in 2024; and the labels have a ceiling. Two
+annotators independently labelling the same responses agreed 91.8% of the time
+at the response level and 78.8% at the span level, so the distance between 77.9
+and the 79.2 above is inside the noise of what the corpus can measure, and
+neither number should be read as a ranking.
+
+What makes the comparison meaningful at all is that the corpus and this rail
+agree on what counts. RAGTruth labels information absent from the reference as a
+hallucination *even when it is true* -- they call it implicit truth -- which is
+the same rule as this rail's G1, a claim no passage states and none implies. A
+grounding checker that scored well by allowing true-but-unsupported claims would
+be measuring something else. What the row does establish is
 that a written policy in front of a current model is no longer the 12-to-28 band
 those baselines measured, and is within a couple of points of a purpose-trained
 encoder.
