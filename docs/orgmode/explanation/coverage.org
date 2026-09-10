@@ -17,7 +17,7 @@ saying so is more useful than stretching a rail to cover them.
 
 | Category                        | Rails                                        | State |
 |---------------------------------+----------------------------------------------+-------|
-| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Semantic=, =Perplexity= and =TaskRelation= where an endpoint allows them, and =Spotlight= marking with its hierarchy | covered, with the limits below |
+| Prompt injection                | =Pattern=, =InjectedInstructions=, =Jailbreak=, =Paraphrase=, =Similarity=, =Obfuscation=, =Hidden=, =ManyShot=, plus =Semantic=, =Perplexity=, =TaskRelation= and =TaskDrift= where an endpoint allows them, and =Spotlight= marking with its hierarchy | covered, with the limits below |
 | Sensitive information disclosure | =Secrets= on the answer, =PersonalData= on the question, including a labelled Dutch BSN with its checksum | covered for shapes, not for judgement |
 | Supply chain                    | none                                         | out of scope; the gem's own answer is a runtime with no dependencies |
 | Data and model poisoning        | =Engine#screen= drops a poisoned document rather than failing the turn | partial: a poisoned page that reads as ordinary prose passes |
@@ -95,14 +95,22 @@ Three things keep that from closing the family.
 It costs a chat call per document and needs an endpoint that can hold a small
 JSON contract, so it is not a floor the way the deterministic rails are. It
 needs the question, which an application screening a corpus in the background
-does not have. And it is blind by construction to the other half of BIPIA: a
-code snippet offered as help with the reader's own task is *related* to it, so
-every one of the held-out misses is the code family. A relation test cannot see
-a payload; that wants a scanner for the code, which this gem does not have, or
-the data flow constrained the way Debenedetti et al. argue in CaMeL.
+does not have. And it does not close BIPIA's code half: scored on that half with
+=Rails::TaskDrift= beside it, the two together catch 37 of 40 and the three they
+both miss are the same shape, a snippet offered as help with the reader's own
+task. That is *related* to the question, so a relation test cannot call it an
+attack without calling every worked example one.
 
-So the off-task family is closed, at a cost, and the on-task one is open and
-named.
+=Rails::TaskDrift= is the second layer and is honest about being a small one. It
+asks whether the model's own account of what it was asked changed when the
+document arrived, which is a different question, and on the text half it catches
+four of forty that the relation rail misses. On the code half it adds nothing
+measurable.
+
+So the off-task family is closed, at a cost. The on-task one is narrowed to a
+payload offered as help, and that residue is not a detection problem: it wants
+the code read, or the data flow constrained the way Debenedetti et al. argue in
+CaMeL, which is what the enforcement plane is for.
 
 *** A third language is reported rather than read
 

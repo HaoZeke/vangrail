@@ -14,6 +14,37 @@ a detector called some text benign.
 
 That asymmetry is the boundary: risk may remove authority, never create it.
 
+** Why there is an enforcement plane at all
+
+The argument for it is not this project's, and the project should say whose it
+is.
+
+Willison's dual-model pattern (2023) is the first half: a privileged model plans
+and never reads untrusted content, and a quarantined model reads the content and
+cannot call tools. Debenedetti et al. show in CaMeL (arXiv:2503.18813) that the
+pattern is not sufficient, and the reason is the one this plane exists for. A
+plan can be locked and the *arguments* still corrupted: an adversary who cannot
+change the sequence of tool calls can still change which file goes to which
+address, by influencing the model that extracts them. Their analogy is exact --
+it is an SQL injection that manipulates the parameters rather than the structure
+of the query -- and they take it as far as arbitrary code execution. Their answer
+is a data-flow graph with capabilities on values, checked by an interpreter at
+each tool call.
+
+=Cell= and =ReferenceMonitor= are that answer in this gem, arrived at
+independently and, on the evidence of that paper, arrived at correctly. Labels
+on values rather than on the plan is the whole point; a plane that checked only
+the plan would pass the attack CaMeL describes.
+
+The same paper is the reason the two planes are unequal rather than
+complementary. Every heuristic defence it surveys -- delimiters, instruction
+hierarchies, sandwiching, fine-tuning for resilience -- provides no guarantee
+and falls to new attacks in practice, which is why nothing a detector says may
+create authority here. This project's own measurements say the same thing from
+the other side: =Rails::TaskRelation= closes the family the deterministic rails
+miss entirely and is still blind to a payload offered as help, and no prompt
+fixes that. A detector is a layer. The invariants are the guarantee.
+
 ** The enforcement plane
 
 =Cell= recursively labels values with provenance, integrity,

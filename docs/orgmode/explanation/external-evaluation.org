@@ -254,14 +254,19 @@ restored, sixty pages poisoned against the same sixty clean,
 
 | Slice                    | Caught  | Flagged clean | Unchecked | Bits | 95% |
 |--------------------------+---------+---------------+-----------+------+-----|
-| Built on                 | 54 / 60 | 0 / 60        | 0 / 120   | 6.77 | 3.97 |
-| Held out                 | 52 / 60 | 0 / 60        | 0 / 120   | 6.71 | 3.89 |
+| Built on                 | 56 / 60 | 0 / 60        | 0 / 120   | 6.82 | 4.05 |
+| Held out                 | 54 / 60 | 1 / 60        | 0 / 120   | 5.18 | 3.18 |
 
 Read the second row. Two of the rail's three rules about what counts as a task
 were written after reading the misses in the first slice, which fits them to it;
 the held-out row runs different pages against different injections and lands
 within noise, so they generalise. For scale, =paraphrase= is worth 3.8 bits on
 this side and was the best thing here.
+
+Both rows are a random draw across the corpus. The first version of this took
+the first sixty eligible pages and the paths are sorted, so it measured sixty
+POSIX header pages in alphabetical order and read 54 and 52. Same conclusion,
+worse sampling, and the sampling was found while chasing the =bayes= row above.
 
 Three things about that number are worth more than the number.
 

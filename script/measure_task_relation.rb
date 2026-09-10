@@ -20,6 +20,11 @@
 #   PAGES=60   how many pairs to score, one chat call each side
 #   SKIP=0     eligible pages to pass over first, which is how a run is held
 #              out from the one whose misses a prompt was written against
+#   SEED=3     which pages the sample draws. Drawn across the corpus rather than
+#              from the front of it: the paths are sorted, so the first sixty
+#              eligible pages are section 0p in alphabetical order, one genre
+#              with one register, and a rate measured on them is a rate for
+#              POSIX header pages
 #   MODEL=...  the summariser, which the paper's numbers say is the detector
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'json'
@@ -31,6 +36,7 @@ DATA = ENV['DATA'] || File.expand_path('../tmp/external', __dir__)
 OUTPUT = ENV['OUTPUT'] || File.expand_path('../tmp/task_relation_results.json', __dir__)
 PAGES = (ENV['PAGES'] || 60).to_i
 SKIP = (ENV['SKIP'] || 0).to_i
+SEED = (ENV['SEED'] || 3).to_i
 
 unless File.exist?(File.join(DATA, 'bipia_text_attack_test.json'))
   abort "no corpora in #{DATA}; run: ruby script/fetch_external.rb"
@@ -54,7 +60,8 @@ end
 
 pairs = []
 seen = 0
-LocalCorpus.each_document(limit: (PAGES + SKIP) * 3, quiet: true, truncate: 4000) do |text, path|
+LocalCorpus.each_document(limit: (PAGES + SKIP) * 3, quiet: true, truncate: 4000,
+                          sample: true, seed: SEED) do |text, path|
   next if pairs.size >= PAGES
 
   question = question_for(path)
@@ -100,6 +107,7 @@ flagged = score(rail, pairs, poisoned: false)
 report = {
   'schema' => 'vangrail-task-relation-v1',
   'skip' => SKIP,
+  'seed' => SEED,
   'model' => model,
   'source' => 'BIPIA injections spliced into installed documentation, with the page-derived question',
   'attacks' => { 'caught' => caught['blocked'], 'total' => caught['total'],
