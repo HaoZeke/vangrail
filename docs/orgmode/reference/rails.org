@@ -761,6 +761,30 @@ roughly 10 s against 0.8 s.
 Requires a provider whose =model(:guard)= is set. Where none exists, use
 =Rails::SelfCheck= instead: same job, different means.
 
+*** The formats it reads
+
+| Preset            | The model answers                             |
+|-------------------+-----------------------------------------------|
+| =:llama_guard=    | =safe= / =unsafe\nS1,S10=                      |
+| =:apriel_guard=   | =safe\nnon_adversarial= / =unsafe-O14\nadversarial= |
+| =:harmful_yes_no= | =Harmful request: yes= / a bare =Yes=          |
+| =:three_label=    | =safe= / =unsafe= / =controversial=            |
+
+There are at least six formats in use across the fourteen guard models Sadeghi
+et al. benchmark (arXiv:2605.28830), and a format this gem cannot read makes
+every check =unchecked=. That is the safe failure and it is still a rail doing
+nothing, which is why the list is longer than the two it started with.
+
+=:harmful_yes_no= is a preset rather than a guess because the polarity belongs
+to the question the model was trained on and not to the token: a bare "yes"
+means the opposite from a model asked "is this safe". Nothing here infers it.
+
+=middle:= says what a third label means, and it is not a detail. In that
+benchmark, counting one model's "controversial" as unsafe rather than dropping
+it moved its recall from 46.75% to 83.97%, 37.2 points. The default is
+=:unsafe=; =:safe= and =:undecided= are available for a deployment that has
+decided otherwise, and neither is silent.
+
 ** Rails::SelfCheck
 
 Puts a written policy in the system message and the text in the user message.

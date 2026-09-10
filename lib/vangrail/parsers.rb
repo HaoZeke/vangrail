@@ -42,6 +42,48 @@ module Vangrail
         reason: describe(codes, LLAMA_GUARD_CATEGORIES, 'unsafe') }
     end
 
+    # "Harmful request: yes" / "Harmful request: no", the WildGuard shape, and
+    # the several models that answer a bare "Yes" or "No" to a policy question
+    # the way ShieldGemma does.
+    #
+    # A bare yes needs the caller to know the question was "is this harmful",
+    # which is why this is a preset rather than a guess: the same token means
+    # the opposite from a model asked "is this safe". Nothing here infers the
+    # polarity from the text.
+    def harmful_yes_no(text)
+      lines = clean_lines(text)
+      line = lines.detect { |l| l.match?(/\A(harmful|harmful request|answer)?\s*:?\s*(yes|no)\b/i) } || lines.first
+      answer = line.to_s[/\b(yes|no)\b/i]
+      return undecided(text) unless answer
+
+      return clean if answer.casecmp('no').zero?
+
+      { decided: true, violated: true, categories: [], reason: 'harmful' }
+    end
+
+    # "safe" / "unsafe" / "controversial", the Qwen Guard shape, and any other
+    # three-label guard that keeps a middle verdict.
+    #
+    # The middle label is a policy decision and it is a large one. Benchmarking
+    # fourteen open guard models, Sadeghi et al. (arXiv:2605.28830) moved one
+    # model's recall from 46.75% to 83.97% -- 37.2 points -- by counting
+    # "controversial" as unsafe rather than dropping it. So it is counted, and
+    # `middle:` says so at the call site: :unsafe blocks, :undecided reports a
+    # check that did not conclude, and nothing silently treats it as clean.
+    def three_label_guard(text, middle: :unsafe)
+      lines = clean_lines(text)
+      head = lines.first.to_s.downcase
+      return clean if head.start_with?('safe')
+      return { decided: true, violated: true, categories: [], reason: 'unsafe' } if head.start_with?('unsafe')
+      return undecided(text) unless head.start_with?('controversial')
+
+      case middle
+      when :unsafe then { decided: true, violated: true, categories: ['controversial'], reason: 'controversial' }
+      when :safe then clean
+      else undecided(text)
+      end
+    end
+
     # "safe\nnon_adversarial" or "unsafe-O14,O12\nadversarial". Either line can
     # condemn the turn: a jailbreak attempt with no hazard category is still one.
     # With reasoning on the same two verdicts arrive as labelled fields after

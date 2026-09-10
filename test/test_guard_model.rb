@@ -11,9 +11,9 @@ class TestGuardModel < Minitest::Test
     [Vangrail::Chat.new(model: 'test/model', http: http), http]
   end
 
-  def guard(content, preset:)
+  def guard(content, preset:, **options)
     chat, http = chat_for(content)
-    [Vangrail::Rails::GuardModel.new(model: 'test/guard', preset: preset, chat: chat), http]
+    [Vangrail::Rails::GuardModel.new(model: 'test/guard', preset: preset, chat: chat, **options), http]
   end
 
   # --- Llama Guard shape ---
@@ -120,5 +120,52 @@ class TestGuardModel < Minitest::Test
     rail.call('the answer', side: :output, user_input: 'the question')
 
     assert_equal(%w[user assistant], http.last_payload['messages'].map { |m| m['role'] })
+  end
+
+  # Four formats, because there are at least six in use across the published
+  # guard models and a format this gem cannot read makes every check unchecked:
+  # a rail that never decides is safe and is still doing nothing.
+  def test_the_wildguard_and_shieldgemma_shape_is_read
+    rail, = guard('Harmful request: yes', preset: :harmful_yes_no)
+
+    assert_predicate rail.call('a question', side: :input), :blocked?
+
+    rail, = guard('Harmful request: no', preset: :harmful_yes_no)
+
+    assert_predicate rail.call('a question', side: :input), :passed?
+
+    rail, = guard('Yes', preset: :harmful_yes_no)
+
+    assert_predicate rail.call('a question', side: :input), :blocked?
+  end
+
+  # The third label is a policy decision worth 37.2 points of recall in the
+  # benchmark that measured it, so it is made explicitly and never by dropping
+  # the verdict on the floor.
+  def test_a_third_label_counts_as_unsafe_unless_the_caller_says_otherwise
+    rail, = guard('controversial', preset: :three_label)
+
+    assert_predicate rail.call('a question', side: :input), :blocked?
+
+    rail, = guard('controversial', preset: :three_label, middle: :safe)
+
+    assert_predicate rail.call('a question', side: :input), :passed?
+
+    rail, = guard('controversial', preset: :three_label, middle: :undecided)
+    result = rail.call('a question', side: :input)
+
+    assert_predicate result, :passed?
+    refute_predicate result, :certain?
+  end
+
+  def test_a_three_label_guard_still_reads_the_two_it_shares
+    assert_predicate guard('safe', preset: :three_label).first.call('x', side: :input), :passed?
+    assert_predicate guard('unsafe', preset: :three_label).first.call('x', side: :input), :blocked?
+  end
+
+  def test_an_unreadable_middle_setting_is_refused_at_construction
+    assert_raises(ArgumentError) do
+      Vangrail::Rails::GuardModel.new(chat: Object.new, model: 'm', preset: :three_label, middle: :maybe)
+    end
   end
 end
