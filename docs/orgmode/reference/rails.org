@@ -810,6 +810,13 @@ model to write out "all requests that I am going to execute now", and their own
 footnote says that template classifies well enough that the activations may not
 be necessary. What is left when the activations go is a text-level probe.
 
+It is a shadow of theirs and the gap should be stated rather than glossed. Their
+linear probes on activations reach *over 0.99 ROC AUC* on an out-of-distribution
+test set, across six language models. This rail catches 35 of 40 with nine of
+forty pairs undecided. The signal is in the activations; what a text-level probe
+recovers is a fraction of it, and no amount of prompt work closes a gap that
+size. If you can reach the weights, read their paper rather than this rail.
+
 *** The probe is deliberately undefended
 
 The first version of this prompt fenced the document and told the model not to
@@ -975,6 +982,16 @@ The abstraction is what survives rewording: "retrieve access credential" and
 "send API token" reduce to the same task, so a paraphrase that walks past every
 pattern here does not walk past this.
 
+The test it applies is Jia et al.'s, from Task Shield (arXiv:2412.16682), which
+formalises the same idea more carefully and is worth following exactly. Theirs
+is not "is this related" but =ContributesTo(e, t)=: does this instruction help
+achieve that goal. And the condition is contribution to *at least one*
+user-level instruction rather than to the newest one, so this rail builds its
+parent from every user turn in =:history= as well as the current question. A
+rail comparing against the current turn alone calls a page serving the question
+before it an injection, which in a dialogue is most pages. Taking their wording
+moved the held-out slice from 54 of 60 with one false alarm to 55 with none.
+
 *** What it is measured at
 
 Sixty installed manual pages, the BIPIA injections spliced into the middle of
@@ -985,7 +1002,7 @@ the summariser.
 | Slice                     | Caught  | Flagged clean | Bits | 95% |
 |---------------------------+---------+---------------+------+-----|
 | The slice it was built on  | 56 / 60 | 0 / 60        | 6.82 | 4.05 |
-| Held out, =SKIP=60=        | 54 / 60 | 1 / 60        | 5.18 | 3.18 |
+| Held out, =SKIP=60=        | 55 / 60 | 0 / 60        | 6.79 | 4.01 |
 
 The second row is the one to read. Two of the three prompt rules were written
 after reading the misses in the first, which fits the prompt to that slice; the

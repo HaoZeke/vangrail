@@ -255,7 +255,7 @@ restored, sixty pages poisoned against the same sixty clean,
 | Slice                    | Caught  | Flagged clean | Unchecked | Bits | 95% |
 |--------------------------+---------+---------------+-----------+------+-----|
 | Built on                 | 56 / 60 | 0 / 60        | 0 / 120   | 6.82 | 4.05 |
-| Held out                 | 54 / 60 | 1 / 60        | 0 / 120   | 5.18 | 3.18 |
+| Held out                 | 55 / 60 | 0 / 60        | 0 / 120   | 6.79 | 4.01 |
 
 Read the second row. Two of the rail's three rules about what counts as a task
 were written after reading the misses in the first slice, which fits them to it;

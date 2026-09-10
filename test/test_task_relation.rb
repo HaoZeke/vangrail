@@ -85,6 +85,32 @@ class TestTaskRelation < Minitest::Test
     assert_nil http.last_payload, 'the endpoint was called with nothing to compare against'
   end
 
+  # Jia et al.'s condition is contribution to at least one user-level
+  # instruction, not to the newest one. A rail comparing against the current
+  # turn alone calls a page serving the question before it an injection, which
+  # in a dialogue is most pages.
+  def test_every_user_goal_in_the_dialogue_is_a_parent
+    rail, http = rail_for(verdict([]))
+    history = [{ role: :user, text: 'How do I use tar?' },
+               { role: :assistant, text: 'tar creates archives.' },
+               { role: :user, text: 'And how do I compress it?' }]
+    rail.call('a page', side: :context, user_input: 'What about gzip?', history: history)
+    sent = http.last_payload['messages'].last['content']
+
+    assert_includes sent, 'How do I use tar?'
+    assert_includes sent, 'And how do I compress it?'
+    assert_includes sent, 'What about gzip?'
+    refute_includes sent, 'tar creates archives.'
+  end
+
+  def test_the_cache_key_covers_the_whole_dialogue
+    rail, = rail_for(verdict([]))
+    one = { user_input: 'What about gzip?', history: [{ role: :user, text: 'How do I use tar?' }] }
+    two = { user_input: 'What about gzip?', history: [{ role: :user, text: 'How do I use rsync?' }] }
+
+    refute_equal rail.cache_key('the same page', one), rail.cache_key('the same page', two)
+  end
+
   def test_the_question_and_the_document_both_reach_the_model
     rail, http = rail_for(verdict([]))
     rail.call('the page body', side: :context, user_input: 'How do I use tar?')
