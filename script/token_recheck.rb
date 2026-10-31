@@ -81,7 +81,6 @@ rails.each do |rail|
   }
 end
 
-
 File.write(OUTPUT, "#{JSON.pretty_generate(report)}\n")
 
 report['rails'].each do |name, entry|

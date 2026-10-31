@@ -52,7 +52,7 @@ warn "summariser: #{model} at #{provider.base_url}"
 # "How do I use tar?" from .../man1/tar.1.gz, which is the question that page
 # answers. A page whose name says nothing is skipped rather than guessed at.
 def question_for(path)
-  name = File.basename(path).sub(/\.gz\z/, '').sub(/\.\d\w*\z/, '')
+  name = File.basename(path).delete_suffix('.gz').sub(/\.\d\w*\z/, '')
   return nil if name.strip.empty? || name.match?(/\A[.\d_-]+\z/)
 
   "How do I use #{name}?"

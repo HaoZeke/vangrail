@@ -57,9 +57,7 @@ module Vangrail
         end
 
         @middle = middle.to_sym
-        unless MIDDLE_LABELS.include?(@middle)
-          raise ArgumentError, "middle must be one of #{MIDDLE_LABELS.join(', ')}"
-        end
+        raise ArgumentError, "middle must be one of #{MIDDLE_LABELS.join(', ')}" unless MIDDLE_LABELS.include?(@middle)
 
         @reasoning = reasoning && @preset == :apriel_guard
         super(name: name || @preset.to_s, sides: sides)

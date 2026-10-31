@@ -30,7 +30,7 @@ class TestReference < Minitest::Test
 
   # `ENV['NAME']`, `ENV.fetch('NAME'`, and the same through a passed-in `env`
   # hash, which is how the builder reads its own copy.
-  LITERAL = /\b(?:ENV|env)(?:\.fetch\(|\[)\s*['"]([A-Z][A-Z0-9_]*)['"]/.freeze
+  LITERAL = /\b(?:ENV|env)(?:\.fetch\(|\[)\s*['"]([A-Z][A-Z0-9_]*)['"]/
 
   # `"#{ENV_PREFIX}_API_BASE"`, anywhere rather than only inside `env[...]`.
   # The gateway composes eight names this way and hands three of them to a Spec
@@ -39,19 +39,21 @@ class TestReference < Minitest::Test
   # for crying wolf, and is deleted. A composed name is an env name here by
   # construction: nothing else in this library builds an upper-case suffix onto
   # a prefix.
-  INTERPOLATED = /"\#\{([A-Za-z_][A-Za-z0-9_]*)\}([A-Z0-9_]*)"/.freeze
+  INTERPOLATED = /"\#\{([A-Za-z_][A-Za-z0-9_]*)\}([A-Z0-9_]*)"/
 
   # Reads whose name is not fixed at all, one per registered provider or per
   # configured credential variable. They cannot be compared against a table of
   # names, so the reference has to document the pattern and this has to name
   # each site: a new one fails the run rather than widening the exemption
   # silently. [path, expression, what it generates].
+  # The braces are characters of the source being matched, so the two pieces
+  # are joined rather than written as one quoted string.
   PATTERNS = [
-    ['lib/vangrail/provider.rb', '#{env_prefix}_API_BASE',
+    ['lib/vangrail/provider.rb', ['#', '{env_prefix}_API_BASE'].join,
      'one per registered provider, from its name upcased'],
-    ['lib/vangrail/provider.rb', '#{env_prefix}_API_KEY',
+    ['lib/vangrail/provider.rb', ['#', '{env_prefix}_API_KEY'].join,
      'one per registered provider, from its name upcased'],
-    ['lib/vangrail/providers/gateway.rb', '#{spec.key_env}_FILE',
+    ['lib/vangrail/providers/gateway.rb', ['#', '{spec.key_env}_FILE'].join,
      'the _FILE suffix on whichever key variable a spec names'],
   ].freeze
 
@@ -63,15 +65,15 @@ class TestReference < Minitest::Test
   # variable names that no line reads literally and that no deployment can be
   # told to set. Read out of the comparison rather than exempted by shape: an
   # exemption on `_API_BASE` would also excuse a table row that went stale.
-  PATTERN_SECTION = /^\*\* Overriding a provider by its own name.*?(?=^\*\* )/m.freeze
+  PATTERN_SECTION = /^\*\* Overriding a provider by its own name.*?(?=^\*\* )/m
 
   # A constant assigned a plain string, which is the only interpolation this
   # resolves. Anything else fails the run rather than being skipped.
-  CONSTANT = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*['"]([^'"]+)['"]/.freeze
+  CONSTANT = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*['"]([^'"]+)['"]/
 
   # `=NAME=` inside the tables. Org verbatim markup, so the delimiters are the
   # column the reader sees.
-  DOCUMENTED = /=([A-Z][A-Z0-9_]*)=/.freeze
+  DOCUMENTED = /=([A-Z][A-Z0-9_]*)=/
 
   # Comment lines carry example variables belonging to whatever embeds this gem:
   # `ENV['ASK_WATERMARK_KEY']` appears twice as the desk's own name. A comment
@@ -126,6 +128,7 @@ class TestReference < Minitest::Test
   def documented_rail_names
     text = File.read(ENVIRONMENT_DOC)
     sentence = text[/Rail names for =GUARDRAILS_RAILS=:(.*?)\.\s/m, 1]
+
     refute_nil sentence, "#{ENVIRONMENT_DOC} no longer carries a 'Rail names for =GUARDRAILS_RAILS=:' sentence"
     sentence.scan(/=([a-z_]+)=/).flatten.map(&:to_sym).uniq.sort
   end
@@ -142,7 +145,7 @@ class TestReference < Minitest::Test
     unresolved = scan.last
 
     assert_empty unresolved,
-                 "these reads compose a name this test cannot resolve, so teach it the constant " \
+                 'these reads compose a name this test cannot resolve, so teach it the constant ' \
                  "rather than letting the comparison quietly narrow:\n  #{unresolved.join("\n  ")}"
   end
 
@@ -150,14 +153,15 @@ class TestReference < Minitest::Test
     missing = code_variables - documented_variables
 
     assert_empty missing,
-                 "these variables are read by lib/ or exe/ and named nowhere in the reference:\n  #{missing.join("\n  ")}"
+                 'these variables are read by lib/ or exe/ and named nowhere in the reference:' \
+                 "\n  #{missing.join("\n  ")}"
   end
 
   def test_every_documented_variable_is_read
     unread = documented_variables - code_variables
 
     assert_empty unread,
-                 "the reference names these and nothing reads them, so a reader who sets one gets " \
+                 'the reference names these and nothing reads them, so a reader who sets one gets ' \
                  "nothing:\n  #{unread.join("\n  ")}"
   end
 
@@ -185,10 +189,10 @@ class TestReference < Minitest::Test
   end
 
   def test_the_reference_documents_the_generated_names
-    assert File.read(ENVIRONMENT_DOC).include?(PATTERN_MARKER),
-           "#{ENVIRONMENT_DOC} no longer carries \"#{PATTERN_MARKER}\", so the per-provider " \
-           'overrides are undocumented. They are read for every provider name and can never ' \
-           'appear in a table of names.'
+    assert_includes File.read(ENVIRONMENT_DOC), PATTERN_MARKER,
+                    "#{ENVIRONMENT_DOC} no longer carries \"#{PATTERN_MARKER}\", so the per-provider " \
+                    'overrides are undocumented. They are read for every provider name and can never ' \
+                    'appear in a table of names.'
   end
 
   # A rail nobody documented is a rail nobody can ask for on purpose. Read from
@@ -209,7 +213,7 @@ class TestReference < Minitest::Test
   # Every org link between the documents, resolved against the filesystem. The
   # published site is exported from these files, so a link that does not resolve
   # here is a dead link there, and prose does not run.
-  ORG_LINK = /\[\[file:([^\]\[]+)\]/.freeze
+  ORG_LINK = /\[\[file:([^\]\[]+)\]/
 
   def documents_and_links
     Dir[File.join(ROOT, 'docs', 'orgmode', '**', '*.org')].flat_map do |path|
@@ -248,8 +252,9 @@ class TestReference < Minitest::Test
   # reader types and cannot run, which is the failure the executable examples
   # cannot catch: it is prose, not code.
   def test_every_script_the_documents_name_exists
-    named = Dir[File.join(ROOT, 'docs', '**', '*.org')].push(File.join(ROOT, 'README.md'))
-               .flat_map { |path| File.read(path).scan(%r{script/[a-z_]+\.(?:rb|sh)}) }.uniq
+    paths = Dir[File.join(ROOT, 'docs', '**', '*.org')]
+    paths << File.join(ROOT, 'README.md')
+    named = paths.flat_map { |path| File.read(path).scan(/script\/[a-z_]+\.(?:rb|sh)/) }.uniq
 
     refute_empty named, 'the documents name no scripts, so this checks nothing'
     missing = named.reject { |rel| File.file?(File.join(ROOT, rel)) }
@@ -268,7 +273,9 @@ class TestReference < Minitest::Test
 
     refute_nil gemspec, 'the gemspec no longer declares a required_ruby_version'
     refute_nil ci, 'the CI matrix no longer lists Ruby versions'
-    prose.each_with_index { |v, i| refute_nil v, "no Ruby floor stated in #{['the README', 'index.org'][i]}" }
+    labels = ['the README', 'index.org']
+
+    prose.each_with_index { |version, i| refute_nil version, "no Ruby floor stated in #{labels[i]}" }
 
     lowest = ci.scan(/[\d.]+/).min_by { |v| Gem::Version.new(v) }
 
@@ -291,8 +298,8 @@ class TestReference < Minitest::Test
   #   Foo#bar         a method bar
   #   Foo.bar         a method bar, on the module or the singleton
   #   CONSTANT        an assignment
-  UNRELEASED = /^## \[Unreleased\](.*?)(?=^## |\z)/m.freeze
-  SYMBOL = /`([A-Z][A-Za-z]*(?:::[A-Za-z]+)*(?:[#.]\w+)?)`/.freeze
+  UNRELEASED = /^## \[Unreleased\](.*?)(?=^## |\z)/m
+  SYMBOL = /`([A-Z][A-Za-z]*(?:::[A-Za-z]+)*(?:[#.]\w+)?)`/
 
   def library_source
     @library_source ||= Dir[File.join(ROOT, 'lib', '**', '*.rb')].map { |f| File.read(f) }.join("\n")

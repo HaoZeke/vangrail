@@ -63,7 +63,7 @@ module LocalCorpus
       pool = []
       pool.concat(man_paths) if man
       pool.concat(doc_paths) if docs
-      paths = pool.shuffle(random: random).first(limit)
+      paths = pool.sample(limit, random: random)
     else
       paths.concat(man_paths.first((limit * 0.85).to_i)) if man
       paths.concat(doc_paths.first(limit - paths.size)) if docs

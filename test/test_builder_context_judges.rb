@@ -35,6 +35,7 @@ class TestBuilderContextJudges < Minitest::Test
 
     assert_predicate rail, :placeholder?
     result = rail.call('a page', side: :context, user_input: 'a question')
+
     refute_predicate result, :certain?
     refute_predicate result, :blocked?
   end

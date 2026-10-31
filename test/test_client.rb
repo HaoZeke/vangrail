@@ -145,7 +145,7 @@ class TestClient < Minitest::Test
     FakeServer.with(checks_handler) do |fake|
       Vangrail::Client.new(base_url: fake.base_url, config_id: 'handbook',
                            model: 'a-model').check_input('how do I connect?')
-      sent = JSON.parse(fake.requests.find { |r| r.path == '/v1/checks' }.body)
+      sent = JSON.parse(fake.requests.detect { |r| r.path == '/v1/checks' }.body)
 
       assert_equal 'a-model', sent['model']
       assert_equal({ 'config_id' => 'handbook' }, sent['guardrails'])
@@ -166,11 +166,13 @@ class TestClient < Minitest::Test
   def test_the_fallback_asks_for_a_check_and_for_the_rail_variables
     FakeServer.with(legacy_handler) do |fake|
       Vangrail::Client.new(base_url: fake.base_url, config_id: 'handbook').check_input('anything')
-      sent = JSON.parse(fake.requests.find { |r| r.path == '/v1/chat/completions' }.body)
+      sent = JSON.parse(fake.requests.detect { |r| r.path == '/v1/chat/completions' }.body)
       options = sent.dig('guardrails', 'options') || sent['options']
 
-      assert_equal false, options.dig('rails', 'dialog'), 'the fallback would generate an answer'
-      assert_equal true, options.dig('rails', 'input'), 'the input side was not asked for'
+      # Exact booleans. `refute` would pass when the key is missing, and a missing
+      # key is the failure this is here to catch.
+      assert_same false, options.dig('rails', 'dialog'), 'the fallback would generate an answer'
+      assert_same true, options.dig('rails', 'input'), 'the input side was not asked for'
       assert_includes options['output_vars'], 'triggered_input_rail',
                       'without this the server reports no rail and a block reads as a pass'
       assert_includes options['output_vars'], 'triggered_output_rail'

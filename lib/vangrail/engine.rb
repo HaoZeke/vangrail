@@ -51,9 +51,7 @@ module Vangrail
       raise ArgumentError, 'on_error must be :allow or :block' unless %i[allow block].include?(@on_error)
 
       @on_uncertain = on_uncertain.to_sym
-      unless %i[allow block].include?(@on_uncertain)
-        raise ArgumentError, 'on_uncertain must be :allow or :block'
-      end
+      raise ArgumentError, 'on_uncertain must be :allow or :block' unless %i[allow block].include?(@on_uncertain)
 
       @cache = cache.is_a?(ResultCache) ? cache : (ResultCache.new if cache)
     end

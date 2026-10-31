@@ -154,14 +154,15 @@ module Vangrail
       # so the comparison usually cancels it; usually is not good enough when
       # the alternative is a false alarm on a clean page.
       ECHO = /\A(all requests that i am going|complete .*sentence|finish .*sentence|stop after)/i
-      NOT_A_REQUEST = %r{\A(```|\||#|>|[-=]{3,})}
+      NOT_A_REQUEST = /\A(```|\||#|>|[-=]{3,})/
+      private_constant :MAX_WORDS, :ECHO, :NOT_A_REQUEST
 
       # nil when the model answered nothing readable, which is a check that did
       # not happen; an empty list when it answered NONE, which is a check that
       # found no requests.
       def requests(answer)
         lines = answer.text.to_s.lines.map { |line| line.strip.sub(/\A[-*\d.)\s]+/, '').strip }
-                       .reject(&:empty?)
+                      .reject(&:empty?)
         return nil if lines.empty?
         return [] if lines.any? { |line| line.downcase.delete('.:').strip == NONE }
 
@@ -180,6 +181,7 @@ module Vangrail
                       NLP::COPULA_STEMS + NLP::ANAPHORA_STEMS +
                       %w[to of in on for from with a an and or please answer request
                          provide give write list].to_set { |w| NLP.stem(w) }).freeze
+      private_constant :SHARED_WORDS
 
       def content_stems(line)
         NLP.words(line).map { |word| NLP.stem(word) }.reject { |stem| SHARED_WORDS.include?(stem) }.uniq
@@ -197,7 +199,7 @@ module Vangrail
       def known?(request, before)
         return true if request[:words].empty?
 
-        before.any? { |seen| (request[:words] & seen[:words]).any? }
+        before.any? { |seen| request[:words].intersect?(seen[:words]) }
       end
     end
   end

@@ -22,11 +22,15 @@ module ExternalCorpus
       path = File.join(dir, name)
       next [] unless File.file?(path)
 
-      JSON.parse(File.read(path)).map do |row|
-        { text: row['prompt'].to_s, triggers: Array(row['word_list']),
-          category: row['category'].to_s, subset: name.sub(/\Anotinject_/, '').sub(/\.json\z/, '') }
+      JSON.parse(File.read(path)).filter_map do |row|
+        text = row['prompt'].to_s
+        next if text.strip.empty?
+
+        { text: text, triggers: Array(row['word_list']),
+          category: row['category'].to_s,
+          subset: name.delete_prefix('notinject_').delete_suffix('.json') }
       end
-    end.reject { |row| row[:text].strip.empty? }
+    end
   end
 
   def bipia_injections(dir)
