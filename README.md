@@ -44,7 +44,7 @@ changing the Ruby fallback.
 
 ## Install
 
-Ruby 3.1 or newer. There is no bundle.
+Ruby 3.2 or newer. There is no bundle.
 
 ```bash
 gem install vangrail

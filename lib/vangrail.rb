@@ -146,17 +146,17 @@ module Vangrail
   # Same engine, carrying a posterior across turns. The prior is still
   # required: a session that guessed the base rate would hide the same
   # error `assess` exists to expose.
-  def session_from_env(prior:, env: ENV, **kwargs) = Builder.new(env).session(prior: prior, **kwargs)
+  def session_from_env(prior:, env: ENV, **) = Builder.new(env).session(prior: prior, **)
 
   def provider(env = ENV)
     Provider.resolve(env)
   end
 
-  def engine(**kwargs) = Engine.new(**kwargs)
+  def engine(**) = Engine.new(**)
 
   def config(dir) = Config.load(dir)
 
-  def client(base_url:, **kwargs)
-    Client.new(base_url: base_url, **kwargs)
+  def client(base_url:, **)
+    Client.new(base_url: base_url, **)
   end
 end

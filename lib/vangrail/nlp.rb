@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'set'
-
 module Vangrail
   # Text analysis in the standard library: normalisation, a suffix stripper, a
   # concept lexicon with negation, and set similarity over character n-grams.

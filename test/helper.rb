@@ -48,8 +48,8 @@ module GuardrailsTest
 
   # A rail that always raises, for the failure paths.
   class ExplodingRail < Vangrail::Rail
-    def initialize(error = Vangrail::TransportError.new('connection refused'), **kwargs)
-      super(**kwargs)
+    def initialize(error = Vangrail::TransportError.new('connection refused'), **)
+      super(**)
       @error = error
     end
 

@@ -24,10 +24,10 @@ class TestPerplexity < Minitest::Test
                  })
   end
 
-  def rail(http = scoring_stub, **kwargs)
+  def rail(http = scoring_stub, **)
     Vangrail::Rails::Perplexity.new(
       completion: Vangrail::Completion.new(model: 'test-model', http: http),
-      sides: [:input], **kwargs
+      sides: [:input], **
     )
   end
 

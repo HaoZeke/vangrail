@@ -39,10 +39,10 @@ class TestSemantic < Minitest::Test
     StubHTTP.new(responses: responses)
   end
 
-  def rail(http = stub, **kwargs)
+  def rail(http = stub, **)
     Vangrail::Rails::Semantic.new(
       embeddings: Vangrail::Embeddings.new(model: 'test-embed', http: http),
-      seeds: SEEDS, sides: [:context], **kwargs
+      seeds: SEEDS, sides: [:context], **
     )
   end
 

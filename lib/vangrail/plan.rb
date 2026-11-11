@@ -109,16 +109,16 @@ module Vangrail
       @audit.record(:plan_created, plan_id: @id)
     end
 
-    def read(tool, **options)
-      add(tool, :read, **options)
+    def read(tool, **)
+      add(tool, :read, **)
     end
 
-    def write(tool, **options)
-      add(tool, :write, **options)
+    def write(tool, **)
+      add(tool, :write, **)
     end
 
-    def external(tool, **options)
-      add(tool, :external, **options)
+    def external(tool, **)
+      add(tool, :external, **)
     end
 
     def grants

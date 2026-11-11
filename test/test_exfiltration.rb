@@ -10,12 +10,12 @@ require_relative 'helper'
 class TestExfiltration < Minitest::Test
   HANDBOOK = 'docs.example.org'
 
-  def rail(**kwargs)
-    Vangrail::Rails::Exfiltration.new(allow_hosts: [HANDBOOK], **kwargs)
+  def rail(**)
+    Vangrail::Rails::Exfiltration.new(allow_hosts: [HANDBOOK], **)
   end
 
-  def clean(text, **kwargs)
-    rail(**kwargs).call(text, side: :output)
+  def clean(text, **)
+    rail(**).call(text, side: :output)
   end
 
   def test_an_allowlisted_link_survives

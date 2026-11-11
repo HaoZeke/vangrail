@@ -52,8 +52,8 @@ class TestSession < Minitest::Test
     @engine ||= Vangrail::Builder.new('GUARDRAILS_RAILS' => 'context').engine
   end
 
-  def session(**kwargs)
-    Vangrail::Session.new(engine: engine, prior: PRIOR, evidence: TABLE, **kwargs)
+  def session(**)
+    Vangrail::Session.new(engine: engine, prior: PRIOR, evidence: TABLE, **)
   end
 
   def test_the_builder_hands_out_a_session_against_the_same_engine

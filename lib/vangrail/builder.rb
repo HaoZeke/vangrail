@@ -42,8 +42,8 @@ module Vangrail
                  on_error: on_error, on_uncertain: on_uncertain, cache: cache?)
     end
 
-    def session(prior:, **kwargs)
-      Session.new(engine: engine, prior: prior, **kwargs)
+    def session(prior:, **)
+      Session.new(engine: engine, prior: prior, **)
     end
 
     # The offline stack that does not need a folder or an endpoint: patterns,

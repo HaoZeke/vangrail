@@ -17,7 +17,7 @@ anywhere in the path and nothing outside the standard library at runtime.
 
 ** Install
 
-Ruby 3.1 or newer. There is no bundle.
+Ruby 3.2 or newer. There is no bundle.
 
 #+begin_src bash
 gem install vangrail

@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
   spec.authors = ['Rohit Goswami']
   spec.email = ['rohit.goswami@surf.nl']
   spec.license = 'MIT'
-  spec.required_ruby_version = '>= 3.1'
+  spec.required_ruby_version = '>= 3.2'
   spec.homepage = 'https://github.com/HaoZeke/vangrail'
 
   spec.files = Dir['lib/**/*.rb', 'lib/**/*.json'] + %w[README.md LICENSE] + Dir['exe/*']

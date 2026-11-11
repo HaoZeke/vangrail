@@ -9,8 +9,8 @@ class TestEngine < Minitest::Test
 
   R = Vangrail::Result
 
-  def scripted(result, **kwargs)
-    ScriptedRail.new(result, **kwargs)
+  def scripted(result, **)
+    ScriptedRail.new(result, **)
   end
 
   def test_no_rails_passes_but_says_it_checked_nothing

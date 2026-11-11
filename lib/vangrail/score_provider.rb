@@ -115,8 +115,8 @@ module Vangrail
       attr_reader :command, :timeout, :environment, :inherit_environment
 
       def initialize(command:, timeout: DEFAULT_TIMEOUT, environment: {},
-                     inherit_environment: false, **options)
-        super(**options)
+                     inherit_environment: false, **)
+        super(**)
         @command = Array(command).map(&:to_s).freeze
         @timeout = positive_timeout(timeout)
         @environment = environment.to_h { |name, value| [name.to_s, value.to_s] }.freeze
@@ -244,8 +244,8 @@ module Vangrail
     class Endpoint < Transport
       attr_reader :http, :path
 
-      def initialize(http:, path: '/score', **options)
-        super(**options)
+      def initialize(http:, path: '/score', **)
+        super(**)
         raise ArgumentError, 'http must respond to post_json' unless http.respond_to?(:post_json)
 
         @http = http

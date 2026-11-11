@@ -46,8 +46,8 @@ module Vangrail
       @thread&.kill
     end
 
-    def self.with(front:, **kwargs)
-      server = new(front: front, **kwargs).start
+    def self.with(front:, **)
+      server = new(front: front, **).start
       begin
         yield server
       ensure

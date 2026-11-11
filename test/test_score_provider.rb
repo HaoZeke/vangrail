@@ -26,13 +26,13 @@ class TestScoreProvider < Minitest::Test
     RUBY
   end
 
-  def command_provider(command: [RbConfig.ruby, '-e', response_script, '; echo injected'], **options)
+  def command_provider(command: [RbConfig.ruby, '-e', response_script, '; echo injected'], **)
     Vangrail::ScoreProviders::Command.new(
       command: command,
       reader_id: 'encoder',
       model_id: 'encoder-v1',
       feature_schema: ['risk'],
-      **options,
+      **,
     )
   end
 

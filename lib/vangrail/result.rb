@@ -45,21 +45,21 @@ module Vangrail
       @rewritten_by = Array(rewritten_by).map(&:to_s)
     end
 
-    def self.passed(rail:, **kwargs)
-      new(status: :passed, rail: rail, **kwargs)
+    def self.passed(rail:, **)
+      new(status: :passed, rail: rail, **)
     end
 
-    def self.modified(rail:, content:, **kwargs)
-      new(status: :modified, rail: rail, content: content, **kwargs)
+    def self.modified(rail:, content:, **)
+      new(status: :modified, rail: rail, content: content, **)
     end
 
-    def self.blocked(rail:, **kwargs)
-      new(status: :blocked, rail: rail, **kwargs)
+    def self.blocked(rail:, **)
+      new(status: :blocked, rail: rail, **)
     end
 
     # No rail ran. Allowed, and explicitly not vouched for.
-    def self.unchecked(rail:, reason:, **kwargs)
-      new(status: :passed, rail: rail, certain: false, reason: reason, **kwargs)
+    def self.unchecked(rail:, reason:, **)
+      new(status: :passed, rail: rail, certain: false, reason: reason, **)
     end
 
     def passed?
