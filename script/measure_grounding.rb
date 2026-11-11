@@ -57,8 +57,10 @@ File.foreach(responses) do |line|
   source = source_by_id[row['source_id']]
   next unless source
 
+  info = source['source_info']
+  passage = info.is_a?(String) ? info : JSON.generate(info)
   rows << { 'id' => row['id'], 'task' => source['task_type'], 'response' => row['response'].to_s,
-            'passages' => [source['source_info'].is_a?(String) ? source['source_info'] : JSON.generate(source['source_info'])],
+            'passages' => [passage],
             'hallucinated' => !Array(row['labels']).empty? }
 end
 
@@ -67,8 +69,8 @@ end
 # recall on summarisation.
 random = Random.new(SEED)
 per_task = (SAMPLE / rows.map { |r| r['task'] }.uniq.size.to_f).ceil
-sampled = rows.group_by { |r| r['task'] }.flat_map { |_task, group| group.shuffle(random: random).first(per_task) }
-sampled = sampled.shuffle(random: random).first(SAMPLE)
+sampled = rows.group_by { |r| r['task'] }.flat_map { |_task, group| group.sample(per_task, random: random) }
+sampled = sampled.sample(SAMPLE, random: random)
 
 provider = Vangrail::Provider.resolve
 abort 'no provider resolved; set the endpoint environment for a model-backed rail' unless provider
@@ -82,7 +84,7 @@ counts = Hash.new(0)
 detail = []
 sampled.each_with_index do |row, i|
   result = rail.call(row['response'], side: :output, passages: row['passages'],
-                     user_input: row['question'].to_s)
+                                      user_input: row['question'].to_s)
   flagged = result.blocked?
   truth = row['hallucinated']
   counts[:tp] += 1 if flagged && truth
@@ -114,7 +116,8 @@ report = {
   'source' => 'RAGTruth test split, response-level hallucination (Niu et al., ACL 2024)',
   'counts' => counts.transform_keys(&:to_s),
   'precision' => precision.round(3), 'recall' => recall.round(3), 'f1' => f1.round(3),
-  'by_task' => by_task, 'rows' => detail,
+  'by_task' => by_task,
+  'rows' => detail
 }
 File.write(OUTPUT, "#{JSON.pretty_generate(report)}\n")
 
@@ -122,6 +125,10 @@ puts format('grounding  precision %.3f  recall %.3f  F1 %.3f  over %d responses 
             precision, recall, f1, sampled.size, counts[:tp] + counts[:fn])
 puts format('           tp %d  fp %d  fn %d  tn %d  unchecked %d',
             counts[:tp], counts[:fp], counts[:fn], counts[:tn], counts[:unchecked])
-by_task.each { |task, e| puts format('           %-10s n=%-4d P %.3f  R %.3f  F1 %.3f', task, e['n'], e['precision'], e['recall'], e['f1']) }
-puts 'published response-level F1 (Niu et al. Table 5, Kovacs et al.): prompting 12.8 and 28.3, fine-tuned 52.7, Luna 65.4, LettuceDetect 79.2'
+by_task.each do |task, stats|
+  puts format('           %-10s n=%-4d P %.3f  R %.3f  F1 %.3f',
+              task, stats['n'], stats['precision'], stats['recall'], stats['f1'])
+end
+puts 'published response-level F1 (Niu et al. Table 5, Kovacs et al.): ' \
+     'prompting 12.8 and 28.3, fine-tuned 52.7, Luna 65.4, LettuceDetect 79.2'
 puts "written to #{OUTPUT}"

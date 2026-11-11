@@ -136,7 +136,7 @@ report = {
   'shipped' => { 'threshold' => shipped,
                  'fpr_on_holdout' => rate_above(holdout_scores, shipped).round(5),
                  'tpr' => rate_above(attack_scores, shipped).round(4) },
-  'operating_points' => rows,
+  'operating_points' => rows
 }
 File.write(OUTPUT, "#{JSON.pretty_generate(report)}\n")
 

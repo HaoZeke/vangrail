@@ -143,11 +143,11 @@ module Vangrail
 
         answer = chat.ask(messages_for(text, question))
         verdict = parse(answer.text, answer)
-        return unchecked(verdict[:reason], model: model, latency_ms: answer.latency_ms, raw: answer.raw) unless verdict[:decided]
-
-        unless verdict[:injected]
-          return pass(model: model, latency_ms: answer.latency_ms, raw: answer.raw)
+        unless verdict[:decided]
+          return unchecked(verdict[:reason], model: model, latency_ms: answer.latency_ms, raw: answer.raw)
         end
+
+        return pass(model: model, latency_ms: answer.latency_ms, raw: answer.raw) unless verdict[:injected]
 
         block(reason: describe(verdict), categories: ['off_task_instruction'],
               model: model, latency_ms: answer.latency_ms, raw: answer.raw)
@@ -174,7 +174,8 @@ module Vangrail
       def parse(body, answer = nil)
         object = Parsers.first_json_object(body.to_s)
         unless object.is_a?(Hash)
-          return { decided: false, reason: truncated?(answer) ? 'the answer was cut off before the verdict' : 'no JSON object in the answer' }
+          reason = truncated?(answer) ? 'the answer was cut off before the verdict' : 'no JSON object in the answer'
+          return { decided: false, reason: reason }
         end
 
         tasks = object['tasks']

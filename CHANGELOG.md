@@ -143,6 +143,11 @@ below `Unreleased` is written by hand until it is released.
   run of two or more, which catches a byte-per-selector payload and leaves an
   emoji presentation selector alone.
 
+#### Changed
+- Ruby 3.1 is end of life, and its final release is not published for the
+  current GitHub-hosted Ubuntu image. The gem requires Ruby 3.2 or newer.
+  CI still tests 3.2, 3.3, and 3.4.
+
 #### Performance
 - (**linear**) Normalize each input once and hash word pairs and character grams
   without allocating transient feature strings. The optional native kernel uses

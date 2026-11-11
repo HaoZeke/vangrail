@@ -38,7 +38,9 @@ PAGES = (ENV['PAGES'] || 40).to_i
 SEED = (ENV['SEED'] || 5).to_i
 FROM = (ENV['FROM'] || 0).to_i
 
-abort "no corpora in #{DATA}; run: ruby script/fetch_external.rb" unless File.file?(File.join(DATA, 'bipia_text_attack_test.json'))
+unless File.file?(File.join(DATA, 'bipia_text_attack_test.json'))
+  abort "no corpora in #{DATA}; run: ruby script/fetch_external.rb"
+end
 
 provider = Vangrail::Provider.resolve
 abort 'no provider resolved; set the endpoint environment' unless provider
@@ -52,7 +54,7 @@ pairs = []
 LocalCorpus.each_document(limit: PAGES * 3, quiet: true, truncate: 3000, sample: true, seed: SEED) do |text, path|
   next if pairs.size >= PAGES
 
-  name = File.basename(path).sub(/\.gz\z/, '').sub(/\.\d\w*\z/, '')
+  name = File.basename(path).delete_suffix('.gz').sub(/\.\d\w*\z/, '')
   next if name.strip.empty? || name.match?(/\A[.\d_-]+\z/) || text.to_s.strip.length < 400
 
   pairs << { question: "How do I use #{name}?", page: text, name: name }
@@ -61,31 +63,31 @@ end
 injections = ExternalCorpus.bipia_injections(DATA)
 warn "#{pairs.size} pairs, #{injections.size} injections"
 
-baselines = {}
-rows = pairs.each_with_index.map do |pair, i|
-  half = pair[:page].length / 2
-  injection = injections[(FROM + i) % injections.size]
-  poisoned = "#{pair[:page][0, half]}\n\n#{injection}\n\n#{pair[:page][half..]}"
-  # The baseline is a call too, and the first version of this hardening wrapped
-  # the rails and left this line outside, so a refused connection here still
-  # took the run with it.
-  baseline = baselines[pair[:question]]
-  if baseline.nil?
-    begin
-      baseline = baselines[pair[:question]] = drift.baseline_for(pair[:question])
-    rescue Vangrail::TransportError => e
-      warn "  baseline for #{pair[:name]}: #{e.message[0, 60]}"
-    end
-  end
-  context = { side: :context, user_input: pair[:question], baseline: baseline }
+# The baseline is a call too, and the first version of this hardening wrapped
+# the rails and left this line outside, so a refused connection here still
+# took the run with it.
+def cached_baseline(baselines, drift, pair)
+  known = baselines[pair[:question]]
+  return known unless known.nil?
 
+  baselines[pair[:question]] = drift.baseline_for(pair[:question])
+rescue Vangrail::TransportError => e
+  warn "  baseline for #{pair[:name]}: #{e.message[0, 60]}"
+  nil
+end
+
+# A transport failure is the endpoint's, not the rail's, and it must not
+# cost forty pairs of measurement. The gateway refused connections partway
+# through one of these runs and took the whole thing with it. Counted as
+# unchecked, which is what it is.
+def score_pair(pair, index, injections, baselines, drift, layers)
+  half = pair[:page].length / 2
+  injection = injections[(FROM + index) % injections.size]
+  poisoned = "#{pair[:page][0, half]}\n\n#{injection}\n\n#{pair[:page][half..]}"
+  baseline = cached_baseline(baselines, drift, pair)
+  context = { side: :context, user_input: pair[:question], baseline: baseline }
   row = { 'page' => pair[:name], 'injection' => injection }
-  %w[relation drift].each do |which|
-    rail = which == 'relation' ? relation : drift
-    # A transport failure is the endpoint's, not the rail's, and it must not
-    # cost forty pairs of measurement. The gateway refused connections partway
-    # through one of these runs and took the whole thing with it. Counted as
-    # unchecked, which is what it is.
+  layers.each do |which, rail|
     begin
       on_attack = rail.call(poisoned, **context)
       on_clean = rail.call(pair[:page], **context)
@@ -100,11 +102,18 @@ rows = pairs.each_with_index.map do |pair, i|
     row["#{which}_flagged_clean"] = on_clean.blocked?
     row["#{which}_unchecked"] = !on_attack.certain? || !on_clean.certain?
   end
-  warn "  #{i + 1} of #{pairs.size}" if ((i + 1) % 10).zero?
   row
 end
 
-def count(rows, &block) = rows.count(&block)
+def count(rows, &) = rows.count(&)
+
+baselines = {}
+layers = { 'relation' => relation, 'drift' => drift }
+rows = pairs.each_with_index.map do |pair, i|
+  row = score_pair(pair, i, injections, baselines, drift, layers)
+  warn "  #{i + 1} of #{pairs.size}" if ((i + 1) % 10).zero?
+  row
+end
 
 both = count(rows) { |r| r['relation_caught'] && r['drift_caught'] }
 relation_only = count(rows) { |r| r['relation_caught'] && !r['drift_caught'] }
@@ -122,7 +131,7 @@ report = {
   'unchecked' => { 'relation' => count(rows) { |r| r['relation_unchecked'] },
                    'drift' => count(rows) { |r| r['drift_unchecked'] } },
   'missed_by_both' => rows.reject { |r| r['relation_caught'] || r['drift_caught'] }.map { |r| r['injection'] },
-  'rows' => rows,
+  'rows' => rows
 }
 File.write(OUTPUT, "#{JSON.pretty_generate(report)}\n")
 

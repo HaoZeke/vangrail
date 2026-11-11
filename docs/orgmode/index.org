@@ -17,14 +17,19 @@ anywhere in the path and nothing outside the standard library at runtime.
 
 ** Install
 
-Ruby 3.1 or newer. There is no bundle.
+Ruby 3.2 or newer. There is no bundle.
 
 #+begin_src bash
 gem install vangrail
 #+end_src
 
-From a clone: =git clone https://github.com/HaoZeke/vangrail.git= then
-=ruby -Ilib -e 'require "vangrail"; puts Vangrail::VERSION'=.
+From a clone:
+
+#+begin_src bash
+git clone https://github.com/HaoZeke/vangrail.git
+cd vangrail
+ruby -Ilib -e 'require "vangrail"; puts Vangrail::VERSION'
+#+end_src
 
 ** It provides
 

@@ -11,9 +11,9 @@ class TestGuardModel < Minitest::Test
     [Vangrail::Chat.new(model: 'test/model', http: http), http]
   end
 
-  def guard(content, preset:, **options)
+  def guard(content, preset:, **)
     chat, http = chat_for(content)
-    [Vangrail::Rails::GuardModel.new(model: 'test/guard', preset: preset, chat: chat, **options), http]
+    [Vangrail::Rails::GuardModel.new(model: 'test/guard', preset: preset, chat: chat, **), http]
   end
 
   # --- Llama Guard shape ---

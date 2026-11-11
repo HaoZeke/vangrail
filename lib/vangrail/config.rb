@@ -130,8 +130,8 @@ module Vangrail
     # Same engine, already carrying a session and an admission gate, so a
     # retrieved page enters as data rather than as a raw string a caller
     # might paste into the question.
-    def conversation(prior:, stdlib: true, **kwargs)
-      Conversation.new(engine(stdlib: stdlib), prior: prior, **kwargs)
+    def conversation(prior:, stdlib: true, **)
+      Conversation.new(engine(stdlib: stdlib), prior: prior, **)
     end
 
     def rails_for(side, registry)

@@ -4,12 +4,12 @@ require_relative 'helper'
 
 # A fake conversation pasted into a real one, in both of its published forms.
 class TestManyShot < Minitest::Test
-  def rail(**kwargs)
-    Vangrail::Rails::ManyShot.new(**kwargs)
+  def rail(**)
+    Vangrail::Rails::ManyShot.new(**)
   end
 
-  def check(text, side: :input, **kwargs)
-    rail(**kwargs).call(text, side: side)
+  def check(text, side: :input, **)
+    rail(**).call(text, side: side)
   end
 
   # --- template tokens ---

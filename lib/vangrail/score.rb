@@ -26,16 +26,16 @@ module Vangrail
       freeze
     end
 
-    def self.ok(**options)
-      new(status: :ok, **options)
+    def self.ok(**)
+      new(status: :ok, **)
     end
 
-    def self.abstained(reason:, **options)
-      new(status: :abstained, reason: reason, scores: {}, **options)
+    def self.abstained(reason:, **)
+      new(status: :abstained, reason: reason, scores: {}, **)
     end
 
-    def self.invalid(reason:, **options)
-      new(status: :invalid, reason: reason, scores: {}, **options)
+    def self.invalid(reason:, **)
+      new(status: :invalid, reason: reason, scores: {}, **)
     end
 
     def valid?

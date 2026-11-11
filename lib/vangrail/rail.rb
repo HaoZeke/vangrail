@@ -117,22 +117,22 @@ module Vangrail
 
     private
 
-    def pass(**kwargs)
-      Result.passed(rail: name, **kwargs)
+    def pass(**)
+      Result.passed(rail: name, **)
     end
 
-    def modify(content, **kwargs)
-      Result.modified(rail: name, content: content, **kwargs)
+    def modify(content, **)
+      Result.modified(rail: name, content: content, **)
     end
 
-    def block(**kwargs)
-      Result.blocked(rail: name, **kwargs)
+    def block(**)
+      Result.blocked(rail: name, **)
     end
 
     # A rail that could not reach a decision allows the text and says so. It
     # must never look like a clean check.
-    def unchecked(reason, **kwargs)
-      Result.unchecked(rail: name, reason: reason, **kwargs)
+    def unchecked(reason, **)
+      Result.unchecked(rail: name, reason: reason, **)
     end
 
     def default_name

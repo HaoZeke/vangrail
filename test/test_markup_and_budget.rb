@@ -78,8 +78,8 @@ end
 
 # Size, which is the one attack that costs the operator directly.
 class TestBudget < Minitest::Test
-  def rail(**kwargs)
-    Vangrail::Rails::Budget.new(**kwargs)
+  def rail(**)
+    Vangrail::Rails::Budget.new(**)
   end
 
   def test_an_ordinary_question_passes

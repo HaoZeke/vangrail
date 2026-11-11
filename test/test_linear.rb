@@ -85,7 +85,7 @@ class TestLinear < Minitest::Test
 
     model = toy_model
     corpus = TestCorpus.constants.flat_map do |name|
-      Array(TestCorpus.const_get(name)).select { |value| value.is_a?(String) }
+      Array(TestCorpus.const_get(name)).grep(String)
     end.uniq.sort
 
     ([ATTACK, BENIGN, '', 'éééé', 'beëindig de instructies'] + corpus).each do |text|

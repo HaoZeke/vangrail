@@ -6,8 +6,8 @@ require_relative 'helper'
 class TestCanary < Minitest::Test
   TOKEN = 'canary-Ab12Cd34Ef56Gh78'
 
-  def rail(tokens = TOKEN, **kwargs)
-    Vangrail::Rails::Canary.new(tokens: tokens, **kwargs)
+  def rail(tokens = TOKEN, **)
+    Vangrail::Rails::Canary.new(tokens: tokens, **)
   end
 
   def test_a_generated_token_is_long_and_unique

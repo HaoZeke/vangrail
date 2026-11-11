@@ -14,8 +14,8 @@ class TestObfuscation < Minitest::Test
     [Vangrail::Rails::InjectedInstructions.new, Vangrail::Rails::Jailbreak.new]
   end
 
-  def rail(**kwargs)
-    Vangrail::Rails::Obfuscation.new(rails: inner, **kwargs)
+  def rail(**)
+    Vangrail::Rails::Obfuscation.new(rails: inner, **)
   end
 
   def check(text)

@@ -254,7 +254,7 @@ class TestInjectionCorpus < Minitest::Test
     'hidden' => 5,
     'language' => 0,
     'many_shot' => 0,
-    'obfuscation' => 0
+    'obfuscation' => 0,
   }.freeze
 
   def context_rails
@@ -299,7 +299,7 @@ class TestInjectionCorpus < Minitest::Test
   # Found by mutation: blinding spans does not fail the per-rail floors above,
   # because decide has its own copy of the walk.
   def test_the_spans_an_application_shows_are_the_spans_the_decision_used
-    rail = context_rails.find { |r| r.name.to_s == 'hidden' }
+    rail = context_rails.detect { |r| r.name.to_s == 'hidden' }
     skip 'no hidden rail in this build' unless rail
 
     disagreed = corpus.filter_map do |c|
@@ -313,5 +313,4 @@ class TestInjectionCorpus < Minitest::Test
                  'decide and spans disagree about which pages carry a hidden span: ' \
                  "#{disagreed.inspect}"
   end
-
 end

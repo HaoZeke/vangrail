@@ -16,10 +16,10 @@ class TestProvider < Minitest::Test
     Vangrail::Providers.install!
   end
 
-  def provider(name:, available:, **kwargs)
+  def provider(name:, available:, **)
     Vangrail::Provider.new(
       name: name, base_url: "http://#{name}.invalid/v1",
-      key_resolver: -> { 'key' }, probe: -> { available }, **kwargs
+      key_resolver: -> { 'key' }, probe: -> { available }, **
     )
   end
 

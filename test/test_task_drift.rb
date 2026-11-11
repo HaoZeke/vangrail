@@ -97,7 +97,9 @@ class TestTaskDrift < Minitest::Test
     result = rail.call('a page', side: :context, user_input: 'How do I use tar?', baseline: baseline)
 
     assert_predicate result, :passed?
-    assert_equal 1, http.calls.count { |c| c[:method] == :post }
+    posts = http.calls.count { |c| c[:method] == :post }
+
+    assert_equal 1, posts
   end
 
   def test_the_probe_does_not_fence_the_document

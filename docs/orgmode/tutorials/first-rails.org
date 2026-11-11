@@ -47,7 +47,7 @@ your application at all: they edit the wiki page your retrieval step will fetch.
 
 ** Setup
 
-Ruby 3.1 or newer, and a clone of the repository.
+Ruby 3.2 or newer, and a clone of the repository.
 
 #+begin_src bash
 git clone https://github.com/HaoZeke/vangrail.git

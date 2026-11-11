@@ -177,19 +177,19 @@ module Vangrail
       @http ||= HTTP.new(base_url: base_url, api_key: api_key)
     end
 
-    def chat(role = :judge, **kwargs)
-      endpoint(:chat, role, **kwargs)
+    def chat(role = :judge, **)
+      endpoint(:chat, role, **)
     end
 
-    def embeddings(role = :embed, **kwargs)
-      endpoint(:embeddings, role, **kwargs)
+    def embeddings(role = :embed, **)
+      endpoint(:embeddings, role, **)
     end
 
     # Scoring rather than generation, from whichever model answers questions.
     # No separate role: any causal model can score text, and asking a
     # deployment to name a second one for it would be ceremony.
-    def completion(role = :judge, **kwargs)
-      endpoint(:completion, role, **kwargs)
+    def completion(role = :judge, **)
+      endpoint(:completion, role, **)
     end
 
     def to_h
@@ -208,11 +208,11 @@ module Vangrail
 
     private
 
-    def endpoint(kind, role, **kwargs)
+    def endpoint(kind, role, **)
       name = model(role)
       raise ConfigError, "provider #{self.name} has no #{role} model" unless name
 
-      ENDPOINTS.fetch(kind).new(model: name, http: http, **kwargs)
+      ENDPOINTS.fetch(kind).new(model: name, http: http, **)
     end
 
     def env_prefix

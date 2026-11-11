@@ -16,8 +16,8 @@ module Vangrail
 
     module_function
 
-    def fit(cases, **options)
-      JointRiskTrainingPipeline.new(cases, **options).fit
+    def fit(cases, **)
+      JointRiskTrainingPipeline.new(cases, **).fit
     end
 
     def prepare(cases, readers)

@@ -12,9 +12,9 @@ class TestTrajectory < Minitest::Test
     StubHTTP.new(responses: { '/chat/completions' => chat_body(verdict) })
   end
 
-  def rail(stub, **kwargs)
+  def rail(stub, **)
     Vangrail::Rails::Trajectory.new(chat: Vangrail::Chat.new(model: 'm', http: stub),
-                                    model: 'm', **kwargs)
+                                    model: 'm', **)
   end
 
   def turns(count)

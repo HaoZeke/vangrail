@@ -212,10 +212,10 @@ class TestSpotlightMessages < Minitest::Test
   PASSAGES = [{ 'title' => 'GPU partitions', 'text' => 'gpu_h100 allows five days.' },
               'A passage with no title at all.'].freeze
 
-  def messages(**kwargs)
+  def messages(**)
     Vangrail::Spotlight.messages(system: 'Cite every clause.',
                                  question: 'Which partition and for how long?',
-                                 passages: PASSAGES, **kwargs)
+                                 passages: PASSAGES, **)
   end
 
   def test_the_hierarchy_leads_the_system_message
